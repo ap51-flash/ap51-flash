@@ -16,6 +16,21 @@
  * 02110-1301, USA
  */
 
-#define IDR_KERNEL 101
-#define IDR_ROOTFS 102
-#define IDR_UBNT_IMG 103
+#include "ap51-flash.h"
+
+#define TFTP_SRC_PORT 13337
+#define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
+#define TFTP_BASE_LEN (sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct udphdr))
+
+extern struct ether_header *ethhdr;
+extern struct ether_arp *arphdr;
+extern struct iphdr *iphdr;
+extern struct udphdr *udphdr;
+extern void *tftp_data;
+
+void arp_packet_init(void);
+void arp_packet_send(void);
+void tftp_packet_init(void);
+void tftp_packet_send(int tftp_data_len);
+void tftp_write_req(void);
+void tftp_transfer(void);

@@ -21,23 +21,27 @@ STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
 CFLAGS  = -Wall -ggdb -I. -IWpdPack/Include/ -fpack-struct -Os
-OBJS    = ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o
+OBJS    = ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
 AP51_RC = ap51-flash-res
 
 # if you change the names here you also need to change the ap51-flash.c code
 EMBED_KERNEL = openwrt-atheros-vmlinux.lzma
 EMBED_ROOTFS = openwrt-atheros-root.squashfs
+EMBED_UBNT_IMG = openwrt-atheros-ubnt2-squashfs.bin
 
 ifneq ($(wildcard $(EMBED_KERNEL)),)
 ifneq ($(wildcard $(EMBED_ROOTFS)),)
+ifneq ($(wildcard $(EMBED_UBNT_IMG)),)
 CFLAGS += -DEMBEDDED_DATA
-LIN_OBJS = kernel.o rootfs.o
+LIN_OBJS = kernel.o rootfs.o ubnt_img.o
 WIN_OBJS = $(AP51_RC).o
 $(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
 $(shell echo 'IDR_KERNEL RCDATA DISCARDABLE "$(EMBED_KERNEL)"' >> $(AP51_RC))
 $(shell echo 'IDR_ROOTFS RCDATA DISCARDABLE "$(EMBED_ROOTFS)"' >> $(AP51_RC))
+$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT_IMG)"' >> $(AP51_RC))
 ifneq ($(DESC),)
 CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
+endif
 endif
 endif
 endif
@@ -75,20 +79,23 @@ ap51-flash-static: $(OBJS) $(LIN_OBJS) Makefile
 	$(STRIP) $@
 
 ap51-flash.exe: $(OBJS) $(WIN_OBJS) Makefile
-	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(OBJS) $(WIN_OBJS) -lwpcap -static -o $@
+	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(OBJS) $(WIN_OBJS) -lwpcap -lws2_32 -static -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_KERNEL) -O elf32-i386 kernel.o
+	$(OBJCOPY) -B i386 -I binary $(EMBED_KERNEL) -O elf32-i386 $@
 
 rootfs.o: $(EMBED_ROOTFS)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_ROOTFS) -O elf32-i386 rootfs.o
+	$(OBJCOPY) -B i386 -I binary $(EMBED_ROOTFS) -O elf32-i386 $@
+
+ubnt_img.o: $(EMBED_UBNT_IMG)
+	$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT_IMG) -O elf32-i386 $@
 
 $(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS)
 	$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	rm -rf *.o *~ *.plg *.ncb ap51-flash ap51-flash-static ap51-flash.exe fonera-sound $(AP51_RC)
+	rm -rf *.o *~ *.plg *.ncb ap51-flash ap51-flash-static ap51-flash.exe $(AP51_RC)
 
 distclean: clean
 	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL)

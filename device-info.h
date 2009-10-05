@@ -16,6 +16,22 @@
  * 02110-1301, USA
  */
 
-#define IDR_KERNEL 101
-#define IDR_ROOTFS 102
-#define IDR_UBNT_IMG 103
+static struct device_info flash_8mb_info = {
+	.full_size = 0x00800000,
+	.flash_size = 0x007A0000,
+	.freememlo = 0x80041000, /* %{FREEMEMLO} provokes errors on the meraki mini */
+	.flash_addr = 0xa8030000,
+	.kernel_part_size = 0x00100000,
+	.kernel_load_addr = 0x80041000,
+	.options = ROOTFS_RESIZE | SET_FLASH_ADDR,
+};
+
+static struct device_info flash_4mb_info = {
+	.full_size = 0x00400000,
+	.flash_size = 0x003A0000,
+	.freememlo = 0, /* we can use %{FREEMEMLO} instead */
+	.flash_addr = 0xbfc30000,
+	.kernel_part_size = 0x000e0000,
+	.kernel_load_addr = 0x80041000,
+	.options = FREEMEMLO,
+};

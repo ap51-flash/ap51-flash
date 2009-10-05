@@ -16,89 +16,38 @@
  * 02110-1301, USA
  */
 
-
 #ifdef _DEBUG
-/* #define DEBUG_ALL */
+#define DEBUG_ALL
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <pcap.h>
-#include "ap51-flash.h"
-
-#ifdef WIN32
-
-#define ETH_ALEN 6
-#define ETH_HLEN 14
-#define	ETHERTYPE_ARP 0x0806
-#define	ARPOP_REQUEST 1
-struct ether_header
-{
-  u_int8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
-  u_int8_t  ether_shost[ETH_ALEN];	/* source ether addr	*/
-  u_int16_t ether_type;		        /* packet type ID field	*/
-};
-struct arphdr
-{
-	unsigned short	ar_hrd;		/* format of hardware address	*/
-	unsigned short	ar_pro;		/* format of protocol address	*/
-	unsigned char	ar_hln;		/* length of hardware address	*/
-	unsigned char	ar_pln;		/* length of protocol address	*/
-	unsigned short	ar_op;		/* ARP opcode (command)		*/
-
-};
-#include <windows.h>
-#include "ap51-flash-res.h"
-
-#else /* WIN32 */
-
-#define O_BINARY 0
-#include <unistd.h>
-#include <netinet/if_ether.h>
-
-#endif /* WIN32 */
 
 #include "uip.h"
 #include "uip_arp.h"
 #include "timer.h"
 #include "ap51-flash.h"
-
-#define FLASH_PAGE_SIZE 0x10000
+#include "device-info.h"
+#include "packet.h"
 
 static unsigned char* tftp_buf = 0;
 static unsigned char* kernel_buf = 0;
-static unsigned char* rootfs_buf = 0;
+unsigned char *rootfs_buf = 0;
 
 static unsigned long tftp_send = 0;
 static unsigned long tftp_size = 0;
 static int kernel_size = 0;
-static int rootfs_size = 0;
+int rootfs_size = 0;
 
 static int uncomp_loader = 0;
 static int nvram_part_size = 0x00000000;
 static int rootfs_part_size = 0x00000000;
 
-static struct device_info flash_8mb_info = {
-	.full_size = 0x00800000,
-	.flash_size = 0x007A0000,
-	.freememlo = 0x80041000, /* %{FREEMEMLO} provokes errors on the meraki mini */
-	.flash_addr = 0xa8030000,
-	.kernel_part_size = 0x00100000,
-	.kernel_load_addr = 0x80041000,
-	.options = ROOTFS_RESIZE | SET_FLASH_ADDR,
-};
-
-static struct device_info flash_4mb_info = {
-	.full_size = 0x00400000,
-	.flash_size = 0x003A0000,
-	.freememlo = 0, /* we can use %{FREEMEMLO} instead */
-	.flash_addr = 0xbfc30000,
-	.kernel_part_size = 0x000e0000,
-	.kernel_load_addr = 0x80041000,
-	.options = FREEMEMLO,
-};
+static int flash_mode = REDBOOT;
+unsigned int tftp_remote_ip = 3232235796UL; /* 192.168.1.20 */
+unsigned int tftp_local_ip = 3232235801UL; /* 192.168.1.25 */
 
 #if defined(EMBEDDED_DATA) && !defined(WIN32)
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_start;
@@ -108,6 +57,10 @@ extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_size;
 extern unsigned long _binary_openwrt_atheros_root_squashfs_start;
 extern unsigned long _binary_openwrt_atheros_root_squashfs_end;
 extern unsigned long _binary_openwrt_atheros_root_squashfs_size;
+
+extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_start;
+extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_end;
+extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_size;
 #endif
 
 #ifdef WIN32_GUI
@@ -208,7 +161,7 @@ void uip_log(char *m)
 #endif
 }
 
-static pcap_t *pcap_fp = NULL;
+pcap_t *pcap_fp = NULL;
 
 #ifdef WIN32
 #define PCAP_TIMEOUT_MS 1000
@@ -231,25 +184,48 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		return -1;
 	}
 
+	if (flash_mode == TFTP_CLIENT) {
+		arp_packet_init();
+		memset(ethhdr->ether_dhost, 0xff, ETH_ALEN);
+		memcpy(ethhdr->ether_shost, smac->addr, ETH_ALEN);
+
+		arphdr->ea_hdr.ar_op = htons(ARPOP_REQUEST);
+		memcpy(arphdr->arp_sha, smac->addr, ETH_ALEN);
+		*((unsigned int *)arphdr->arp_spa) = htonl(tftp_local_ip);
+		*((unsigned int *)arphdr->arp_tpa) = htonl(tftp_remote_ip);
+	}
+
 	while(!gotarp)
 	{
+		if (flash_mode == TFTP_CLIENT)
+			arp_packet_send();
+
 		while (NULL == (packet = pcap_next(pcap_fp, &hdr)))
 		{
 			printf("No packet.\n");
+
+			if (flash_mode == TFTP_CLIENT) {
+#if !defined(WIN32)
+				usleep(500000);
+#else
+				Sleep(500);
+#endif
+				arp_packet_send();
+			}
 		}
-		if (ETHERTYPE_ARP == myntohs(((struct ether_header *)packet)->ether_type))
+		if (ETHERTYPE_ARP == ntohs(((struct ether_header *)packet)->ether_type))
 		{
-			if (60 != hdr.len)
-			{
+			if (60 != hdr.len) {
 				fprintf(stderr, "Expect arp with length 60, received %d\n", hdr.len);
-			}
-			else if (ARPOP_REQUEST != myntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op))
-			{
+			} else if ((flash_mode == REDBOOT) &&
+					(ARPOP_REQUEST != ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op))) {
 				fprintf(stderr, "Unexpected arp packet, opcode=%d\n",
-					myntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op));
-			}
-			else
-			{
+					ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op));
+			} else if ((flash_mode == TFTP_CLIENT) &&
+					(ARPOP_REPLY != ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op))) {
+				fprintf(stderr, "Unexpected arp packet, opcode=%d\n",
+					ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op));
+			} else {
 				gotarp = 1;
 			}
 		}
@@ -259,17 +235,16 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		}
 	}
 
-	/* Grab MAC adress of ap51 */
+	/* Grab MAC adress of device */
 	memmove(dmac, ((struct ether_header *)packet)->ether_shost, sizeof(*dmac));
-	/* Grab IP adress of ap51 */
+	memcpy(ethhdr->ether_dhost, ((struct ether_header *)packet)->ether_shost, ETH_ALEN);
+	/* Grab IP adress of device */
 	memmove(dip, packet + ETH_HLEN + sizeof(struct arphdr) + ETH_ALEN, 4);
 	memmove(sip, packet + ETH_HLEN + sizeof(struct arphdr) + ETH_ALEN, 4);
 
 	printf("Peer MAC: ");
 	for (i = 0; i < sizeof(*dmac); i++)
-	{
 		printf("%s%02x", 0 == i ? "" : ":", dmac->addr[i]);
-	}
 	printf("\n");
 	printf("Peer IP : %d.%d.%d.%d\n", P(*dip)[0], P(*dip)[1], P(*dip)[2], P(*dip)[3]);
 
@@ -281,9 +256,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 
 	printf("Your MAC: ");
 	for (i = 0; i < sizeof(*smac); i++)
-	{
 		printf("%s%02x", 0 == i ? "" : ":", smac->addr[i]);
-	}
 	printf("\n");
 
 	P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
@@ -402,7 +375,7 @@ detect_fail:
 			printf("Could not detect flash size - using default: %lu MB.\n",
 			       device_info->full_size / 1024 / 1024);
 		else
-			printf("Unexpected flash size detected: %lu Bytes- using default: %lu MB.\n",
+			printf("Unexpected flash size detected: %lu bytes - using default: %lu MB.\n",
 			       num_blocks * device_size, device_info->full_size / 1024 / 1024);
 
 sanity_check:
@@ -438,8 +411,8 @@ sanity_check:
 #endif
 
 		tftp_send = 0;
-		s->tftpconn = uip_udp_new(&srcipaddr, myhtons(0xffff));
-		uip_udp_bind(s->tftpconn, myhtons(69));
+		s->tftpconn = uip_udp_new(&srcipaddr, htons(0xffff));
+		uip_udp_bind(s->tftpconn, htons(IPPORT_TFTP));
 		printf("Loading rootfs...\n");
 
 		if (device_info->options & FREEMEMLO)
@@ -512,8 +485,8 @@ sanity_check:
 			PSOCK_EXIT(&s->p);
 		}
 		tftp_send = 0;
-		s->tftpconn = uip_udp_new(&srcipaddr, myhtons(0xffff));
-		uip_udp_bind(s->tftpconn, myhtons(69));
+		s->tftpconn = uip_udp_new(&srcipaddr, htons(0xffff));
+		uip_udp_bind(s->tftpconn, htons(IPPORT_TFTP));
 		printf("Loading kernel...\n");
 
 		if (device_info->options & FREEMEMLO)
@@ -632,12 +605,12 @@ void ap51_flash_appcall(void)
 
 void ap51_flash_tftp_appcall(void)
 {
-	if(uip_udp_conn->lport == myhtons(69)) {
+	if(uip_udp_conn->lport == htons(IPPORT_TFTP)) {
 		if (uip_poll());
 		if (uip_newdata())
 		{
 			unsigned short block = 0;
-			unsigned short opcode = myntohs(*(unsigned short*)((unsigned char*)uip_appdata + 0));
+			unsigned short opcode = ntohs(*(unsigned short*)((unsigned char*)uip_appdata + 0));
 #ifdef _DEBUG
 			fprintf(stderr, "tftp opcode=%d\n", opcode);
 			{
@@ -676,7 +649,7 @@ void ap51_flash_tftp_appcall(void)
 				/* TFTP ack */
 				case 4:
 				{
-					block = myntohs(*(unsigned short*)((unsigned char*)uip_appdata + 2));
+					block = ntohs(*(unsigned short*)((unsigned char*)uip_appdata + 2));
 					if (block <= tftp_send / 512) {
 						fprintf(stderr, "tftp repeat block %d\n", block);
 					}
@@ -697,8 +670,8 @@ void ap51_flash_tftp_appcall(void)
 			}
 			{
 				unsigned short nextblock = block + 1;
-				*(unsigned short*)((unsigned char*)uip_appdata + 0) = myhtons(3);
-				*(unsigned short*)((unsigned char*)uip_appdata + 2) = myhtons(nextblock);
+				*(unsigned short*)((unsigned char*)uip_appdata + 0) = htons(3);
+				*(unsigned short*)((unsigned char*)uip_appdata + 2) = htons(nextblock);
 			}
 #ifdef _DEBUG
 			fprintf(stderr, "tftp: block=%d, offs=%p\n", block, tftp_buf + 512 * block);
@@ -727,9 +700,11 @@ void usage(char *prgname)
 
 #if defined(EMBEDDED_DATA)
 	fprintf(stderr, "%s [ethdevice]   flashes embedded kernel + rootfs: %s\n", prgname, EMBEDDED_DESC_STR);
+	fprintf(stderr, "%s [ethdevice] -u  flashes embedded ubiquiti image: %s\n", prgname, EMBEDDED_DESC_STR);
 #endif
 
 	fprintf(stderr, "%s [ethdevice] rootfs.bin kernel.lzma   flashes your rootfs and kernel\n", prgname);
+	fprintf(stderr, "%s [ethdevice] ubnt.bin   flashes your ubiquiti image\n", prgname);
 	fprintf(stderr, "%s -v   prints version information\n", prgname);
 
 	fprintf(stderr, "\nThe 'ethdevice' has to be one of the devices that are part of the supported device list which follows.\nYou can either specify its name or the interface number.\n");
@@ -778,7 +753,7 @@ void usage(char *prgname)
 	pcap_freealldevs(alldevs);
 }
 
-int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special)
+int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special, int ubnt)
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
@@ -786,6 +761,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
 	int i = 0, if_num = 0;
+	int fd, size = 0;
 
 	pcap_device = device;
 	uip_init();
@@ -798,16 +774,11 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 // 	}
 
 	if (nvram)
-	{
 		nvram_part_size = FLASH_PAGE_SIZE;
-	}
 
 	/* Root file name? */
-	if (NULL != rootfs_filename)
-	{
-		int fd, size;
-		if (-1 == (fd = open(rootfs_filename, O_RDONLY | O_BINARY)))
-		{
+	if (NULL != rootfs_filename) {
+		if (-1 == (fd = open(rootfs_filename, O_RDONLY | O_BINARY))) {
 			perror(rootfs_filename);
 			return 1;
 		}
@@ -830,15 +801,18 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			perror("no mem");
 			return 1;
 		}
-		printf("Reading rootfs file %s with %d bytes...\n", rootfs_filename, size);
+		printf("Reading rootfs file %s with %d bytes ...\n", rootfs_filename, size);
 	}
 	else
 	{
-		int size = 0;
 		unsigned char* buf = 0;
 
 #if defined(EMBEDDED_DATA) && defined(WIN32)
-		HRSRC hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_ROOTFS), RT_RCDATA);
+		HRSRC hRsrc;
+		if (ubnt)
+			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBNT_IMG), RT_RCDATA);
+		else
+			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_ROOTFS), RT_RCDATA);
 		if (NULL != hRsrc)
 		{
 			HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
@@ -846,8 +820,13 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			size = SizeofResource(NULL, hRsrc);
 		}
 #elif defined(EMBEDDED_DATA) && !defined(WIN32)
-		buf = (unsigned char*)&_binary_openwrt_atheros_root_squashfs_start;
-		size = (int)&_binary_openwrt_atheros_root_squashfs_size;
+		if (ubnt) {
+			buf = (unsigned char*)&_binary_openwrt_atheros_ubnt2_squashfs_bin_start;
+			size = (int)&_binary_openwrt_atheros_ubnt2_squashfs_bin_size;
+		} else {
+			buf = (unsigned char*)&_binary_openwrt_atheros_root_squashfs_start;
+			size = (int)&_binary_openwrt_atheros_root_squashfs_size;
+		}
 #endif
 
 		if (0 != buf)
@@ -869,7 +848,6 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	/* Kernel file name? */
 	if (NULL != kernel_filename)
 	{
-		int fd, size;
 		if (-1 == (fd = open(kernel_filename, O_RDONLY | O_BINARY)))
 		{
 			perror(kernel_filename);
@@ -894,11 +872,10 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			perror("no mem");
 			return 1;
 		}
-		printf("Reading kernel file %s with %d bytes...\n", kernel_filename, size);
+		printf("Reading kernel file %s with %d bytes ...\n", kernel_filename, size);
 	}
 	else
 	{
-		int size = 0;
 		unsigned char* buf = 0;
 
 #if defined(EMBEDDED_DATA) && defined(WIN32)
@@ -930,15 +907,18 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 	}
 
-	if (FLASH_PAGE_SIZE > kernel_size)
-	{
-		fprintf(stderr, "kernel implausible small: %d bytes\n", kernel_size);
+	if (FLASH_PAGE_SIZE > rootfs_size) {
+		fprintf(stderr, "rootfs implausible small: %d bytes\n", rootfs_size);
 		return 1;
 	}
 
-	if (FLASH_PAGE_SIZE > rootfs_size)
-	{
-		fprintf(stderr, "rootfs implausible small: %d bytes\n", rootfs_size);
+	/* ubnt magic header */
+	if (strncmp((char *)rootfs_buf, "OPEN", 4) == 0) {
+		/* if rootfs is a combined image */
+		printf("Ubiquiti image detected - switching to TFTP client mode\n");
+		flash_mode = TFTP_CLIENT;
+	} else if (FLASH_PAGE_SIZE > kernel_size) {
+		fprintf(stderr, "kernel implausible small: %d bytes\n", kernel_size);
 		return 1;
 	}
 
@@ -989,14 +969,19 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 
 	timer_set(&periodic_timer, CLOCK_SECOND / 2);
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
-
 #ifndef WIN32
 	usleep(3750000);
+#else
+	Sleep(3750);
 #endif
-	if (NULL == uip_connect(&dstipaddr, myhtons(9000)))
-	{
-		fprintf(stderr, "Cannot connect to port 9000\n");
-		return 1;
+	if (flash_mode == TFTP_CLIENT) {
+		tftp_transfer();
+		return 0;
+	} else {
+		if (NULL == uip_connect(&dstipaddr, htons(9000))) {
+			fprintf(stderr, "Cannot connect to port 9000\n");
+			return 1;
+		}
 	}
 
 	while(1)
@@ -1031,7 +1016,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 #endif
 				uip_len = 0;
 			}
-			else if(BUF->type == myhtons(UIP_ETHTYPE_IP))
+			else if(BUF->type == htons(UIP_ETHTYPE_IP))
 			{
 				uip_arp_ipin();
 #ifdef _DEBUG
@@ -1053,7 +1038,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 					pcap_send();
 				}
 			}
-			else if(BUF->type == myhtons(UIP_ETHTYPE_ARP))
+			else if(BUF->type == htons(UIP_ETHTYPE_ARP))
 			{
 				uip_arp_arpin();
 
@@ -1104,6 +1089,7 @@ int main(int argc, char* argv[])
 	int nvram = 0;
 	int uncomp = 0;
 	int special = 0;
+	int ubnt = 0;
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DATA)
@@ -1132,25 +1118,32 @@ int main(int argc, char* argv[])
 	special = 1;
 #endif
 
-	if (2 < argc && 0 == strcmp("uncomp", argv[argc - 1]))
+#if defined(EMBEDDED_DATA)
+	if (argc > 2 && 0 == strcmp("-u", argv[2])) {
+		ubnt = 1;
+		argc--;
+	}
+#endif
+
+/*	if (argc > 2 && 0 == strcmp("uncomp", argv[argc - 1]))
 	{
 		argc--;
 		uncomp = 1;
 	}
 
-	if (2 < argc && 0 == strcmp("nvram", argv[argc - 1]))
+	if (argc > 1 && 0 == strcmp("nvram", argv[argc - 1]))
 	{
 		argc--;
 		nvram = 1;
-	}
+	}*/
 
-	if (2 > argc)
+	if (argc < 2)
 	{
 		usage(argv[0]);
 		return 1;
 	}
 
-	return ap51_flash(argv[1], 2 < argc ? argv[2] : NULL, 3 < argc ? argv[3] : NULL, nvram, uncomp, special);
+	return ap51_flash(argv[1], 2 < argc ? argv[2] : NULL, 3 < argc ? argv[3] : NULL, nvram, uncomp, special, ubnt);
 }
 
 #endif

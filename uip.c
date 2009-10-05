@@ -278,7 +278,7 @@ uip_add32(u8_t *op32, u16_t op16)
 
 #if ! UIP_ARCH_CHKSUM
 /*---------------------------------------------------------------------------*/
-static u16_t
+u16_t
 chksum(u16_t sum, const u8_t *data, u16_t len)
 {
   u16_t t;

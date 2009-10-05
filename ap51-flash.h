@@ -19,8 +19,25 @@
 #ifndef __ap51_FLASH_H__
 #define __ap51_FLASH_H__
 
+#include <pcap.h>
 #include "uipopt.h"
 #include "psock.h"
+
+#ifdef WIN32
+/* WIN32 */
+#include <windows.h>
+#include "ap51-flash-res.h"
+#include "missing-win32.h"
+#else
+/* Linux */
+#define O_BINARY 0
+#include <unistd.h>
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <arpa/inet.h>
+#endif
 
 typedef struct ap51_flash_state {
 	struct psock p;
@@ -40,9 +57,16 @@ struct device_info {
 	int options;
 };
 
+enum {
+	REDBOOT,
+	TFTP_CLIENT,
+};
+
 #define FREEMEMLO 0x01
 #define ROOTFS_RESIZE 0x02
 #define SET_FLASH_ADDR 0x04
+
+#define FLASH_PAGE_SIZE 0x10000
 
 #ifndef UIP_APPCALL
 #define UIP_APPCALL ap51_flash_appcall
@@ -64,7 +88,13 @@ typedef int uip_udp_appstate_t;
 void ap51_flash_tftp_appcall(void);
 #define UIP_UDP_APPCALL ap51_flash_tftp_appcall
 
-int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special);
+int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special, int ubnt);
 extern void (*gui_output_funcptr)(const char* str);
+
+extern pcap_t *pcap_fp;
+extern unsigned int tftp_remote_ip;
+extern unsigned int tftp_local_ip;
+extern unsigned char *rootfs_buf;
+extern int rootfs_size;
 
 #endif /* __ap51_FLASH_H__ */
