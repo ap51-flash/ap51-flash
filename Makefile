@@ -79,7 +79,7 @@ ap51-flash-static: $(OBJS) $(LIN_OBJS) Makefile
 	$(STRIP) $@
 
 ap51-flash.exe: $(OBJS) $(WIN_OBJS) Makefile
-	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(OBJS) $(WIN_OBJS) -lwpcap -lws2_32 -static -o $@
+	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(OBJS) $(WIN_OBJS) -lwpcap -static -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)

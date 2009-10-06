@@ -205,11 +205,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 			printf("No packet.\n");
 
 			if (flash_mode == TFTP_CLIENT) {
-#if !defined(WIN32)
 				usleep(500000);
-#else
-				Sleep(500);
-#endif
 				arp_packet_send();
 			}
 		}
@@ -969,11 +965,8 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 
 	timer_set(&periodic_timer, CLOCK_SECOND / 2);
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
-#ifndef WIN32
 	usleep(3750000);
-#else
-	Sleep(3750);
-#endif
+
 	if (flash_mode == TFTP_CLIENT) {
 		tftp_transfer();
 		return 0;

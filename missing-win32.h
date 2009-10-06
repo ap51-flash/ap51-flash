@@ -24,6 +24,29 @@
 #define ETH_P_IP       0x0800          /* Internet Protocol packet     */
 #define ICMP_DEST_UNREACH  3
 
+#define usleep(usec)         \
+   do {                      \
+      if ((usec) < 1000)     \
+         Sleep(1);           \
+      else                   \
+         Sleep((usec)/1000); \
+   } while(0)
+
+#define __swab16(x) ((u_int16_t)(                      \
+        (((u_int16_t)(x) & (u_int16_t)0x00ffU) << 8) | \
+        (((u_int16_t)(x) & (u_int16_t)0xff00U) >> 8)))
+
+#define __swab32(x) ((u_int32_t)(                             \
+        (((u_int32_t)(x) & (u_int32_t)0x000000ffUL) << 24) |  \
+        (((u_int32_t)(x) & (u_int32_t)0x0000ff00UL) <<  8) |  \
+        (((u_int32_t)(x) & (u_int32_t)0x00ff0000UL) >>  8) |  \
+        (((u_int32_t)(x) & (u_int32_t)0xff000000UL) >> 24)))
+
+#define ntohs(x) __swab16(x)
+#define htons(x) __swab16(x)
+#define htonl(x) __swab32(x)
+#define ntohl(x) __swab32(x)
+
 struct ether_header
 {
 	u_int8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/

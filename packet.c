@@ -129,25 +129,14 @@ void tftp_transfer(void)
 	printf("Trying to connect to TFTP server on the device ..\n");
 	tftp_write_req();
 
-#if !defined(WIN32)
-	usleep(500000);
-#else
-	Sleep(500);
-#endif
-
 	while (1) {
 		packet = pcap_next(pcap_fp, &hdr);
 
 		if (!packet) {
-			/* resend previous packet */
-
 			if (xfer_status)
 				continue;
-#if !defined(WIN32)
+
 			usleep(500000);
-#else
-			Sleep(500);
-#endif
 			if (write_req_timeout) {
 				write_req_timeout--;
 				continue;
