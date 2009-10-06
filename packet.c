@@ -228,6 +228,7 @@ void tftp_transfer(void)
 				} else {
 					if (block * 512 > rootfs_size) {
 						printf("Image successfully transmitted.\n");
+						printf("Please give the device a couple of minutes to install the new image into the flash.\n");
 						return;
 					}
 

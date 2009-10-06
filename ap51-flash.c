@@ -45,7 +45,7 @@ static int uncomp_loader = 0;
 static int nvram_part_size = 0x00000000;
 static int rootfs_part_size = 0x00000000;
 
-static int flash_mode = REDBOOT;
+static int flash_mode = MODE_NONE;
 unsigned int tftp_remote_ip = 3232235796UL; /* 192.168.1.20 */
 unsigned int tftp_local_ip = 3232235801UL; /* 192.168.1.25 */
 
@@ -172,71 +172,77 @@ pcap_t *pcap_fp = NULL;
 int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
 {
 	int i;
-	int gotarp = 0;
 	char error[PCAP_ERRBUF_SIZE];
-	const unsigned char* packet;
+	const unsigned char *packet;
 	struct pcap_pkthdr hdr;
+	struct ether_header *recv_ethhdr;
+	struct ether_arp *recv_arphdr;
 
 	/* Open the output adapter */
-	if (NULL == (pcap_fp = pcap_open_live(dev, 1500, 1, PCAP_TIMEOUT_MS, error)))
-	{
+	if (NULL == (pcap_fp = pcap_open_live(dev, 1500, 1, PCAP_TIMEOUT_MS, error))) {
 		fprintf(stderr,"Error opening adapter: %s\n", error);
 		return -1;
 	}
 
-	if (flash_mode == TFTP_CLIENT) {
-		arp_packet_init();
-		memset(ethhdr->ether_dhost, 0xff, ETH_ALEN);
-		memcpy(ethhdr->ether_shost, smac->addr, ETH_ALEN);
+	arp_packet_init();
+	memset(ethhdr->ether_dhost, 0xff, ETH_ALEN);
+	memcpy(ethhdr->ether_shost, smac->addr, ETH_ALEN);
 
-		arphdr->ea_hdr.ar_op = htons(ARPOP_REQUEST);
-		memcpy(arphdr->arp_sha, smac->addr, ETH_ALEN);
-		*((unsigned int *)arphdr->arp_spa) = htonl(tftp_local_ip);
-		*((unsigned int *)arphdr->arp_tpa) = htonl(tftp_remote_ip);
-	}
+	arphdr->ea_hdr.ar_op = htons(ARPOP_REQUEST);
+	memcpy(arphdr->arp_sha, smac->addr, ETH_ALEN);
+	*((unsigned int *)arphdr->arp_spa) = htonl(tftp_local_ip);
+	*((unsigned int *)arphdr->arp_tpa) = htonl(tftp_remote_ip);
 
-	while(!gotarp)
-	{
-		if (flash_mode == TFTP_CLIENT)
-			arp_packet_send();
+	while (1) {
+		arp_packet_send();
 
-		while (NULL == (packet = pcap_next(pcap_fp, &hdr)))
-		{
+		while (NULL == (packet = pcap_next(pcap_fp, &hdr))) {
 			printf("No packet.\n");
 
-			if (flash_mode == TFTP_CLIENT) {
-				usleep(500000);
-				arp_packet_send();
-			}
+			usleep(500000);
+			arp_packet_send();
 		}
-		if (ETHERTYPE_ARP == ntohs(((struct ether_header *)packet)->ether_type))
-		{
-			if (60 != hdr.len) {
-				fprintf(stderr, "Expect arp with length 60, received %d\n", hdr.len);
-			} else if ((flash_mode == REDBOOT) &&
-					(ARPOP_REQUEST != ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op))) {
-				fprintf(stderr, "Unexpected arp packet, opcode=%d\n",
-					ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op));
-			} else if ((flash_mode == TFTP_CLIENT) &&
-					(ARPOP_REPLY != ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op))) {
-				fprintf(stderr, "Unexpected arp packet, opcode=%d\n",
-					ntohs(((struct arphdr*)(packet + ETH_HLEN))->ar_op));
-			} else {
-				gotarp = 1;
-			}
-		}
-		else
-		{
+
+		recv_ethhdr = (struct ether_header *)packet;
+
+		if (recv_ethhdr->ether_type != htons(ETHERTYPE_ARP)) {
 			fprintf(stderr, "Non arp received. Make sure, the device is connected directly!\n");
+			continue;
 		}
+
+		if (hdr.len != 60) {
+			fprintf(stderr, "Expect arp with length 60, received %d\n", hdr.len);
+			continue;
+		}
+
+		recv_arphdr = (struct ether_arp *)(packet + sizeof(struct ether_header));
+
+		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REPLY)) {
+			if (*((unsigned int *)recv_arphdr->arp_spa) != htonl(tftp_remote_ip)) {
+				fprintf(stderr, "Unexpected arp packet, opcode=%d, spa=%u\n",
+					ntohs(recv_arphdr->ea_hdr.ar_op),
+					ntohl(*((unsigned int *)recv_arphdr->arp_spa)));
+				continue;
+			}
+
+			flash_mode = MODE_TFTP_CLIENT;
+			break;
+		}
+
+		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REQUEST)) {
+			flash_mode = MODE_REDBOOT;
+			break;
+		}
+
+		fprintf(stderr, "Unexpected arp packet, opcode=%d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
 	}
 
 	/* Grab MAC adress of device */
-	memmove(dmac, ((struct ether_header *)packet)->ether_shost, sizeof(*dmac));
-	memcpy(ethhdr->ether_dhost, ((struct ether_header *)packet)->ether_shost, ETH_ALEN);
+	memmove(dmac, recv_ethhdr->ether_shost, ETH_ALEN);
+	memcpy(ethhdr->ether_dhost, recv_ethhdr->ether_shost, ETH_ALEN);
 	/* Grab IP adress of device */
-	memmove(dip, packet + ETH_HLEN + sizeof(struct arphdr) + ETH_ALEN, 4);
-	memmove(sip, packet + ETH_HLEN + sizeof(struct arphdr) + ETH_ALEN, 4);
+	memmove(dip, recv_arphdr->arp_spa, 4);
+	memmove(sip, recv_arphdr->arp_tpa, 4);
 
 	printf("Peer MAC: ");
 	for (i = 0; i < sizeof(*dmac); i++)
@@ -251,17 +257,20 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 	}
 
 	printf("Your MAC: ");
-	for (i = 0; i < sizeof(*smac); i++)
+	for (i = 0; i < ETH_ALEN; i++)
 		printf("%s%02x", 0 == i ? "" : ":", smac->addr[i]);
 	printf("\n");
 
-	P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
+	if (flash_mode == MODE_REDBOOT)
+		P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
+
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
-	if (0 > pcap_setnonblock(pcap_fp, 1, error))
-	{
+
+	if (0 > pcap_setnonblock(pcap_fp, 1, error)) {
 		fprintf(stderr,"Error setting non-blocking mode: %s\n", error);
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -695,8 +704,7 @@ void usage(char *prgname)
 	fprintf(stderr, "Usage:\n");
 
 #if defined(EMBEDDED_DATA)
-	fprintf(stderr, "%s [ethdevice]   flashes embedded kernel + rootfs: %s\n", prgname, EMBEDDED_DESC_STR);
-	fprintf(stderr, "%s [ethdevice] -u  flashes embedded ubiquiti image: %s\n", prgname, EMBEDDED_DESC_STR);
+	fprintf(stderr, "%s [ethdevice]   flashes embedded kernel + rootfs or ubquiti image: %s\n", prgname, EMBEDDED_DESC_STR);
 #endif
 
 	fprintf(stderr, "%s [ethdevice] rootfs.bin kernel.lzma   flashes your rootfs and kernel\n", prgname);
@@ -749,15 +757,16 @@ void usage(char *prgname)
 	pcap_freealldevs(alldevs);
 }
 
-int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special, int ubnt)
+int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special)
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
 	struct timer periodic_timer, arp_timer;
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
+	unsigned char* buf = 0;
 	int i = 0, if_num = 0;
-	int fd, size = 0;
+	int fd, size = 0, ubnt_img = 0;
 
 	pcap_device = device;
 	uip_init();
@@ -798,17 +807,10 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			return 1;
 		}
 		printf("Reading rootfs file %s with %d bytes ...\n", rootfs_filename, size);
-	}
-	else
-	{
-		unsigned char* buf = 0;
-
+	} else {
 #if defined(EMBEDDED_DATA) && defined(WIN32)
 		HRSRC hRsrc;
-		if (ubnt)
-			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBNT_IMG), RT_RCDATA);
-		else
-			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_ROOTFS), RT_RCDATA);
+		hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_ROOTFS), RT_RCDATA);
 		if (NULL != hRsrc)
 		{
 			HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
@@ -816,13 +818,8 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			size = SizeofResource(NULL, hRsrc);
 		}
 #elif defined(EMBEDDED_DATA) && !defined(WIN32)
-		if (ubnt) {
-			buf = (unsigned char*)&_binary_openwrt_atheros_ubnt2_squashfs_bin_start;
-			size = (int)&_binary_openwrt_atheros_ubnt2_squashfs_bin_size;
-		} else {
-			buf = (unsigned char*)&_binary_openwrt_atheros_root_squashfs_start;
-			size = (int)&_binary_openwrt_atheros_root_squashfs_size;
-		}
+		buf = (unsigned char*)&_binary_openwrt_atheros_root_squashfs_start;
+		size = (int)&_binary_openwrt_atheros_root_squashfs_size;
 #endif
 
 		if (0 != buf)
@@ -869,11 +866,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			return 1;
 		}
 		printf("Reading kernel file %s with %d bytes ...\n", kernel_filename, size);
-	}
-	else
-	{
-		unsigned char* buf = 0;
-
+	} else {
 #if defined(EMBEDDED_DATA) && defined(WIN32)
 		HRSRC hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_KERNEL), RT_RCDATA);
 		if (NULL != hRsrc)
@@ -909,11 +902,10 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	}
 
 	/* ubnt magic header */
-	if (strncmp((char *)rootfs_buf, "OPEN", 4) == 0) {
-		/* if rootfs is a combined image */
-		printf("Ubiquiti image detected - switching to TFTP client mode\n");
-		flash_mode = TFTP_CLIENT;
-	} else if (FLASH_PAGE_SIZE > kernel_size) {
+	if (strncmp((char *)rootfs_buf, "OPEN", 4) == 0)
+		ubnt_img = 1;
+
+	if ((FLASH_PAGE_SIZE > kernel_size) && (!ubnt_img)) {
 		fprintf(stderr, "kernel implausible small: %d bytes\n", kernel_size);
 		return 1;
 	}
@@ -956,6 +948,61 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	if (i < 0)
 		return 1;
 
+	switch (flash_mode) {
+	case MODE_REDBOOT:
+		if (ubnt_img) {
+			fprintf(stderr, "You are trying to flash a non-ubiquiti device with a ubiquiti image!\n");
+			return 1;
+		}
+
+		printf("Redboot enabled device detected - using redboot to flash\n");
+		break;
+	case MODE_TFTP_CLIENT:
+#if defined(EMBEDDED_DATA)
+		if (!rootfs_filename) {
+
+			/* free the rootfs and replace it by the ubnt image */
+			free(rootfs_buf);
+
+#if defined(WIN32)
+			HRSRC hRsrc;
+			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBNT_IMG), RT_RCDATA);
+			if (NULL != hRsrc) {
+				HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
+				buf = LockResource(hGlobal);
+				size = SizeofResource(NULL, hRsrc);
+			}
+#else
+			buf = (unsigned char*)&_binary_openwrt_atheros_ubnt2_squashfs_bin_start;
+			size = (int)&_binary_openwrt_atheros_ubnt2_squashfs_bin_size;
+#endif
+
+			if (0 != buf) {
+				rootfs_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
+				if (0 != (rootfs_buf = malloc(rootfs_size))) {
+					memset(rootfs_buf, 0xff, rootfs_size);
+					memmove(rootfs_buf, buf, size);
+				} else {
+					perror("no mem");
+					return 1;
+				}
+			}
+
+			ubnt_img = 1;
+		}
+#endif
+		if (!ubnt_img) {
+			fprintf(stderr, "You are trying to flash a ubiquiti device with a non-ubiquiti image!\n");
+			return 1;
+		}
+
+		printf("Ubiquiti device detected - using TFTP client to flash\n");
+		break;
+	default:
+		fprintf(stderr, "Could not auto-detect flash mode!\n");
+		return 1;
+	}
+
 	uip_sethostaddr(srcipaddr);
 	uip_setdraddr(dstipaddr);
 	uip_setethaddr(srcmac);
@@ -967,14 +1014,14 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
 	usleep(3750000);
 
-	if (flash_mode == TFTP_CLIENT) {
+	if (flash_mode == MODE_TFTP_CLIENT) {
 		tftp_transfer();
 		return 0;
-	} else {
-		if (NULL == uip_connect(&dstipaddr, htons(9000))) {
-			fprintf(stderr, "Cannot connect to port 9000\n");
-			return 1;
-		}
+	}
+
+	if (NULL == uip_connect(&dstipaddr, htons(9000))) {
+		fprintf(stderr, "Cannot connect to port 9000\n");
+		return 1;
 	}
 
 	while(1)
@@ -1082,7 +1129,6 @@ int main(int argc, char* argv[])
 	int nvram = 0;
 	int uncomp = 0;
 	int special = 0;
-	int ubnt = 0;
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DATA)
@@ -1111,13 +1157,6 @@ int main(int argc, char* argv[])
 	special = 1;
 #endif
 
-#if defined(EMBEDDED_DATA)
-	if (argc > 2 && 0 == strcmp("-u", argv[2])) {
-		ubnt = 1;
-		argc--;
-	}
-#endif
-
 /*	if (argc > 2 && 0 == strcmp("uncomp", argv[argc - 1]))
 	{
 		argc--;
@@ -1136,7 +1175,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	return ap51_flash(argv[1], 2 < argc ? argv[2] : NULL, 3 < argc ? argv[3] : NULL, nvram, uncomp, special, ubnt);
+	return ap51_flash(argv[1], 2 < argc ? argv[2] : NULL, 3 < argc ? argv[3] : NULL, nvram, uncomp, special);
 }
 
 #endif

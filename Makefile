@@ -91,11 +91,11 @@ rootfs.o: $(EMBED_ROOTFS)
 ubnt_img.o: $(EMBED_UBNT_IMG)
 	$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT_IMG) -O elf32-i386 $@
 
-$(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS)
+$(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG)
 	$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
 	rm -rf *.o *~ *.plg *.ncb ap51-flash ap51-flash-static ap51-flash.exe $(AP51_RC)
 
 distclean: clean
-	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL)
+	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG)

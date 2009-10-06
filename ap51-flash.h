@@ -57,9 +57,11 @@ struct device_info {
 	int options;
 };
 
+/* flash modes */
 enum {
-	REDBOOT,
-	TFTP_CLIENT,
+	MODE_NONE,
+	MODE_REDBOOT,
+	MODE_TFTP_CLIENT,
 };
 
 #define FREEMEMLO 0x01
@@ -88,7 +90,7 @@ typedef int uip_udp_appstate_t;
 void ap51_flash_tftp_appcall(void);
 #define UIP_UDP_APPCALL ap51_flash_tftp_appcall
 
-int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special, int ubnt);
+int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special);
 extern void (*gui_output_funcptr)(const char* str);
 
 extern pcap_t *pcap_fp;
