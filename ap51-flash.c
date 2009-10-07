@@ -229,12 +229,21 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 			break;
 		}
 
-		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REQUEST)) {
-			flash_mode = MODE_REDBOOT;
-			break;
+		if (recv_arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST)) {
+			fprintf(stderr, "Unexpected arp packet, opcode=%d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
+			continue;
 		}
 
-		fprintf(stderr, "Unexpected arp packet, opcode=%d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
+		/* we are waiting for gratuitous requests */
+		if (*((unsigned int *)recv_arphdr->arp_spa) != *((unsigned int *)recv_arphdr->arp_tpa))
+			continue;
+
+		/* ignore gratuitous ARP requests from ubnt devices */
+		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(tftp_remote_ip))
+			continue;
+
+		flash_mode = MODE_REDBOOT;
+		break;
 	}
 
 	/* Grab MAC adress of device */
