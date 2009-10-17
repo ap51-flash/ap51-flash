@@ -49,6 +49,11 @@ static int flash_mode = MODE_NONE;
 unsigned int tftp_remote_ip = 3232235796UL; /* 192.168.1.20 */
 unsigned int tftp_local_ip = 3232235801UL; /* 192.168.1.25 */
 
+static char boot_prompt[24];
+static int phase = 0;
+static struct device_info *device_info = &flash_8mb_info;
+static char *kernelpartname = "vmlinux.bin.l7";
+
 #if defined(EMBEDDED_DATA) && !defined(WIN32)
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_start;
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_end;
@@ -335,9 +340,35 @@ void pcap_send(void)
 	}
 }
 
-static int phase = 0;
-static struct device_info *device_info = &flash_8mb_info;
-static char *kernelpartname = "vmlinux.bin.l7";
+static int extract_boot_prompt(struct ap51_flash_state *s)
+{
+	char *str_ptr;
+
+	str_ptr = strchr(s->inputbuffer, '>');
+	if (!str_ptr) {
+		fprintf(stderr, "No RedBoot prompt detected. Exit in line %d\n", __LINE__);
+		return -1;
+	}
+
+	*(str_ptr + 1) = '\0';
+
+	str_ptr = strrchr(s->inputbuffer, '\n');
+	if (!str_ptr) {
+		fprintf(stderr, "No RedBoot detected. Exit in line %d\n", __LINE__);
+		return -1;
+	}
+
+	str_ptr++;
+
+	if (strlen(str_ptr) > sizeof(boot_prompt)) {
+		fprintf(stderr, "No RedBoot prompt exceeds expected size (%i - expected %i). Exit in line %d\n",
+			strlen(str_ptr), sizeof(boot_prompt), __LINE__);
+		return -1;
+	}
+
+	memcpy(boot_prompt, str_ptr, sizeof(boot_prompt));
+	return 0;
+}
 
 static int handle_connection(struct ap51_flash_state *s)
 {
@@ -346,18 +377,17 @@ static int handle_connection(struct ap51_flash_state *s)
 	int num_blocks = 0;
 
 	PSOCK_BEGIN(&s->p);
-	if (0 == phase)
-	{
+
+	/* a case loop would be broken by PSOCK_READTO - WTF */
+	if (phase == 0) {
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(342, &s->p, '\n');
 		PSOCK_SEND_STR(343, &s->p, "\x03");
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(345, &s->p, '>');
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
-			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
-		}
+
+		if (extract_boot_prompt(s) < 0)
+			goto err_close;
 
 		sprintf(str, "version\n");
 		PSOCK_SEND_STR(350, &s->p, str);
@@ -415,10 +445,10 @@ sanity_check:
 		PSOCK_SEND_STR(356, &s->p, str);
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(358, &s->p, '>');
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
 #ifdef _DEBUG
 		exit(1);
@@ -438,16 +468,14 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(371, &s->p, '>');
 		phase++;
-	}
-	else if (1 == phase)
-	{
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+
+	} else if (phase == 1) {
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
-		if (tftp_send < (unsigned long)rootfs_size)
-		{
+
+		if (tftp_send < (unsigned long)rootfs_size) {
 			fprintf(stderr, "Error transferring rootfs, send=%ld, expected=%d\n", tftp_send, rootfs_size);
 			exit(1);
 		}
@@ -460,9 +488,8 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(393, &s->p, '>');
 		phase++;
-	}
-	else if (2 == phase)
-	{
+
+	} else if (phase == 2) {
 		str_ptr = strstr(s->inputbuffer, "Erase from ");
 		if ((str_ptr) && (device_info->options & ROOTFS_RESIZE)) {
 			unsigned long int x = 0;
@@ -477,10 +504,10 @@ sanity_check:
 				}
 			}
 		}
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
 
 		printf("Flashing rootfs...\n");
@@ -490,14 +517,13 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(407, &s->p, '>');
 		phase++;
-	}
-	else if (3 == phase)
-	{
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+
+	} else if (phase == 3) {
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
+
 		tftp_send = 0;
 		s->tftpconn = uip_udp_new(&srcipaddr, htons(0xffff));
 		uip_udp_bind(s->tftpconn, htons(IPPORT_TFTP));
@@ -512,13 +538,11 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(424, &s->p, '>');
 		phase++;
-	}
-	else if (4 == phase)
-	{
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+
+	} else if (phase == 4) {
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
 		if (tftp_send < (unsigned long)kernel_size)
 		{
@@ -541,15 +565,14 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(445, &s->p, '>');
 		phase++;
-	}
-	else if (5 == phase)
-	{
+
+	} else if (phase == 5) {
 		if (0 != nvram_part_size) {
-			if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+			if (!strstr(s->inputbuffer, boot_prompt)) {
 				fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-				PSOCK_CLOSE(&s->p);
-				PSOCK_EXIT(&s->p);
+				goto err_close;
 			}
+
 			printf("Creating nvram...\n");
 			sprintf(str, "fis create -f 0x%08lx -l 0x%08x -n nvram\n",
 				device_info->flash_addr + rootfs_part_size + device_info->kernel_part_size, nvram_part_size);
@@ -557,15 +580,16 @@ sanity_check:
 			s->inputbuffer[0] = 0;
 			PSOCK_READTO(461, &s->p, '>');
 		}
+
 		phase++;
-	}
-	else if (6 == phase)
-	{
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+		break;
+
+	} else if (phase == 6) {
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
+
 		printf("Setting boot_script_data...\n");
 		PSOCK_SEND_STR(473, &s->p, "fconfig -d boot_script_data\n");
 		s->inputbuffer[0] = 0;
@@ -588,20 +612,28 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(485, &s->p, '>');
 		phase++;
-	}
-	else if (7 == phase)
-	{
-		if (NULL == strstr(s->inputbuffer, "RedBoot>")) {
+		break;
+
+	} else if (phase == 7) {
+		if (!strstr(s->inputbuffer, boot_prompt)) {
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
-			PSOCK_CLOSE(&s->p);
-			PSOCK_EXIT(&s->p);
+			goto err_close;
 		}
+
 		PSOCK_SEND_STR(495, &s->p, "reset\n");
 		printf("Done. Restarting device...\n");
 		exit(0);
 		phase++;
+		break;
 	}
+
 	PSOCK_END(&s->p);
+	return 0;
+
+err_close:
+	PSOCK_CLOSE(&s->p);
+	PSOCK_EXIT(&s->p);
+	exit(1);
 }
 
 void ap51_flash_appcall(void)
