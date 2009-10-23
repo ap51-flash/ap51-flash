@@ -54,6 +54,8 @@ static int phase = 0;
 static struct device_info *device_info = &flash_8mb_info;
 static char *kernelpartname = "vmlinux.bin.l7";
 
+#define TELNET_PORT 9000
+
 #if defined(EMBEDDED_DATA) && !defined(WIN32)
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_start;
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_end;
@@ -243,9 +245,11 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		if (*((unsigned int *)recv_arphdr->arp_spa) != *((unsigned int *)recv_arphdr->arp_tpa))
 			continue;
 
-		/* ignore gratuitous ARP requests from ubnt devices */
-		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(tftp_remote_ip))
-			continue;
+		/* use gratuitous ARP requests from ubnt devices with care */
+		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(tftp_remote_ip)) {
+			flash_mode = MODE_MAYBE_REDBOOT;
+			break;
+		}
 
 		flash_mode = MODE_REDBOOT;
 		break;
@@ -806,7 +810,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
 	unsigned char* buf = 0;
-	int i = 0, if_num = 0;
+	int i = 0, if_num = 0, res;
 	int fd, size = 0, ubnt_img = 0;
 
 	pcap_device = device;
@@ -989,6 +993,33 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	if (i < 0)
 		return 1;
 
+	uip_sethostaddr(srcipaddr);
+	uip_setdraddr(dstipaddr);
+	uip_setethaddr(srcmac);
+	uip_ipaddr(netmask, 255,255,0,0);
+	uip_setnetmask(netmask);
+	uip_arp_update(dstipaddr, &dstmac);
+
+	timer_set(&periodic_timer, CLOCK_SECOND / 2);
+	timer_set(&arp_timer, CLOCK_SECOND * 10);
+
+	// usleep(3750000);
+	if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT)) {
+		res = tcp_port_scan(*((unsigned int *)srcipaddr), *((unsigned int *)dstipaddr), htons(TELNET_PORT));
+
+		if ((res < 0) && (flash_mode == MODE_REDBOOT)) {
+			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);
+			return 1;
+		}
+
+		if (flash_mode == MODE_MAYBE_REDBOOT) {
+			if (res < 0)
+				flash_mode = MODE_TFTP_CLIENT;
+			else
+				flash_mode = MODE_REDBOOT;
+		}
+	}
+
 	switch (flash_mode) {
 	case MODE_REDBOOT:
 		if (ubnt_img) {
@@ -997,6 +1028,11 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 
 		printf("Redboot enabled device detected - using redboot to flash\n");
+
+		if (NULL == uip_connect(&dstipaddr, htons(TELNET_PORT))) {
+			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);
+			return 1;
+		}
 		break;
 	case MODE_TFTP_CLIENT:
 #if defined(EMBEDDED_DATA)
@@ -1038,30 +1074,10 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 
 		printf("Ubiquiti device detected - using TFTP client to flash\n");
-		break;
-	default:
-		fprintf(stderr, "Could not auto-detect flash mode!\n");
-		return 1;
-	}
-
-	uip_sethostaddr(srcipaddr);
-	uip_setdraddr(dstipaddr);
-	uip_setethaddr(srcmac);
-	uip_ipaddr(netmask, 255,255,0,0);
-	uip_setnetmask(netmask);
-	uip_arp_update(dstipaddr, &dstmac);
-
-	timer_set(&periodic_timer, CLOCK_SECOND / 2);
-	timer_set(&arp_timer, CLOCK_SECOND * 10);
-	usleep(3750000);
-
-	if (flash_mode == MODE_TFTP_CLIENT) {
 		tftp_transfer();
 		return 0;
-	}
-
-	if (NULL == uip_connect(&dstipaddr, htons(9000))) {
-		fprintf(stderr, "Cannot connect to port 9000\n");
+	default:
+		fprintf(stderr, "Could not auto-detect flash mode!\n");
 		return 1;
 	}
 

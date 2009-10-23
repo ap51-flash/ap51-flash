@@ -20,7 +20,7 @@ CC      = $(CROSS)gcc
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
-CFLAGS  = -Wall -ggdb -I. -IWpdPack/Include/ -fpack-struct -Os
+CFLAGS  = -Wall -ggdb -I. -IWpdPack/Include/ -fno-strict-aliasing -fpack-struct -Os
 OBJS    = ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
 AP51_RC = ap51-flash-res
 

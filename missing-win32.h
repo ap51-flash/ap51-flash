@@ -47,14 +47,13 @@
 #define htonl(x) __swab32(x)
 #define ntohl(x) __swab32(x)
 
-struct ether_header
-{
+struct ether_header {
 	u_int8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
 	u_int8_t  ether_shost[ETH_ALEN];	/* source ether addr	*/
 	u_int16_t ether_type;		        /* packet type ID field	*/
 };
-struct arphdr
-{
+
+struct arphdr {
 	unsigned short	ar_hrd;		/* format of hardware address	*/
 	unsigned short	ar_pro;		/* format of protocol address	*/
 	unsigned char	ar_hln;		/* length of hardware address	*/
@@ -62,8 +61,8 @@ struct arphdr
 	unsigned short	ar_op;		/* ARP opcode (command)		*/
 
 };
-struct  ether_arp
-{
+
+struct ether_arp {
 	struct  arphdr ea_hdr;          /* fixed-size header */
 	u_int8_t arp_sha[ETH_ALEN];     /* sender hardware address */
 	u_int8_t arp_spa[4];            /* sender protocol address */
@@ -71,8 +70,7 @@ struct  ether_arp
 	u_int8_t arp_tpa[4];            /* target protocol address */
 };
 
-struct iphdr
-{
+struct iphdr {
 	unsigned int ihl:4;
 	unsigned int version:4;
 	u_int8_t tos;
@@ -86,10 +84,28 @@ struct iphdr
 	u_int32_t daddr;
 };
 
-struct udphdr
-{
+struct udphdr {
 	u_int16_t source;
 	u_int16_t dest;
 	u_int16_t len;
 	u_int16_t check;
+};
+
+struct tcphdr {
+	u_int16_t source;
+	u_int16_t dest;
+	u_int32_t seq;
+	u_int32_t ack_seq;
+	u_int16_t res1:4;
+	u_int16_t doff:4;
+	u_int16_t fin:1;
+	u_int16_t syn:1;
+	u_int16_t rst:1;
+	u_int16_t psh:1;
+	u_int16_t ack:1;
+	u_int16_t urg:1;
+	u_int16_t res2:2;
+	u_int16_t window;
+	u_int16_t check;
+	u_int16_t urg_ptr;
 };
