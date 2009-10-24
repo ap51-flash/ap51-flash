@@ -279,7 +279,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		printf("%s%02x", 0 == i ? "" : ":", smac->addr[i]);
 	printf("\n");
 
-	if (flash_mode == MODE_REDBOOT)
+	if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT))
 		P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
 
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
