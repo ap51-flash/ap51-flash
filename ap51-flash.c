@@ -178,7 +178,7 @@ pcap_t *pcap_fp = NULL;
 
 int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
 {
-	int i;
+	int i, arp_replies = 0, arp_grat_packets = 0;
 	char error[PCAP_ERRBUF_SIZE];
 	const unsigned char *packet;
 	struct pcap_pkthdr hdr;
@@ -232,6 +232,12 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 				continue;
 			}
 
+			if (arp_replies < 10) {
+				arp_replies++;
+				usleep(500000);
+				continue;
+			}
+
 			flash_mode = MODE_TFTP_CLIENT;
 			break;
 		}
@@ -247,6 +253,11 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 
 		/* use gratuitous ARP requests from ubnt devices with care */
 		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(tftp_remote_ip)) {
+			if (arp_grat_packets < 5) {
+				arp_grat_packets++;
+				continue;
+			}
+
 			flash_mode = MODE_MAYBE_REDBOOT;
 			break;
 		}
@@ -810,7 +821,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
 	unsigned char* buf = 0;
-	int i = 0, if_num = 0, res;
+	int i = 0, if_num = 0;
 	int fd, size = 0, ubnt_img = 0;
 
 	pcap_device = device;
@@ -947,7 +958,8 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	}
 
 	/* ubnt magic header */
-	if (strncmp((char *)rootfs_buf, "OPEN", 4) == 0)
+	if ((strncmp((char *)rootfs_buf, "UBNT", 4) == 0) ||
+	    (strncmp((char *)rootfs_buf, "OPEN", 4) == 0))
 		ubnt_img = 1;
 
 	if ((FLASH_PAGE_SIZE > kernel_size) && (!ubnt_img)) {
@@ -1004,7 +1016,14 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
 
 	// usleep(3750000);
-	if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT)) {
+	/**
+	 * the arp packet count should make sure we get the difference
+	 * between the pico and the other ubnt devices
+	 **/
+	if (flash_mode == MODE_MAYBE_REDBOOT)
+		flash_mode = MODE_REDBOOT;
+
+	/*if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT)) {
 		res = tcp_port_scan(*((unsigned int *)srcipaddr), *((unsigned int *)dstipaddr), htons(TELNET_PORT));
 
 		if ((res < 0) && (flash_mode == MODE_REDBOOT)) {
@@ -1018,7 +1037,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 			else
 				flash_mode = MODE_REDBOOT;
 		}
-	}
+	}*/
 
 	switch (flash_mode) {
 	case MODE_REDBOOT:
