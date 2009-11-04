@@ -1015,7 +1015,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	timer_set(&periodic_timer, CLOCK_SECOND / 2);
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
 
-	// usleep(3750000);
+	/* usleep(3750000); */
 	/**
 	 * the arp packet count should make sure we get the difference
 	 * between the pico and the other ubnt devices
@@ -1047,6 +1047,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 
 		printf("Redboot enabled device detected - using redboot to flash\n");
+		printf("WARNING: UNPLUGGING POWER OR ETHERNET DURING THIS PROCESS WILL LIKELY DAMAGE YOUR DEVICE AND THIS WILL NOT BE COVERED BY WARRANTY!\n");
 
 		if (NULL == uip_connect(&dstipaddr, htons(TELNET_PORT))) {
 			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);
