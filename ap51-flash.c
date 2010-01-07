@@ -117,7 +117,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		while (NULL == (packet = pcap_next(pcap_fp, &hdr))) {
 			printf("No packet.\n");
 
-			usleep(500000);
+			usleep(250000);
 			arp_packet_send();
 		}
 
@@ -143,9 +143,9 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 				continue;
 			}
 
-			if (arp_replies < 10) {
+			if (arp_replies < 20) {
 				arp_replies++;
-				usleep(500000);
+				usleep(250000);
 				continue;
 			}
 
