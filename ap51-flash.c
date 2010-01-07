@@ -66,91 +66,6 @@ extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_end;
 extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_size;
 #endif
 
-#ifdef WIN32_GUI
-
-void (*gui_output_funcptr)(const char* str) = 0;
-static int gui_output_index = 0;
-static char gui_output_buffer[1024];
-
-int gui_printf(const char* format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	vsprintf(gui_output_buffer + gui_output_index, format, ap);
-	{
-		char *p = gui_output_buffer + gui_output_index;
-		while(0 != *p && '\n' != *p) p++;
-		if ('\n' == *p)
-		{
-			*p = 0;
-			if (NULL != gui_output_funcptr)
-			{
-				gui_output_funcptr(gui_output_buffer);
-			}
-			gui_output_index = 0;
-		}
-		else
-		{
-			gui_output_index = p - gui_output_buffer;
-		}
-	}
-	va_end(format);
-	return 1;
-}
-
-int gui_fprintf(FILE* stream, const char* format, ...)
-{
-	va_list ap;
-	va_start(ap, format);
-	if (0 == gui_output_index)
-	{
-		strcpy(gui_output_buffer, "stderr:");
-		gui_output_index += strlen(gui_output_buffer);
-	}
-	vsprintf(gui_output_buffer + gui_output_index, format, ap);
-	{
-		char *p = gui_output_buffer + gui_output_index;
-		while(0 != *p && '\n' != *p) p++;
-		if ('\n' == *p)
-		{
-			*p = 0;
-			if (NULL != gui_output_funcptr)
-			{
-				gui_output_funcptr(gui_output_buffer);
-			}
-			gui_output_index = 0;
-		}
-		else
-		{
-			gui_output_index = p - gui_output_buffer;
-		}
-	}
-	va_end(format);
-	return 1;
-}
-
-void gui_exit(int code)
-{
-	int i;
-	for(i = 0; i < 50; i++)
-	{
-		MSG msg;
-		while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		Sleep(100);
-	}
-	exit(code);
-}
-
-#define printf gui_printf
-#define fprintf gui_fprintf
-#define exit gui_exit
-
-#endif
-
 static uip_ipaddr_t srcipaddr;
 static uip_ipaddr_t dstipaddr;
 
@@ -1034,16 +949,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		return 1;
 	}
 
-	while(1)
-	{
-#ifdef WIN32_GUI
-		MSG msg;
-		while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-#endif
+	while(1) {
 		uip_len = ap51_pcap_read();
 		if(uip_len > 0)
 		{
