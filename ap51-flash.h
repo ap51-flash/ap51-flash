@@ -88,6 +88,10 @@ enum {
 #define EMBEDDED_DESC_STR EMBEDDED_DESC
 #endif
 
+#ifdef _DEBUG
+#define DEBUG_ALL
+#endif
+
 typedef int uip_udp_appstate_t;
 void ap51_flash_tftp_appcall(void);
 #define UIP_UDP_APPCALL ap51_flash_tftp_appcall

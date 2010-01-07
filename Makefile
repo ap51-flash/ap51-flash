@@ -17,11 +17,13 @@
 #
 
 CC      = $(CROSS)gcc
+AR      = $(CROSS)ar
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
 CFLAGS  = -Wall -ggdb -I. -IWpdPack/Include/ -fno-strict-aliasing -fpack-struct -Os
-OBJS    = ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
+LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
+OBJS    = $(LIB_OBJS) main.o
 AP51_RC = ap51-flash-res
 
 # if you change the names here you also need to change the ap51-flash.c code
@@ -70,16 +72,19 @@ all: ap51-flash
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-ap51-flash: $(OBJS) $(LIN_OBJS) Makefile
-	$(CC) $(CFLAGS) $(OBJS) $(LIN_OBJS) -lpcap -o $@
+libap51-flash.a: $(LIB_OBJS) Makefile
+	$(AR) rcs $@ $(LIB_OBJS)
+
+ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
+	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) -lpcap -o $@
 	$(STRIP) $@
 
-ap51-flash-static: $(OBJS) $(LIN_OBJS) Makefile
-	$(CC) $(CFLAGS) $(OBJS) $(LIN_OBJS) -lpcap -static -o $@
+ap51-flash-static: $(LIN_OBJS) $(OBJS) libap51-flash.a Makefile
+	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) -lpcap -static -o $@
 	$(STRIP) $@
 
-ap51-flash.exe: $(OBJS) $(WIN_OBJS) Makefile
-	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(OBJS) $(WIN_OBJS) -lwpcap -static -o $@
+ap51-flash.exe: $(WIN_OBJS) $(OBJS) Makefile
+	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) -lwpcap -static -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)
@@ -95,7 +100,7 @@ $(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG)
 	$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	rm -rf *.o *~ *.plg *.ncb ap51-flash ap51-flash-static ap51-flash.exe $(AP51_RC)
+	rm -rf *.o *~ *.plg *.ncb libap51-flash.a ap51-flash ap51-flash-static ap51-flash.exe $(AP51_RC)
 
 distclean: clean
 	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG)
