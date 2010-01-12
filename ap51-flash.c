@@ -860,7 +860,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	uip_setnetmask(netmask);
 	uip_arp_update(dstipaddr, &dstmac);
 
-	timer_set(&periodic_timer, CLOCK_SECOND / 2);
+	timer_set(&periodic_timer, CLOCK_SECOND / 4);
 	timer_set(&arp_timer, CLOCK_SECOND * 10);
 
 	/* usleep(3750000); */
