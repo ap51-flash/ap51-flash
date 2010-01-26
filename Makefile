@@ -73,18 +73,18 @@ all: ap51-flash
 	$(CC) $(CFLAGS) -c $< -o $@
 
 libap51-flash.a: $(LIB_OBJS) Makefile
-	$(AR) rcs $@ $(LIB_OBJS)
+	$(AR) rcs $@ $(LIB_OBJS) $(LDFLAGS)
 
 ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) -lpcap -o $@
+	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -o $@
 	$(STRIP) $@
 
 ap51-flash-static: $(LIN_OBJS) $(OBJS) libap51-flash.a Makefile
-	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) -lpcap -static -o $@
+	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -static -o $@
 	$(STRIP) $@
 
 ap51-flash.exe: $(WIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) -lwpcap -static -o $@
+	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -lwpcap -static -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)
