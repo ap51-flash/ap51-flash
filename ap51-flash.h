@@ -42,11 +42,8 @@
 
 typedef struct ap51_flash_state {
 	struct psock p;
-	struct uip_udp_conn *tftpconn;
 	char inputbuffer[4096];
 } uip_tcp_appstate_t;
-
-void ap51_flash_appcall(void);
 
 struct device_info {
 	unsigned long full_size;
@@ -94,15 +91,21 @@ enum {
 
 typedef int uip_udp_appstate_t;
 void ap51_flash_tftp_appcall(void);
-#define UIP_UDP_APPCALL ap51_flash_tftp_appcall
 
 int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special);
-extern void (*gui_output_funcptr)(const char* str);
+void ap51_flash_appcall(void);
+void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len);
+void handle_uip_conns(void);
 
 extern pcap_t *pcap_fp;
-extern unsigned int tftp_remote_ip;
-extern unsigned int tftp_local_ip;
+extern unsigned int remote_ip;
+extern unsigned int local_ip;
+extern unsigned char *tftp_xfer_buff;
+extern unsigned long tftp_xfer_size;
 extern unsigned char *rootfs_buf;
+extern unsigned char *kernel_buf;
 extern int rootfs_size;
+extern int kernel_size;
+extern char flash_mode;
 
 #endif /* __ap51_FLASH_H__ */

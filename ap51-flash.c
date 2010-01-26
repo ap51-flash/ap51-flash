@@ -28,22 +28,23 @@
 #include "device-info.h"
 #include "packet.h"
 
-static unsigned char* tftp_buf = 0;
-static unsigned char* kernel_buf = 0;
+unsigned char *kernel_buf = 0;
 unsigned char *rootfs_buf = 0;
 
-static unsigned long tftp_send = 0;
-static unsigned long tftp_size = 0;
-static int kernel_size = 0;
+int kernel_size = 0;
 int rootfs_size = 0;
 
 static int uncomp_loader = 0;
 static int nvram_part_size = 0x00000000;
 static int rootfs_part_size = 0x00000000;
 
-static int flash_mode = MODE_NONE;
-unsigned int tftp_remote_ip = 3232235796UL; /* 192.168.1.20 */
-unsigned int tftp_local_ip = 3232235801UL; /* 192.168.1.25 */
+char flash_mode = MODE_NONE;
+unsigned int remote_ip;
+unsigned int local_ip;
+static unsigned int ubnt_remote_ip = 3232235796UL; /* 192.168.1.20 */
+static unsigned int ubnt_local_ip = 3232235801UL; /* 192.168.1.25 */
+unsigned char *tftp_xfer_buff = NULL;
+unsigned long tftp_xfer_size = 0;
 
 static char boot_prompt[24];
 static int phase = 0;
@@ -108,8 +109,8 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 
 	arphdr->ea_hdr.ar_op = htons(ARPOP_REQUEST);
 	memcpy(arphdr->arp_sha, smac->addr, ETH_ALEN);
-	*((unsigned int *)arphdr->arp_spa) = htonl(tftp_local_ip);
-	*((unsigned int *)arphdr->arp_tpa) = htonl(tftp_remote_ip);
+	*((unsigned int *)arphdr->arp_spa) = htonl(ubnt_local_ip);
+	*((unsigned int *)arphdr->arp_tpa) = htonl(ubnt_remote_ip);
 
 	while (1) {
 		arp_packet_send();
@@ -136,7 +137,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		recv_arphdr = (struct ether_arp *)(packet + sizeof(struct ether_header));
 
 		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REPLY)) {
-			if (*((unsigned int *)recv_arphdr->arp_spa) != htonl(tftp_remote_ip)) {
+			if (*((unsigned int *)recv_arphdr->arp_spa) != htonl(ubnt_remote_ip)) {
 				fprintf(stderr, "Unexpected arp packet, opcode=%d, spa=%u\n",
 					ntohs(recv_arphdr->ea_hdr.ar_op),
 					ntohl(*((unsigned int *)recv_arphdr->arp_spa)));
@@ -163,7 +164,7 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 			continue;
 
 		/* use gratuitous ARP requests from ubnt devices with care */
-		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(tftp_remote_ip)) {
+		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(ubnt_remote_ip)) {
 			if (arp_grat_packets < 5) {
 				arp_grat_packets++;
 				continue;
@@ -206,64 +207,15 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
 
+	memcpy(&remote_ip, dip, 4);
+	memcpy(&local_ip, sip, 4);
+
 	if (0 > pcap_setnonblock(pcap_fp, 1, error)) {
 		fprintf(stderr,"Error setting non-blocking mode: %s\n", error);
 		return -1;
 	}
 
 	return 0;
-}
-
-void handler(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes)
-{
-#ifdef DEBUG_ALL
-	{
-		int i;
-		fprintf(stderr, "handler(%p, %d, bytes=%p)\n", user, h->len, bytes);
-		for(i = 0; i < 32 && h->len; i++)
-		{
-			fprintf(stderr, "%02x%s", bytes[i], 15 == i % 16 ? "\n" : " ");
-		}
-		if (0 != i % 16) fprintf(stderr, "\n");
-	}
-#endif
-	*((int *)user) = h->len;
-	if (UIP_BUFSIZE < h->len)
-	{
-		fprintf(stderr, "Buffer(%d) too small for %d bytes\n", UIP_BUFSIZE, h->len);
-		*((int *)user) = UIP_BUFSIZE;
-	}
-	memmove(uip_buf, bytes, *((int *)user));
-}
-
-unsigned int ap51_pcap_read(void)
-{
-	int ret = 0;
-	if (0 == pcap_dispatch(pcap_fp, 1, handler, (u_char *)&ret))
-	{
-		return 0;
-	}
-	return ret;
-}
-
-void pcap_send(void)
-{
-#ifdef DEBUG_ALL
-	{
-		int i;
-		fprintf(stderr, "send(%p, %d)\n", uip_buf, uip_len);
-		for(i = 0; i < 32 && i < uip_len; i++)
-		{
-			fprintf(stderr, "%02x%s", uip_buf[i], 15 == i % 16 ? "\n" : " ");
-		}
-		if (0 != i % 16) fprintf(stderr, "\n");
-	}
-#endif
-	if (0 > pcap_sendpacket(pcap_fp, uip_buf, uip_len))
-	{
-		perror("pcap_sendpacket");
-		exit(1);
-	}
 }
 
 static int extract_boot_prompt(struct ap51_flash_state *s)
@@ -380,9 +332,7 @@ sanity_check:
 		exit(1);
 #endif
 
-		tftp_send = 0;
-		s->tftpconn = uip_udp_new(&srcipaddr, htons(0xffff));
-		uip_udp_bind(s->tftpconn, htons(IPPORT_TFTP));
+		tftp_bytes_sent = 0;
 		printf("Loading rootfs...\n");
 
 		if (device_info->options & FREEMEMLO)
@@ -401,11 +351,12 @@ sanity_check:
 			goto err_close;
 		}
 
-		if (tftp_send < (unsigned long)rootfs_size) {
-			fprintf(stderr, "Error transferring rootfs, send=%ld, expected=%d\n", tftp_send, rootfs_size);
+		if (tftp_bytes_sent < (unsigned long)rootfs_size) {
+			fprintf(stderr, "Error transferring rootfs, send=%ld, expected=%d\n", tftp_bytes_sent, rootfs_size);
 			exit(1);
 		}
-		uip_udp_remove(s->tftpconn);
+
+		xfer_in_progress = 0;
 		printf("Initializing partitions...\n");
 		PSOCK_SEND_STR(388, &s->p, "fis init\n");
 		s->inputbuffer[0] = 0;
@@ -450,9 +401,7 @@ sanity_check:
 			goto err_close;
 		}
 
-		tftp_send = 0;
-		s->tftpconn = uip_udp_new(&srcipaddr, htons(0xffff));
-		uip_udp_bind(s->tftpconn, htons(IPPORT_TFTP));
+		tftp_bytes_sent = 0;
 		printf("Loading kernel...\n");
 
 		if (device_info->options & FREEMEMLO)
@@ -470,12 +419,13 @@ sanity_check:
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
 			goto err_close;
 		}
-		if (tftp_send < (unsigned long)kernel_size)
+		if (tftp_bytes_sent < (unsigned long)kernel_size)
 		{
-			fprintf(stderr, "Error transferring kernel, send=%ld, expected=%d\n", tftp_send, kernel_size);
+			fprintf(stderr, "Error transferring kernel, send=%ld, expected=%d\n", tftp_bytes_sent, kernel_size);
 			exit(1);
 		}
-		uip_udp_remove(s->tftpconn);
+
+		xfer_in_progress = 0;
 		printf("Flashing kernel...\n");
 
 		if (device_info->options & SET_FLASH_ADDR)
@@ -565,98 +515,69 @@ err_close:
 void ap51_flash_appcall(void)
 {
 	struct ap51_flash_state *s = &(uip_conn->appstate);
+
 	if (uip_connected())
-	{
-#ifdef _DEBUG
-		fprintf(stderr, "PSOCK_INIT()\n");
-#endif
 		PSOCK_INIT(&s->p, s->inputbuffer, sizeof(s->inputbuffer));
-	}
+
 	handle_connection(s);
 }
 
-void ap51_flash_tftp_appcall(void)
+static void send_uip_buffer(void)
 {
-	if(uip_udp_conn->lport == htons(IPPORT_TFTP)) {
-		if (uip_poll());
-		if (uip_newdata())
-		{
-			unsigned short block = 0;
-			unsigned short opcode = ntohs(*(unsigned short*)((unsigned char*)uip_appdata + 0));
+	if (uip_len < 0)
+		return;
+
+	if (pcap_sendpacket(pcap_fp, uip_buf, uip_len) < 0) {
+		perror("pcap_sendpacket");
+		exit(1);
+	}
+}
+
+void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len)
+{
+	uip_len = packet_len;
+
+	if (UIP_BUFSIZE < uip_len) {
+		fprintf(stderr, "Buffer(%d) too small for %d bytes - truncating\n",
+			UIP_BUFSIZE, uip_len);
+		uip_len = UIP_BUFSIZE;
+	}
+
+	memmove(uip_buf, packet_buff, uip_len);
+
+	uip_arp_ipin();
+
 #ifdef _DEBUG
-			fprintf(stderr, "tftp opcode=%d\n", opcode);
-			{
-				int i;
-				char* p = (char*)uip_appdata;
-				for(i = 0; i < 48; i++)
-				{
-					fprintf(stderr, "%02x%s", p[i], 15 == i % 16 ? "\n" : " ");
-				}
-			}
+	fprintf(stderr, "uip_input(), uip_len=%d, uip_buf[2f]=%02x\n", uip_len, uip_buf[0x2f]);
+	if ((uip_buf[0x2f] & 0x02) != 0)
+		fprintf(stderr, "Got you!\n");
 #endif
-			switch(opcode)
-			{
-				/* Read Request */
-				case 1:
-				{
-					if (0 == strcmp(((char*)uip_appdata) + 2, "kernel"))
-					{
-						tftp_buf = kernel_buf;
-						tftp_size = kernel_size;
-						printf("Sending kernel, %ld blocks...\n", ((tftp_size + 511) / 512));
-					}
-					else if (0 == strcmp(((char*)uip_appdata) + 2, "rootfs"))
-					{
-						tftp_buf = rootfs_buf;
-						tftp_size = rootfs_size;
-						printf("Sending rootfs, %ld blocks...\n", ((tftp_size + 511) / 512));
-					}
-					else
-					{
-						fprintf(stderr, "Unknown file name: %s\n", ((char*)uip_appdata) + 2);
-						exit(1);
-					}
-				}
-				break;
-				/* TFTP ack */
-				case 4:
-				{
-					block = ntohs(*(unsigned short*)((unsigned char*)uip_appdata + 2));
-					if (block <= tftp_send / 512) {
-						fprintf(stderr, "tftp repeat block %d\n", block);
-					}
-#ifdef WIN32
-					/*
-					 * Dunno why, If fixed IP and all microsoft protocols
-					 * are enabled, tftp simply stops. This Sleep(1) prevent
-					 * TFTP from failing
-					 */
-					Sleep(1);
-#endif
-				}
-				break;
-				default:
-					fprintf(stderr, "Unknown opcode: %d\n", opcode);
-					exit(1);
-				break;
-			}
-			{
-				unsigned short nextblock = block + 1;
-				*(unsigned short*)((unsigned char*)uip_appdata + 0) = htons(3);
-				*(unsigned short*)((unsigned char*)uip_appdata + 2) = htons(nextblock);
-			}
-#ifdef _DEBUG
-			fprintf(stderr, "tftp: block=%d, offs=%p\n", block, tftp_buf + 512 * block);
-#endif
-			if (block < ((tftp_size + 511) / 512)) {
-				tftp_send = 512 * block;
-				memmove((unsigned char*)uip_appdata + 4, (void *)(tftp_buf + tftp_send), 512);
-				uip_send(uip_appdata, 512 + 4);
-			}
-			else if (block == ((tftp_size + 511) / 512)) {
-				tftp_send = 512 * block;
-				uip_send(uip_appdata, 4);
-			}
+
+	uip_input();
+
+	/* If the above function invocation resulted in data that
+	 * should be sent out on the network, the global variable
+	 * uip_len is set to a value > 0.
+	 */
+	if (uip_len > 0) {
+		uip_arp_out();
+		send_uip_buffer();
+	}
+}
+
+void handle_uip_conns(void)
+{
+	int i;
+
+	for (i = 0; i < UIP_CONNS; i++) {
+		uip_periodic(i);
+		/* If the above function invocation resulted in data that
+			* should be sent out on the network, the global variable
+			* uip_len is set to a value > 0.
+			*/
+		if (uip_len > 0) {
+			uip_arp_out();
+			send_uip_buffer();
 		}
 	}
 }
@@ -665,7 +586,6 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
-	struct timer periodic_timer, arp_timer;
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
 	unsigned char* buf = 0;
@@ -860,10 +780,6 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	uip_setnetmask(netmask);
 	uip_arp_update(dstipaddr, &dstmac);
 
-	timer_set(&periodic_timer, CLOCK_SECOND / 4);
-	timer_set(&arp_timer, CLOCK_SECOND * 10);
-
-	/* usleep(3750000); */
 	/**
 	 * the arp packet count should make sure we get the difference
 	 * between the pico and the other ubnt devices
@@ -874,7 +790,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	switch (flash_mode) {
 	case MODE_REDBOOT:
 		if (ubnt_img) {
-			fprintf(stderr, "You are trying to flash a non-ubiquiti device with a ubiquiti image!\n");
+			fprintf(stderr, "You are trying to flash a redboot device with a ubiquiti image!\n");
 			return 1;
 		}
 
@@ -921,104 +837,20 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 #endif
 		if (!ubnt_img) {
-			fprintf(stderr, "You are trying to flash a ubiquiti device with a non-ubiquiti image!\n");
+			fprintf(stderr, "You are trying to flash a ubiquiti device with redboot images!\n");
 			return 1;
 		}
 
+		tftp_xfer_buff = rootfs_buf;
+		tftp_xfer_size = rootfs_size;
 		printf("Ubiquiti device detected - using TFTP client to flash\n");
-		tftp_transfer();
-		return 0;
+		break;
 	default:
 		fprintf(stderr, "Could not auto-detect flash mode!\n");
 		return 1;
 	}
 
-	while(1) {
-		uip_len = ap51_pcap_read();
-		if(uip_len > 0)
-		{
-			if (0 == memcmp(&BUF->src, &srcmac, sizeof(srcmac)))
-			{
-#ifdef _DEBUG
-				printf("ignored %d byte from %02x:%02x:%02x:%02x:%02x:%02x\n", uip_len,
-					BUF->src.addr[0], BUF->src.addr[1], BUF->src.addr[2],
-					BUF->src.addr[3], BUF->src.addr[4], BUF->src.addr[5]);
-#endif
-			    uip_len = 0;
-			}
-			else if(0 != memcmp(&BUF->dest, &srcmac, sizeof(srcmac)) &&
-				0 != memcmp(&BUF->dest, &brcmac, sizeof(brcmac)))
-			{
-#ifdef _DEBUG
-				fprintf(stderr, "ignored %d byte to %02x:%02x:%02x:%02x:%02x:%02x\n", uip_len,
-					BUF->dest.addr[0], BUF->dest.addr[1], BUF->dest.addr[2],
-					BUF->dest.addr[3], BUF->dest.addr[4], BUF->dest.addr[5]);
-#endif
-				uip_len = 0;
-			}
-			else if(BUF->type == htons(UIP_ETHTYPE_IP))
-			{
-				uip_arp_ipin();
-#ifdef _DEBUG
-				fprintf(stderr, "uip_input(), uip_len=%d, uip_buf[2f]=%02x\n", uip_len, uip_buf[0x2f]);
-				if (0 != (uip_buf[0x2f] & 0x02))
-				{
-					fprintf(stderr, "Got you!\n");
-				}
-#endif
-				uip_input();
-
-				/* If the above function invocation resulted in data that
-				 * should be sent out on the network, the global variable
-				 * uip_len is set to a value > 0.
-				 */
-				if(uip_len > 0)
-				{
-					uip_arp_out();
-					pcap_send();
-				}
-			}
-			else if(BUF->type == htons(UIP_ETHTYPE_ARP))
-			{
-				uip_arp_arpin();
-
-				/* If the above function invocation resulted in data that
-				 * should be sent out on the network, the global variable
-				 * uip_len is set to a value > 0.
-				 */
-				if(uip_len > 0)
-				{
-					pcap_send();
-				}
-			}
-
-		}
-		else if(timer_expired(&periodic_timer))
-		{
-			int i;
-			timer_reset(&periodic_timer);
-			for(i = 0; i < UIP_CONNS; i++)
-			{
-				uip_periodic(i);
-				/* If the above function invocation resulted in data that
-				 * should be sent out on the network, the global variable
-				 * uip_len is set to a value > 0.
-				 */
-				if(uip_len > 0)
-				{
-					uip_arp_out();
-					pcap_send();
-				}
-			}
-
-			/* Call the ARP timer function every 10 seconds. */
-			if(timer_expired(&arp_timer))
-			{
-				timer_reset(&arp_timer);
-				uip_arp_timer();
-			}
-		}
-	}
+	fw_upload();
 	return 0;
 }
 

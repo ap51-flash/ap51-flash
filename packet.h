@@ -21,14 +21,15 @@
 #define TFTP_SRC_PORT 13337
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
 #define TFTP_BASE_LEN (sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct udphdr))
-#define TCP_BASE_LEN (sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct tcphdr))
 
 extern struct ether_header *ethhdr;
 extern struct ether_arp *arphdr;
 extern struct iphdr *iphdr;
 extern struct udphdr *udphdr;
 extern void *tftp_data;
+extern unsigned long tftp_bytes_sent;
+extern unsigned short xfer_in_progress;
 
 void arp_packet_init(void);
 void arp_packet_send(void);
-void tftp_transfer(void);
+void fw_upload(void);
