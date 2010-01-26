@@ -32,4 +32,3 @@ extern void *tftp_data;
 void arp_packet_init(void);
 void arp_packet_send(void);
 void tftp_transfer(void);
-int tcp_port_scan(unsigned int src_addr, unsigned int dst_addr, unsigned short dst_port);

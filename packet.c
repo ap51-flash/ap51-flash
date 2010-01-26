@@ -92,7 +92,9 @@ static void tftp_packet_send(int tftp_data_len)
 
 	for(i = 0; i < TFTP_BASE_LEN + tftp_data_len; i++)
 		fprintf(stderr, "%02x%s", packet_buff[i], 15 == i % 16 ? "\n" : " ");
-	if (0 != i % 16) fprintf(stderr, "\n");
+
+	if ((i % 16) != 0)
+		fprintf(stderr, "\n");
 #endif
 
 	if (!pcap_sendpacket(pcap_fp, packet_buff, TFTP_BASE_LEN + tftp_data_len))
@@ -274,125 +276,4 @@ void tftp_transfer(void)
 			}
 		}
 	}
-}
-
-static void tcp_packet_send(void)
-{
-	unsigned short sum;
-
-	/* TCP checksum */
-	tcphdr->check = 0;
-	sum = sizeof(struct tcphdr) + iphdr->protocol;
-	sum = chksum(sum, (void *)&iphdr->saddr, 2 * sizeof(iphdr->saddr));
-	sum = chksum(sum, (void *)tcphdr, sizeof(struct tcphdr));
-	tcphdr->check = ~(htons(sum));
-
-	iphdr->tot_len = htons(20 + sizeof(struct tcphdr));
-	iphdr->check = 0;
-	iphdr->check = ~(htons(chksum(0, (void *)iphdr, sizeof(struct iphdr))));
-
-#if defined(_DEBUG)
-	int i;
-
-	for(i = 0; i < TCP_BASE_LEN; i++)
-		fprintf(stderr, "%02x%s", packet_buff[i], 15 == i % 16 ? "\n" : " ");
-	if (0 != i % 16) fprintf(stderr, "\n");
-#endif
-
-	if (!pcap_sendpacket(pcap_fp, packet_buff, TCP_BASE_LEN))
-		return;
-
-	perror("pcap_sendpacket");
-	exit(1);
-}
-
-static void tcp_send_packet(unsigned int src_addr, unsigned int dst_addr, unsigned short dst_port)
-{
-	ethhdr->ether_type = htons(ETH_P_IP);
-	iphdr->version = 4;
-	iphdr->ihl = 5;
-	iphdr->tos = 0;
-	iphdr->id = 0;
-	iphdr->frag_off = 0;
-	iphdr->ttl = 50;
-	iphdr->protocol = IPPROTO_TCP;
-	iphdr->saddr = src_addr;
-	iphdr->daddr = dst_addr;
-	tcphdr->source = htons(TFTP_SRC_PORT);
-	tcphdr->dest = dst_port;
-	tcphdr->doff = 5;
-	tcphdr->window = htons(4146);
-
-	tcp_packet_send();
-}
-
-static void tcp_send_syn_packet(unsigned int src_addr, unsigned int dst_addr, unsigned short dst_port)
-{
-	memset(tcphdr, 0, sizeof(struct tcphdr));
-	tcphdr->syn = 1;
-	tcp_send_packet(src_addr, dst_addr, dst_port);
-}
-
-int tcp_port_scan(unsigned int src_addr, unsigned int dst_addr, unsigned short dst_port)
-{
-	const unsigned char* packet;
-	struct pcap_pkthdr hdr;
-	struct iphdr *rcv_iphdr;
-	struct tcphdr *rcv_tcphdr;
-	int tcp_send_timeout = 50;
-
-	tcp_send_syn_packet(src_addr, dst_addr, dst_port);
-
-	while (1) {
-		packet = pcap_next(pcap_fp, &hdr);
-
-		if (!packet) {
-			if (!tcp_send_timeout)
-				goto err;
-
-			usleep(125000);
-			tcp_send_timeout--;
-
-			tcp_send_syn_packet(src_addr, dst_addr, dst_port);
-			continue;
-		}
-
-		switch (ntohs(((struct ether_header *)packet)->ether_type)) {
-		case ETH_P_IP:
-			rcv_iphdr = (struct iphdr *)(packet + ETH_HLEN);
-
-			if ((rcv_iphdr->saddr != dst_addr) ||
-				(rcv_iphdr->daddr != src_addr))
-				break;
-
-			if ((rcv_iphdr->protocol == IPPROTO_ICMP)
-				&& (packet[ETH_HLEN + (rcv_iphdr->ihl * 4)] == ICMP_DEST_UNREACH)) {
-				break;
-			}
-
-			if (rcv_iphdr->protocol != IPPROTO_TCP)
-				break;
-
-			rcv_tcphdr = (struct tcphdr *)(packet + ETH_HLEN + (rcv_iphdr->ihl * 4));
-
-			if (rcv_tcphdr->dest != htons(TFTP_SRC_PORT))
-				break;
-
-			/* printf("tcp packet received, flags [%c%c%c%c%c%c]\n",
-				(rcv_tcphdr->fin ? 'F' : '.'), (rcv_tcphdr->syn ? 'S' : '.'),
-				(rcv_tcphdr->rst ? 'R' : '.'), (rcv_tcphdr->psh ? 'P' : '.'),
-				(rcv_tcphdr->ack ? 'A' : '.'), (rcv_tcphdr->urg ? 'U' : '.')); */
-
-			if (rcv_tcphdr->rst)
-				break;
-
-			if ((rcv_tcphdr->syn) && (rcv_tcphdr->ack))
-				return 0;
-
-			break;
-		}
-	}
-
-err:
-	return -1;
 }

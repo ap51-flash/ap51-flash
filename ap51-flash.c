@@ -871,22 +871,6 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	if (flash_mode == MODE_MAYBE_REDBOOT)
 		flash_mode = MODE_REDBOOT;
 
-	/*if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT)) {
-		res = tcp_port_scan(*((unsigned int *)srcipaddr), *((unsigned int *)dstipaddr), htons(TELNET_PORT));
-
-		if ((res < 0) && (flash_mode == MODE_REDBOOT)) {
-			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);
-			return 1;
-		}
-
-		if (flash_mode == MODE_MAYBE_REDBOOT) {
-			if (res < 0)
-				flash_mode = MODE_TFTP_CLIENT;
-			else
-				flash_mode = MODE_REDBOOT;
-		}
-	}*/
-
 	switch (flash_mode) {
 	case MODE_REDBOOT:
 		if (ubnt_img) {
