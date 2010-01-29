@@ -27,6 +27,11 @@ LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
 OBJS    = $(LIB_OBJS) main.o
 AP51_RC = ap51-flash-res
 
+# enable debug output
+# CFLAGS += -DDEBUG
+# enable packet debug output
+# CFLAGS += -DPACKET_DEBUG
+
 # if you change the names here you also need to change the ap51-flash.c code
 EMBED_KERNEL = openwrt-atheros-vmlinux.lzma
 EMBED_ROOTFS = openwrt-atheros-root.squashfs
@@ -65,8 +70,6 @@ CFLAGS += -DREVISION_VERSION=\"unknown\"
 else
 CFLAGS += -DREVISION_VERSION=\"$(REVISION)\"
 endif
-
-#CFLAGS += -D_DEBUG
 
 all: ap51-flash
 

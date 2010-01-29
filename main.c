@@ -98,9 +98,9 @@ int main(int argc, char* argv[])
 		argc--;
 		special = 1;
 	}
-#ifdef _DEBUG
-	special = 1;
-#endif
+// #if defined(DEBUG)
+// 	special = 1;
+// #endif
 
 /*	if (argc > 2 && 0 == strcmp("uncomp", argv[argc - 1]))
 	{

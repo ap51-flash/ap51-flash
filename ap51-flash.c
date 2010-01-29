@@ -50,8 +50,7 @@ static char boot_prompt[24];
 static int phase = 0;
 static struct device_info *device_info = &flash_8mb_info;
 static char *kernelpartname = "vmlinux.bin.l7";
-
-#define TELNET_PORT 9000
+pcap_t *pcap_fp = NULL;
 
 #if defined(EMBEDDED_DATA) && !defined(WIN32)
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_start;
@@ -75,27 +74,22 @@ static uip_ipaddr_t dstipaddr;
 
 void uip_log(char *m)
 {
-#if defined(_DEBUG) || defined(DEBUG_ALL)
+#if defined(PACKET_DEBUG)
 	fprintf(stderr, "uIP log message: %s\n", m);
 #endif
 }
 
-pcap_t *pcap_fp = NULL;
-
-#ifdef WIN32
-#define PCAP_TIMEOUT_MS 1000
-#else
-#define PCAP_TIMEOUT_MS 200
-#endif
-
-int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
+static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
 {
-	int i, arp_replies = 0, arp_grat_packets = 0;
+	int arp_replies = 0, arp_grat_packets = 0;
 	char error[PCAP_ERRBUF_SIZE];
 	const unsigned char *packet;
 	struct pcap_pkthdr hdr;
 	struct ether_header *recv_ethhdr;
 	struct ether_arp *recv_arphdr;
+#if defined(DEBUG)
+	int i;
+#endif
 
 	/* Open the output adapter */
 	if (NULL == (pcap_fp = pcap_open_live(dev, 1500, 1, PCAP_TIMEOUT_MS, error))) {
@@ -112,12 +106,15 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 	*((unsigned int *)arphdr->arp_spa) = htonl(ubnt_local_ip);
 	*((unsigned int *)arphdr->arp_tpa) = htonl(ubnt_remote_ip);
 
+	fprintf(stderr, "Waiting for device to run auto-detection.\nMake sure, the device is connected directly!\n");
+
 	while (1) {
 		arp_packet_send();
 
 		while (NULL == (packet = pcap_next(pcap_fp, &hdr))) {
+#if defined(DEBUG)
 			printf("No packet.\n");
-
+#endif
 			usleep(250000);
 			arp_packet_send();
 		}
@@ -125,12 +122,16 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		recv_ethhdr = (struct ether_header *)packet;
 
 		if (recv_ethhdr->ether_type != htons(ETHERTYPE_ARP)) {
+#if defined(DEBUG)
 			fprintf(stderr, "Non arp received. Make sure, the device is connected directly!\n");
+#endif
 			continue;
 		}
 
 		if (hdr.len != 60) {
+#if defined(DEBUG)
 			fprintf(stderr, "Expect arp with length 60, received %d\n", hdr.len);
+#endif
 			continue;
 		}
 
@@ -138,9 +139,11 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 
 		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REPLY)) {
 			if (*((unsigned int *)recv_arphdr->arp_spa) != htonl(ubnt_remote_ip)) {
+#if defined(DEBUG)
 				fprintf(stderr, "Unexpected arp packet, opcode=%d, spa=%u\n",
 					ntohs(recv_arphdr->ea_hdr.ar_op),
 					ntohl(*((unsigned int *)recv_arphdr->arp_spa)));
+#endif
 				continue;
 			}
 
@@ -155,7 +158,9 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 		}
 
 		if (recv_arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST)) {
+#if defined(DEBUG)
 			fprintf(stderr, "Unexpected arp packet, opcode=%d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
+#endif
 			continue;
 		}
 
@@ -185,30 +190,32 @@ int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_ad
 	memmove(dip, recv_arphdr->arp_spa, 4);
 	memmove(sip, recv_arphdr->arp_tpa, 4);
 
+	if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT))
+		P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
+
+	memcpy(&remote_ip, dip, 4);
+	memcpy(&local_ip, sip, 4);
+
+	if (!special && 0 == P(*dip)[0] && 0 == P(*dip)[1] && 0 == P(*dip)[2] && 0 == P(*dip)[3]) {
+		fprintf(stderr, "Telnet for RedBoot not enabled.\n");
+		return -1;
+	}
+
+#if defined(DEBUG)
 	printf("Peer MAC: ");
 	for (i = 0; i < sizeof(*dmac); i++)
 		printf("%s%02x", 0 == i ? "" : ":", dmac->addr[i]);
 	printf("\n");
-	printf("Peer IP : %d.%d.%d.%d\n", P(*dip)[0], P(*dip)[1], P(*dip)[2], P(*dip)[3]);
 
-	if (!special && 0 == P(*dip)[0] && 0 == P(*dip)[1] && 0 == P(*dip)[2] && 0 == P(*dip)[3])
-	{
-		fprintf(stderr, "Telnet for RedBoot not enabled.\n");
-		return -1;
-	}
+	printf("Peer IP : %d.%d.%d.%d\n", P(*dip)[0], P(*dip)[1], P(*dip)[2], P(*dip)[3]);
 
 	printf("Your MAC: ");
 	for (i = 0; i < ETH_ALEN; i++)
 		printf("%s%02x", 0 == i ? "" : ":", smac->addr[i]);
 	printf("\n");
 
-	if ((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_MAYBE_REDBOOT))
-		P(*sip)[3] = 0 == P(*sip)[3] ? 1 : 0;
-
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
-
-	memcpy(&remote_ip, dip, 4);
-	memcpy(&local_ip, sip, 4);
+#endif
 
 	if (0 > pcap_setnonblock(pcap_fp, 1, error)) {
 		fprintf(stderr,"Error setting non-blocking mode: %s\n", error);
@@ -328,9 +335,6 @@ sanity_check:
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
 			goto err_close;
 		}
-#ifdef _DEBUG
-		exit(1);
-#endif
 
 		tftp_bytes_sent = 0;
 		printf("Loading rootfs...\n");
@@ -524,7 +528,7 @@ void ap51_flash_appcall(void)
 
 static void send_uip_buffer(void)
 {
-	if (uip_len < 0)
+	if (uip_len <= 0)
 		return;
 
 	if (pcap_sendpacket(pcap_fp, uip_buf, uip_len) < 0) {
@@ -547,7 +551,7 @@ void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len)
 
 	uip_arp_ipin();
 
-#ifdef _DEBUG
+#if defined(PACKET_DEBUG)
 	fprintf(stderr, "uip_input(), uip_len=%d, uip_buf[2f]=%02x\n", uip_len, uip_buf[0x2f]);
 	if ((uip_buf[0x2f] & 0x02) != 0)
 		fprintf(stderr, "Got you!\n");
@@ -795,7 +799,8 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		}
 
 		printf("Redboot enabled device detected - using redboot to flash\n");
-		printf("WARNING: UNPLUGGING POWER OR ETHERNET DURING THIS PROCESS WILL LIKELY DAMAGE YOUR DEVICE AND THIS WILL NOT BE COVERED BY WARRANTY!\n");
+		printf("WARNING: UNPLUGGING POWER OR ETHERNET DURING THIS PROCESS WILL LIKELY DAMAGE\n");
+		printf("YOUR DEVICE AND THIS WILL NOT BE COVERED BY WARRANTY!\n");
 
 		if (NULL == uip_connect(&dstipaddr, htons(TELNET_PORT))) {
 			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);

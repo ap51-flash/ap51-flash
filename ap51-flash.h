@@ -28,6 +28,7 @@
 #include <windows.h>
 #include "ap51-flash-res.h"
 #include "missing-win32.h"
+#define PCAP_TIMEOUT_MS 1000
 #else
 /* Linux */
 #define O_BINARY 0
@@ -38,6 +39,7 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+#define PCAP_TIMEOUT_MS 200
 #endif
 
 typedef struct ap51_flash_state {
@@ -83,10 +85,6 @@ enum {
 #define EMBEDDED_DESC_STR "no description of embedded files available"
 #else
 #define EMBEDDED_DESC_STR EMBEDDED_DESC
-#endif
-
-#ifdef _DEBUG
-#define DEBUG_ALL
 #endif
 
 typedef int uip_udp_appstate_t;

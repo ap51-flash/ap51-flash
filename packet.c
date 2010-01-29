@@ -28,7 +28,6 @@ struct ether_header *ethhdr = (struct ether_header *)packet_buff;
 struct ether_arp *arphdr = (struct ether_arp *)(packet_buff + sizeof(struct ether_header));
 struct iphdr *iphdr = (struct iphdr *)(packet_buff + sizeof(struct ether_header));
 struct udphdr *udphdr = (struct udphdr *)(packet_buff + sizeof(struct ether_header) + sizeof(struct iphdr));
-struct tcphdr *tcphdr = (struct tcphdr *)(packet_buff + sizeof(struct ether_header) + sizeof(struct iphdr));
 void *tftp_data = (void *)(packet_buff + TFTP_BASE_LEN);
 
 unsigned long tftp_bytes_sent = 0;
@@ -90,7 +89,7 @@ static void tftp_packet_send(int tftp_data_len)
 	iphdr->check = 0;
 	iphdr->check = ~(htons(chksum(0, (void *)iphdr, sizeof(struct iphdr))));
 
-#if defined(_DEBUG)
+#if defined(PACKET_DEBUG)
 	int i;
 
 	for(i = 0; i < TFTP_BASE_LEN + tftp_data_len; i++)
@@ -261,7 +260,7 @@ void fw_upload(void)
 					continue;
 				}
 
-				printf("TFTP connection timeout .. \n");
+				fprintf(stderr, "TFTP connection timeout .. \n");
 				tftp_write_req();
 				write_req_timeout = 2;
 			}
@@ -322,7 +321,7 @@ void fw_upload(void)
 
 			if ((rcv_iphdr->protocol == IPPROTO_ICMP) && (!xfer_in_progress)
 				&& (packet[ETH_HLEN + (rcv_iphdr->ihl * 4)] == ICMP_DEST_UNREACH)) {
-				printf("TFTP server not responding .. \n");
+				fprintf(stderr, "TFTP server not responding .. \n");
 				continue;
 			}
 

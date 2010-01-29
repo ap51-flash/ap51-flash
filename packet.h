@@ -19,6 +19,7 @@
 #include "ap51-flash.h"
 
 #define TFTP_SRC_PORT 13337
+#define TELNET_PORT 9000
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
 #define TFTP_BASE_LEN (sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct udphdr))
 
