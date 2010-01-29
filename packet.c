@@ -1,5 +1,5 @@
 /*
- * Copyright (C) open-mesh inc
+ * Copyright (C) Open Mesh, Inc., Marek Lindner
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 3 of the GNU General Public
