@@ -33,4 +33,4 @@ extern unsigned short xfer_in_progress;
 
 void arp_packet_init(void);
 void arp_packet_send(void);
-void fw_upload(void);
+int fw_upload(void);

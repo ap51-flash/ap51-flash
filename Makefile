@@ -31,6 +31,8 @@ AP51_RC = ap51-flash-res
 # CFLAGS += -DDEBUG
 # enable packet debug output
 # CFLAGS += -DPACKET_DEBUG
+# enable flash from file mode
+# CFLAGS += -DFLASH_FROM_FILE
 
 # if you change the names here you also need to change the ap51-flash.c code
 EMBED_KERNEL = openwrt-atheros-vmlinux.lzma

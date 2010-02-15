@@ -122,6 +122,30 @@ static void tftp_write_req(void)
 	tftp_packet_send(tftp_data_len);
 }
 
+static void read_from_file(void *target_buff, void *data, int len, int seek_pos)
+{
+	struct flash_from_file *fff = (struct flash_from_file *)data;
+	int read_len = len;
+
+	if (fff->file_size < seek_pos)
+		read_len = 0;
+	else if (fff->file_size < seek_pos + len)
+		read_len = fff->file_size - seek_pos;
+
+	if (read_len > 0) {
+		if (read_len != read(fff->fd, target_buff, read_len)) {
+			perror(fff->fname);
+			exit(1);
+		}
+	}
+
+	if (read_len != len)
+		memset(target_buff + read_len, 0, len - read_len);
+
+	if (seek_pos == 0)
+		memcpy(fff->buff, target_buff, 2);
+}
+
 static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_len)
 {
 	struct udphdr *rcv_udphdr = (struct udphdr *)packet_buff;
@@ -145,13 +169,13 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 	case 1:
 		file_name = ((char *)rcv_udphdr) + sizeof(struct udphdr) + 2;
 		if (strcmp(file_name, "kernel") == 0) {
-			tftp_xfer_buff = kernel_buf;
-			tftp_xfer_size = kernel_size;
+			tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_KERNEL] : kernel_buf);
+			tftp_xfer_size = (flash_from_file ? fff_data[FFF_KERNEL].flash_size : kernel_size);
 			printf("Sending kernel, %ld blocks...\n",
 			       ((tftp_xfer_size + 511) / 512));
 		} else if (strcmp(file_name, "rootfs") == 0) {
-			tftp_xfer_buff = rootfs_buf;
-			tftp_xfer_size = rootfs_size;
+			tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_ROOTFS] : rootfs_buf);
+			tftp_xfer_size = (flash_from_file ? fff_data[FFF_ROOTFS].flash_size : rootfs_size);
 			printf("Sending rootfs, %ld blocks...\n",
 			       ((tftp_xfer_size + 511) / 512));
 		} else {
@@ -199,13 +223,12 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 		*((unsigned short *)tftp_data) = htons(3);
 		*((unsigned short *)(tftp_data + 2)) = htons(block);
 
-		if (tftp_xfer_size - tftp_bytes_sent >= 512) {
-			memcpy(tftp_data + 4, (void *)(tftp_xfer_buff + tftp_bytes_sent), 512);
-			tftp_data_len = 512;
-		} else {
-			memcpy(tftp_data + 4, (void *)(tftp_xfer_buff + tftp_bytes_sent), tftp_xfer_size - tftp_bytes_sent);
-			tftp_data_len = tftp_xfer_size - tftp_bytes_sent;
-		}
+		tftp_data_len = tftp_xfer_size - tftp_bytes_sent > 512 ? 512 : tftp_xfer_size - tftp_bytes_sent;
+
+		if (flash_from_file)
+			read_from_file(tftp_data + 4, (void *)tftp_xfer_buff, tftp_data_len, tftp_bytes_sent);
+		else
+			memcpy(tftp_data + 4, (void *)(tftp_xfer_buff + tftp_bytes_sent), tftp_data_len);
 
 		tftp_bytes_sent += tftp_data_len;
 		tftp_data_len += 4; /* opcode size */
@@ -230,7 +253,7 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 	}
 }
 
-void fw_upload(void)
+int fw_upload(void)
 {
 	const unsigned char *packet;
 	struct pcap_pkthdr hdr;
@@ -341,4 +364,6 @@ void fw_upload(void)
 			break;
 		}
 	}
+
+	return 0;
 }

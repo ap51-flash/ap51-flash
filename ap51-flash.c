@@ -39,6 +39,8 @@ static int nvram_part_size = 0x00000000;
 static int rootfs_part_size = 0x00000000;
 
 char flash_mode = MODE_NONE;
+int flash_from_file = 0;
+struct flash_from_file fff_data[FFF_NUM];
 unsigned int remote_ip;
 unsigned int local_ip;
 static unsigned int ubnt_remote_ip = 3232235796UL; /* 192.168.1.20 */
@@ -93,7 +95,7 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 
 	/* Open the output adapter */
 	if (NULL == (pcap_fp = pcap_open_live(dev, 1500, 1, PCAP_TIMEOUT_MS, error))) {
-		fprintf(stderr,"Error opening adapter: %s\n", error);
+		fprintf(stderr, "Error opening adapter: %s\n", error);
 		return -1;
 	}
 
@@ -377,11 +379,9 @@ sanity_check:
 		if ((str_ptr) && (device_info->options & ROOTFS_RESIZE)) {
 			unsigned long int x = 0;
 			sscanf(str_ptr, "Erase from 0x%08lx", &x);
-			if (0 != x)
-			{
+			if (0 != x) {
 				x -= device_info->flash_addr;
-				if (x > device_info->flash_size)
-				{
+				if (x > device_info->flash_size) {
 					rootfs_part_size += (x - device_info->flash_size);
 					printf("Rootfs partition size now 0x%08x\n", rootfs_part_size);
 				}
@@ -425,8 +425,7 @@ sanity_check:
 			fprintf(stderr, "No RedBoot prompt. Exit in line %d\n", __LINE__);
 			goto err_close;
 		}
-		if (tftp_bytes_sent < (unsigned long)kernel_size)
-		{
+		if (tftp_bytes_sent < (unsigned long)kernel_size) {
 			fprintf(stderr, "Error transferring kernel, send=%ld, expected=%d\n", tftp_bytes_sent, kernel_size);
 			exit(1);
 		}
@@ -476,14 +475,23 @@ sanity_check:
 		PSOCK_SEND_STR(473, &s->p, "fconfig -d boot_script_data\n");
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(475, &s->p, '>');
-		if (!uncomp_loader)
-		{
-			sprintf(str, "fis load %s %s\n", (0x1f == kernel_buf[0] && 0x8b ==kernel_buf[1] ? "-d" : "-l"), kernelpartname);
+
+		if (flash_from_file) {
+			if (!uncomp_loader)
+				sprintf(str, "fis load %s %s\n",
+					(0x1f == fff_data[FFF_KERNEL].buff[0] && 0x8b ==fff_data[FFF_KERNEL].buff[1] ? "-d" : "-l"),
+					kernelpartname);
+			else
+				sprintf(str, "fis load %s\n", kernelpartname);
+		} else {
+			if (!uncomp_loader)
+				sprintf(str, "fis load %s %s\n",
+					(0x1f == kernel_buf[0] && 0x8b ==kernel_buf[1] ? "-d" : "-l"),
+					kernelpartname);
+			else
+				sprintf(str, "fis load %s\n", kernelpartname);
 		}
-		else
-		{
-			sprintf(str, "fis load %s\n", kernelpartname);
-		}
+
 		PSOCK_SEND_STR(477, &s->p, str);
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(479, &s->p, '>');
@@ -590,15 +598,65 @@ void handle_uip_conns(void)
 	}
 }
 
-int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special)
+static int open_image_file(char *fname, int *fd, int *file_size, int *flash_size, unsigned char **buff)
+{
+	char err_string[265];
+
+	*fd = open(fname, O_RDONLY | O_BINARY);
+	if (*fd < 0) {
+		perror(fname);
+		goto err;
+	}
+
+	*file_size = lseek(*fd, 0, SEEK_END);
+	if (*file_size < 0) {
+		fprintf(stderr, "Unable to retrieve file size: %s\n", fname);
+		goto err_close;
+	}
+
+	*flash_size = ((*file_size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
+	if (*flash_size >= 8 * 1024 * 1024) {
+		fprintf(stderr, "File size exceeds 8MB limit: %s\n", fname);
+		goto err_close;
+	}
+
+	lseek(*fd, 0, SEEK_SET);
+
+	if (!buff) /* FLASH_FROM_FILE */
+		return 0;
+
+	*buff = malloc(*flash_size);
+	if (!*buff) {
+		perror("no mem");
+		goto err_close;
+	}
+
+	if (*file_size != read(*fd, *buff, *file_size)) {
+		sprintf(err_string, "%s read fails: buf=%p, size=%d", fname, *buff, *file_size);
+		perror(err_string);
+		goto err_free;
+	}
+
+	close(*fd);
+	return 1;
+
+err_free:
+	free(*buff);
+err_close:
+	close(*fd);
+err:
+	return -1;
+}
+
+int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int nvram, int uncomp, int special)
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
 	pcap_if_t *alldevs = NULL, *d;
 	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
-	unsigned char* buf = 0;
-	int i = 0, if_num = 0;
-	int fd, size = 0, ubnt_img = 0;
+	int ret, i, if_num = 0, ubnt_img = 0;
+	unsigned char *buf = 0;
+	int fd, size = 0;
 
 	pcap_device = device;
 	uip_init();
@@ -613,38 +671,42 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 	if (nvram)
 		nvram_part_size = FLASH_PAGE_SIZE;
 
-	/* Root file name? */
-	if (NULL != rootfs_filename) {
-		if (-1 == (fd = open(rootfs_filename, O_RDONLY | O_BINARY))) {
-			perror(rootfs_filename);
-			return 1;
-		}
-		size = lseek(fd, 0, SEEK_END);
-		rootfs_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-		lseek(fd, 0, SEEK_SET);
-		if (0 != (rootfs_buf = malloc(rootfs_size)))
-		{
-			if (size != read(fd, rootfs_buf, size) ||
-				0 >= size || 8 * 1024 * 1024 < size)
-			{
-				char s[265];
-				sprintf(s, "%s fails: buf=%p, size=%d", rootfs_filename, rootfs_buf, size);
-				perror(s);
+#if defined(FLASH_FROM_FILE)
+	if (flash_from_file) {
+		for (i = 0; i < FFF_NUM; i++) {
+			if (!fff_data[i].fname)
+				continue;
+
+			ret = open_image_file(fff_data[i].fname, &fff_data[i].fd,
+					      &fff_data[i].file_size, &fff_data[i].flash_size, NULL);
+
+			if (ret < 0)
 				return 1;
-			}
+
+			printf("Reading %s file %s with %d bytes ...\n",
+			       (i == 0 ? "rootfs" : (i == 1 ? "kernel" : "ubnt")),
+			       fff_data[i].fname, fff_data[i].flash_size);
 		}
-		else
-		{
-			perror("no mem");
+
+		goto init_pcap;
+	}
+#endif
+
+	if (rootfs_filename) {
+		ret = open_image_file(rootfs_filename, &fd,
+				      &size, &rootfs_size, &rootfs_buf);
+
+		if (ret < 0)
 			return 1;
-		}
-		printf("Reading rootfs file %s with %d bytes ...\n", rootfs_filename, size);
+
+		printf("Reading rootfs file %s with %d bytes ...\n",
+		       rootfs_filename, rootfs_size);
+
 	} else {
 #if defined(EMBEDDED_DATA) && defined(WIN32)
 		HRSRC hRsrc;
 		hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_ROOTFS), RT_RCDATA);
-		if (NULL != hRsrc)
-		{
+		if (hRsrc) {
 			HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
 			buf = LockResource(hGlobal);
 			size = SizeofResource(NULL, hRsrc);
@@ -654,55 +716,31 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		size = (int)&_binary_openwrt_atheros_root_squashfs_size;
 #endif
 
-		if (0 != buf)
-		{
+		if (buf) {
 			rootfs_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-			if (0 != (rootfs_buf = malloc(rootfs_size)))
-			{
+			if (0 != (rootfs_buf = malloc(rootfs_size))) {
 				memset(rootfs_buf, 0xff, rootfs_size);
 				memmove(rootfs_buf, buf, size);
-			}
-			else
-			{
+			} else {
 				perror("no mem");
 				return 1;
 			}
 		}
 	}
 
-	/* Kernel file name? */
-	if (NULL != kernel_filename)
-	{
-		if (-1 == (fd = open(kernel_filename, O_RDONLY | O_BINARY)))
-		{
-			perror(kernel_filename);
+	if (kernel_filename) {
+		ret = open_image_file(kernel_filename, &fd,
+				      &size, &kernel_size, &kernel_buf);
+
+		if (ret < 0)
 			return 1;
-		}
-		size = lseek(fd, 0, SEEK_END);
-		kernel_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-		lseek(fd, 0, SEEK_SET);
-		if (0 != (kernel_buf = malloc(kernel_size)))
-		{
-			if (size != read(fd, kernel_buf, size) ||
-				0 >= size || 8 * 1024 * 1024 < size)
-			{
-				char s[265];
-				sprintf(s, "%s fails: buf=%p, size=%d", kernel_filename, kernel_buf, size);
-				perror(s);
-				return 1;
-			}
-		}
-		else
-		{
-			perror("no mem");
-			return 1;
-		}
-		printf("Reading kernel file %s with %d bytes ...\n", kernel_filename, size);
+
+		printf("Reading kernel file %s with %d bytes ...\n",
+		       kernel_filename, kernel_size);
 	} else {
 #if defined(EMBEDDED_DATA) && defined(WIN32)
 		HRSRC hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_KERNEL), RT_RCDATA);
-		if (NULL != hRsrc)
-		{
+		if (hRsrc) {
 			HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
 			buf = LockResource(hGlobal);
 			size = SizeofResource(NULL, hRsrc);
@@ -712,16 +750,12 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		size = (int)&_binary_openwrt_atheros_vmlinux_lzma_size;
 #endif
 
-		if (0 != buf)
-		{
+		if (buf) {
 			kernel_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-			if (0 != (kernel_buf = malloc(kernel_size)))
-			{
+			if (0 != (kernel_buf = malloc(kernel_size))) {
 				memset(kernel_buf, 0xff, kernel_size);
 				memmove(kernel_buf, buf, size);
-			}
-			else
-			{
+			} else {
 				perror("no mem");
 				return 1;
 			}
@@ -742,6 +776,10 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		fprintf(stderr, "kernel implausible small: %d bytes\n", kernel_size);
 		return 1;
 	}
+
+#if defined(FLASH_FROM_FILE)
+init_pcap:
+#endif
 
 	srcmac.addr[0] = 0x00;
 	srcmac.addr[1] = 0xba;
@@ -764,6 +802,7 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		alldevs = NULL;
 
 	/* Print the list */
+	i = 0;
 	for (d = alldevs; d != NULL; d = d->next) {
 		i++;
 
@@ -797,9 +836,17 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 
 	switch (flash_mode) {
 	case MODE_REDBOOT:
-		if (ubnt_img) {
-			fprintf(stderr, "You are trying to flash a redboot device with a ubiquiti image!\n");
-			return 1;
+		if (flash_from_file) {
+			if ((!fff_data[FFF_ROOTFS].fname) ||
+			    (!fff_data[FFF_KERNEL].fname)) {
+				fprintf(stderr, "Error - redboot enabled device detected but rootfs & kernel file not available\n");
+				return 1;
+			}
+		} else {
+			if (ubnt_img) {
+				fprintf(stderr, "Error - you are trying to flash a redboot device with a ubiquiti image!\n");
+				return 1;
+			}
 		}
 
 		printf("Redboot enabled device detected - using redboot to flash\n");
@@ -807,13 +854,13 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 		printf("YOUR DEVICE AND THIS WILL NOT BE COVERED BY WARRANTY!\n");
 
 		if (NULL == uip_connect(&dstipaddr, htons(TELNET_PORT))) {
-			fprintf(stderr, "Cannot connect to port %i\n", TELNET_PORT);
+			fprintf(stderr, "Error - cannot connect to port %i\n", TELNET_PORT);
 			return 1;
 		}
 		break;
 	case MODE_TFTP_CLIENT:
 #if defined(EMBEDDED_DATA)
-		if (!rootfs_filename) {
+		if ((!rootfs_filename) && (!flash_from_file)) {
 
 			/* free the rootfs and replace it by the ubnt image */
 			free(rootfs_buf);
@@ -844,22 +891,28 @@ int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int n
 
 			ubnt_img = 1;
 		}
-#endif
-		if (!ubnt_img) {
-			fprintf(stderr, "You are trying to flash a ubiquiti device with redboot images!\n");
-			return 1;
+#endif /* EMBEDDED_DATA */
+		if (flash_from_file) {
+			if (!fff_data[FFF_UBNT].fname) {
+				fprintf(stderr, "Error - ubiquiti device detected but ubiquiti file not available\n");
+				return 1;
+			}
+		} else {
+			if (!ubnt_img) {
+				fprintf(stderr, "Error - you are trying to flash a ubiquiti device with redboot images!\n");
+				return 1;
+			}
 		}
 
-		tftp_xfer_buff = rootfs_buf;
-		tftp_xfer_size = rootfs_size;
+		tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_UBNT] : rootfs_buf);
+		tftp_xfer_size = (flash_from_file ? fff_data[FFF_UBNT].flash_size : rootfs_size);
 		printf("Ubiquiti device detected - using TFTP client to flash\n");
 		break;
 	default:
-		fprintf(stderr, "Could not auto-detect flash mode!\n");
+		fprintf(stderr, "Error - could not auto-detect flash mode!\n");
 		return 1;
 	}
 
-	fw_upload();
-	return 0;
+	return fw_upload();
 }
 

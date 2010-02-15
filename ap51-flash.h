@@ -70,12 +70,28 @@ struct device_info {
 	int options;
 };
 
+struct flash_from_file {
+	int fd;
+	int file_size;
+	int flash_size;
+	char *fname;
+	char buff[2];
+};
+
 /* flash modes */
 enum {
 	MODE_NONE,
 	MODE_REDBOOT,
 	MODE_MAYBE_REDBOOT,
 	MODE_TFTP_CLIENT,
+};
+
+/* flash from file data */
+enum {
+	FFF_ROOTFS = 0,
+	FFF_KERNEL,
+	FFF_UBNT,
+	FFF_NUM,
 };
 
 #define FREEMEMLO 0x01
@@ -118,5 +134,7 @@ extern unsigned char *kernel_buf;
 extern int rootfs_size;
 extern int kernel_size;
 extern char flash_mode;
+extern int flash_from_file;
+extern struct flash_from_file fff_data[];
 
 #endif /* __ap51_FLASH_H__ */

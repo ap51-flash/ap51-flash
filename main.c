@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(FLASH_FROM_FILE)
+#include <getopt.h>
+#endif
 
 #include "ap51-flash.h"
 
@@ -38,6 +41,16 @@ void usage(char *prgname)
 	fprintf(stderr, "%s [ethdevice] rootfs.bin kernel.lzma   flashes your rootfs and kernel\n", prgname);
 	fprintf(stderr, "%s [ethdevice] ubnt.bin   flashes your ubiquiti image\n", prgname);
 	fprintf(stderr, "%s -v   prints version information\n", prgname);
+
+#if defined(FLASH_FROM_FILE)
+	fprintf(stderr, "\nFlash from file mode:\n");
+	fprintf(stderr, "%s --flash-from-file [file options] interface\n", prgname);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "  --flash-from-file   enable 'flash from file' mode\n");
+	fprintf(stderr, "  --rootfs   path to rootfs file\n");
+	fprintf(stderr, "  --kernel   path to kernel file\n");
+	fprintf(stderr, "  --ubnt   path to ubiquiti image\n");
+#endif
 
 	fprintf(stderr, "\nThe 'ethdevice' has to be one of the devices that are part of the supported device list which follows.\nYou can either specify its name or the interface number.\n");
 
@@ -71,9 +84,20 @@ void usage(char *prgname)
 
 int main(int argc, char* argv[])
 {
-	int nvram = 0;
-	int uncomp = 0;
-	int special = 0;
+	int nvram = 0, uncomp = 0, special = 0;
+	char *iface = NULL;
+
+#if defined(FLASH_FROM_FILE)
+	int i, found_args = 1, optchar, option_index;
+	struct option long_options[] =
+	{
+		{"flash-from-file", no_argument, 0, 'f'},
+		{"rootfs", required_argument, 0, 'r'},
+		{"kernel", required_argument, 0, 'k'},
+		{"ubnt", required_argument, 0, 'u'},
+		{0, 0, 0, 0}
+	};
+#endif
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DATA)
@@ -98,27 +122,75 @@ int main(int argc, char* argv[])
 		argc--;
 		special = 1;
 	}
-// #if defined(DEBUG)
-// 	special = 1;
-// #endif
 
-/*	if (argc > 2 && 0 == strcmp("uncomp", argv[argc - 1]))
-	{
+	/*if (argc > 2 && strcmp("uncomp", argv[argc - 1]) == 0) {
 		argc--;
 		uncomp = 1;
 	}
 
-	if (argc > 1 && 0 == strcmp("nvram", argv[argc - 1]))
-	{
+	if (argc > 1 && strcmp("nvram", argv[argc - 1]) == 0) {
 		argc--;
 		nvram = 1;
 	}*/
 
-	if (argc < 2)
-	{
+	if (argc < 2) {
 		usage(argv[0]);
 		return 1;
 	}
 
-	return ap51_flash(argv[1], 2 < argc ? argv[2] : NULL, 3 < argc ? argv[3] : NULL, nvram, uncomp, special);
+	iface = argv[1];
+
+#if defined(FLASH_FROM_FILE)
+	for (i = 0; i < FFF_NUM; i++)
+		fff_data[i].fname = NULL;
+
+	while ((optchar = getopt_long(argc, argv, "fk:r:u:", long_options, &option_index)) != -1) {
+		switch (optchar) {
+		case 'f':
+			flash_from_file = 1;
+			found_args++;
+			break;
+		case 'k':
+			fff_data[FFF_KERNEL].fname = optarg;
+			found_args += 2;
+			break;
+		case 'r':
+			fff_data[FFF_ROOTFS].fname = optarg;
+			found_args += 2;
+			break;
+		case 'u':
+			fff_data[FFF_UBNT].fname = optarg;
+			found_args += 2;
+			break;
+		default:
+			usage(argv[0]);
+			return 1;
+		}
+	}
+
+	if (flash_from_file) {
+		if ((fff_data[FFF_ROOTFS].fname && !fff_data[FFF_KERNEL].fname) ||
+		    (!fff_data[FFF_ROOTFS].fname && fff_data[FFF_KERNEL].fname)) {
+			fprintf(stderr, "Error - you need to specify kernel and rootfs together or not at all\n");
+			return 1;
+		}
+
+		if (!fff_data[FFF_ROOTFS].fname && !fff_data[FFF_KERNEL].fname && !fff_data[FFF_UBNT].fname) {
+			fprintf(stderr, "Error - you need to specify at least kernel and rootfs or ubiquiti image file\n");
+			return 1;
+		}
+
+		if (found_args == argc) {
+			fprintf(stderr, "Error - you need to specify the interface to run 'flash from file' mode\n");
+			return 1;
+		} else if (found_args + 1 < argc) {
+			fprintf(stderr, "Error - too many arguments to run flash from file mode\n");
+			return 1;
+		}
+
+		iface = argv[found_args];
+	}
+#endif
+
+	return ap51_flash(iface, (argc > 2 ? argv[2] : NULL), (argc > 3 ? argv[3] : NULL), nvram, uncomp, special);
 }
