@@ -28,7 +28,7 @@
 #define ICMP_DEST_UNREACH  3
 #define IPPORT_TFTP 69
 
-struct iphdr {
+/*struct iphdr {
 	unsigned int ihl:4;
 	unsigned int version:4;
 	u_int8_t tos;
@@ -40,7 +40,7 @@ struct iphdr {
 	u_int16_t check;
 	u_int32_t saddr;
 	u_int32_t daddr;
-};
+};*/
 
 struct udphdr {
 	u_int16_t source;

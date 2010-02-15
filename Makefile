@@ -21,18 +21,20 @@ AR      = $(CROSS)ar
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
-OFLAGS  = -Os -ggdb
+OFLAGS  = -Os
 CFLAGS  = -Wall -I. -IWpdPack/Include/ -fno-strict-aliasing -fpack-struct $(OFLAGS)
-LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o
+LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o socket.o
 OBJS    = $(LIB_OBJS) main.o
 AP51_RC = ap51-flash-res
 
 # enable debug output
-# CFLAGS += -DDEBUG
+# EXTRA_CFLAGS += -DDEBUG
 # enable packet debug output
-# CFLAGS += -DPACKET_DEBUG
+# EXTRA_CFLAGS += -DPACKET_DEBUG
 # enable flash from file mode
-# CFLAGS += -DFLASH_FROM_FILE
+# EXTRA_CFLAGS += -DFLASH_FROM_FILE
+# disable libpcap and use raw sockets instead (linux only!)
+# EXTRA_CFLAGS += -DNO_LIBPCAP
 
 # if you change the names here you also need to change the ap51-flash.c code
 EMBED_KERNEL = openwrt-atheros-vmlinux.lzma
@@ -65,6 +67,17 @@ else
 PLATFORM = LINUX
 endif
 
+# detect whether we should link against libpcap
+ifeq ($(PLATFORM),WIN32)
+LDFLAGS += -lwpcap
+else ifeq ($(PLATFORM),OSX)
+LDFLAGS += -lpcap
+else ifeq ($(PLATFORM),LINUX)
+ifeq ($(findstring NO_LIBPCAP,$(EXTRA_CFLAGS)),)
+LDFLAGS += -lpcap
+endif
+endif
+
 REVISION = $(shell if [ -d .svn ]; then \
 				if which svn > /dev/null; then \
 					svn info | grep "Rev:" | sed -e '1p' -n | awk '{print "r"$$4}'; \
@@ -91,19 +104,19 @@ libap51-flash.a: $(LIB_OBJS) Makefile
 	$(AR) rcs $@ $(LIB_OBJS) $(LDFLAGS)
 
 ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
 ap51-flash-static: $(LIN_OBJS) $(OBJS) libap51-flash.a Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -static -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -static -o $@
 	$(STRIP) $@
 
 ap51-flash.exe: $(WIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -lwpcap -static -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
 ap51-flash-osx: $(OSX_OBJ) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(OSX_OBJ) $(OBJS) $(LDFLAGS) -lpcap -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(OSX_OBJ) $(OBJS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)

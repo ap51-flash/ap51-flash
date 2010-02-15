@@ -16,24 +16,10 @@
  * 02110-1301, USA
  */
 
-#define TFTP_SRC_PORT 13337
-#define TELNET_PORT 9000
-#define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
-#define TFTP_BASE_LEN (sizeof(struct ether_header) + sizeof(struct iphdr) + sizeof(struct udphdr))
-
-#define TCP_CONTINUE 0
-#define TCP_SUCCESS 1
-#define TCP_ERROR -1
-
-extern struct ether_header *ethhdr;
-extern struct ether_arp *arphdr;
-extern struct iphdr *iphdr;
-extern struct udphdr *udphdr;
-extern void *tftp_data;
-extern unsigned long tftp_bytes_sent;
-extern unsigned short xfer_in_progress;
-extern char tcp_status;
-
-void arp_packet_init(void);
-void arp_packet_send(void);
-int fw_upload(void);
+char *socket_find_dev_by_index(char *number);
+void socket_print_all_devices(void);
+int socket_open(char *dev);
+int socket_setnonblock(void);
+unsigned char *socket_read(int *len);
+int socket_write(unsigned char *buff, int len);
+void socket_close(char *dev);

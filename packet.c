@@ -16,10 +16,13 @@
  * 02110-1301, USA
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "packet.h"
+#include "ap51-flash.h"
+#include "socket.h"
 
 #define PACKET_BUFF_LEN 1500
 
@@ -32,6 +35,7 @@ void *tftp_data = (void *)(packet_buff + TFTP_BASE_LEN);
 
 unsigned long tftp_bytes_sent = 0;
 unsigned short tftp_ack_block = 0, tftp_sent_block = 0, xfer_in_progress = 0, write_req_timeout = 4;
+char tcp_status = TCP_CONTINUE;
 
 
 /* in uip.c */
@@ -49,11 +53,7 @@ void arp_packet_init(void)
 
 void arp_packet_send(void)
 {
-	if (!pcap_sendpacket(pcap_fp, packet_buff, ARP_LEN))
-		return;
-
-	perror("pcap_sendpacket");
-	exit(1);
+	socket_write(packet_buff, ARP_LEN);
 }
 
 static void tftp_packet_init(unsigned short src_port, unsigned short dst_port)
@@ -72,7 +72,7 @@ static void tftp_packet_init(unsigned short src_port, unsigned short dst_port)
 	udphdr->dest = dst_port;
 }
 
-static void tftp_packet_send(int tftp_data_len)
+static int tftp_packet_send(int tftp_data_len)
 {
 	unsigned short sum;
 
@@ -99,14 +99,10 @@ static void tftp_packet_send(int tftp_data_len)
 		fprintf(stderr, "\n");
 #endif
 
-	if (!pcap_sendpacket(pcap_fp, packet_buff, TFTP_BASE_LEN + tftp_data_len))
-		return;
-
-	perror("pcap_sendpacket");
-	exit(1);
+	return socket_write(packet_buff, TFTP_BASE_LEN + tftp_data_len);
 }
 
-static void tftp_write_req(void)
+static int tftp_write_req(void)
 {
 	int tftp_data_len;
 
@@ -119,10 +115,10 @@ static void tftp_write_req(void)
 	tftp_data_len += sprintf((char *)(tftp_data + tftp_data_len + 1), "%s", "octet");
 	tftp_data_len += 2; /* sprintf does not count \0 */
 
-	tftp_packet_send(tftp_data_len);
+	return tftp_packet_send(tftp_data_len);
 }
 
-static void read_from_file(void *target_buff, void *data, int len, int seek_pos)
+static int read_from_file(void *target_buff, void *data, int len, int seek_pos)
 {
 	struct flash_from_file *fff = (struct flash_from_file *)data;
 	int read_len = len;
@@ -135,7 +131,7 @@ static void read_from_file(void *target_buff, void *data, int len, int seek_pos)
 	if (read_len > 0) {
 		if (read_len != read(fff->fd, target_buff, read_len)) {
 			perror(fff->fname);
-			exit(1);
+			return 1;
 		}
 	}
 
@@ -144,20 +140,22 @@ static void read_from_file(void *target_buff, void *data, int len, int seek_pos)
 
 	if (seek_pos == 0)
 		memcpy(fff->buff, target_buff, 2);
+
+	return 0;
 }
 
-static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_len)
+static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_len)
 {
 	struct udphdr *rcv_udphdr = (struct udphdr *)packet_buff;
 	unsigned short opcode, block;
 	char *file_name;
-	int tftp_data_len;
+	int tftp_data_len, ret;
 
 	if ((flash_mode == MODE_REDBOOT) && (rcv_udphdr->dest != htons(IPPORT_TFTP)))
-		return;
+		return 1;
 
 	if ((flash_mode == MODE_TFTP_CLIENT) && (rcv_udphdr->source != htons(IPPORT_TFTP)))
-		return;
+		return 1;
 
 	opcode = ntohs(*(unsigned short *)(((char *)rcv_udphdr) + sizeof(struct udphdr)));
 	block = ntohs(*(unsigned short *)(((char *)rcv_udphdr) + sizeof(struct udphdr) + 2));
@@ -180,7 +178,7 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 			       ((tftp_xfer_size + 511) / 512));
 		} else {
 			fprintf(stderr, "Unknown file name: %s\n", file_name);
-			exit(1);
+			return -1;
 		}
 
 		block = 0;
@@ -209,9 +207,9 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 				if (flash_mode == MODE_TFTP_CLIENT) {
 					printf("Image successfully transmitted.\n");
 					printf("Please give the device a couple of minutes to install the new image into the flash.\n");
-					exit(0);
+					return 0;
 				}
-				return;
+				return 1;
 			}
 
 			tftp_ack_block = block;
@@ -225,14 +223,21 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 
 		tftp_data_len = tftp_xfer_size - tftp_bytes_sent > 512 ? 512 : tftp_xfer_size - tftp_bytes_sent;
 
-		if (flash_from_file)
-			read_from_file(tftp_data + 4, (void *)tftp_xfer_buff, tftp_data_len, tftp_bytes_sent);
-		else
+		if (flash_from_file) {
+			ret = read_from_file(tftp_data + 4, (void *)tftp_xfer_buff, tftp_data_len, tftp_bytes_sent);
+			if (ret != 0)
+				return -1;
+		} else {
 			memcpy(tftp_data + 4, (void *)(tftp_xfer_buff + tftp_bytes_sent), tftp_data_len);
+		}
 
 		tftp_bytes_sent += tftp_data_len;
 		tftp_data_len += 4; /* opcode size */
-		tftp_packet_send(tftp_data_len);
+
+		ret = tftp_packet_send(tftp_data_len);
+		if (ret != 0)
+			return -1;
+
 		tftp_sent_block = block;
 		/* printf("tftp data out: tftp_sent=%lu, remaining_size=%lu, data_len=%i, block=%d\n",
 			tftp_sent, tftp_xfer_size - tftp_sent, tftp_data_len - 4, block); */
@@ -244,29 +249,45 @@ static void tftp_transfer(const unsigned char *packet_buff, unsigned int packet_
 				((char *)rcv_udphdr) + sizeof(struct udphdr) + 4);
 		else
 			fprintf(stderr, "Received TFTP error code: %d\n", block);
-		exit(1);
+
+		return -1;
 		break;
 	default:
 		fprintf(stderr, "Unexpected TFTP opcode: %d\n", opcode);
-		exit(1);
+		return -1;
 		break;
 	}
+
+	return 1;
 }
 
 int fw_upload(void)
 {
 	const unsigned char *packet;
-	struct pcap_pkthdr hdr;
 	struct ether_arp *rcv_arphdr;
 	struct iphdr *rcv_iphdr;
+	int len, ret;
 
 	if (flash_mode == MODE_TFTP_CLIENT) {
 		printf("Trying to connect to TFTP server on the device ..\n");
-		tftp_write_req();
+		ret = tftp_write_req();
+		if (ret != 0)
+			return ret;
 	}
 
 	while (1) {
-		packet = pcap_next(pcap_fp, &hdr);
+		packet = socket_read(&len);
+
+		if ((flash_mode == MODE_REDBOOT) && (tcp_status != TCP_CONTINUE)) {
+			switch (tcp_status) {
+			case TCP_SUCCESS:
+				return 0;
+			case TCP_ERROR:
+				return 1;
+			default:
+				tcp_status = TCP_CONTINUE;
+			}
+		}
 
 		if (!packet) {
 			if (flash_mode == MODE_REDBOOT)
@@ -285,6 +306,9 @@ int fw_upload(void)
 
 				fprintf(stderr, "TFTP connection timeout .. \n");
 				tftp_write_req();
+				if (ret != 0)
+					return ret;
+
 				write_req_timeout = 2;
 			}
 
@@ -294,8 +318,8 @@ int fw_upload(void)
 
 		switch (ntohs(((struct ether_header *)packet)->ether_type)) {
 		case ETHERTYPE_ARP:
-			if (hdr.len < 60) {
-				/* fprintf(stderr, "Expected arp with minimum length %i, received %d\n", 60, hdr.len); */
+			if (len < 60) {
+				/* fprintf(stderr, "Expected arp with minimum length %i, received %d\n", 60, len); */
 				continue;
 			}
 
@@ -331,8 +355,8 @@ int fw_upload(void)
 				write_req_timeout = 4;
 			break;
 		case ETH_P_IP:
-			if (hdr.len < 20) {
-				fprintf(stderr, "Expected IP with minimum length %i, received %d\n", 20, hdr.len);
+			if (len < 20) {
+				fprintf(stderr, "Expected IP with minimum length %i, received %d\n", 20, len);
 				continue;
 			}
 
@@ -350,11 +374,16 @@ int fw_upload(void)
 
 			switch (rcv_iphdr->protocol) {
 			case IPPROTO_UDP:
-				tftp_transfer(packet + ETH_HLEN + (rcv_iphdr->ihl * 4),
-					      hdr.len - ETH_HLEN - (rcv_iphdr->ihl * 4));
+				ret = tftp_transfer(packet + ETH_HLEN + (rcv_iphdr->ihl * 4),
+						    len - ETH_HLEN - (rcv_iphdr->ihl * 4));
+
+				if (ret < 0)
+					return 1;  /* error */
+				else if (ret == 0)
+					return 0;  /* flash successful */
 				break;
 			case IPPROTO_TCP:
-				handle_uip_tcp(packet, hdr.len);
+				handle_uip_tcp(packet, len);
 				break;
 			default:
 				fprintf(stderr, "Unexpected IP packet: protocol=%d\n",

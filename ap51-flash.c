@@ -21,12 +21,13 @@
 #include <fcntl.h>
 #include <string.h>
 
+#include "ap51-flash.h"
 #include "uip.h"
 #include "uip_arp.h"
 #include "timer.h"
-#include "ap51-flash.h"
 #include "device-info.h"
 #include "packet.h"
+#include "socket.h"
 
 unsigned char *kernel_buf = 0;
 unsigned char *rootfs_buf = 0;
@@ -52,7 +53,6 @@ static char boot_prompt[24];
 static int phase = 0;
 static struct device_info *device_info = &flash_8mb_info;
 static char *kernelpartname = "vmlinux.bin.l7";
-pcap_t *pcap_fp = NULL;
 
 #if defined(EMBEDDED_DATA) && !defined(WIN32)
 extern unsigned long _binary_openwrt_atheros_vmlinux_lzma_start;
@@ -81,12 +81,10 @@ void uip_log(char *m)
 #endif
 }
 
-static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
+static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
 {
-	int arp_replies = 0, arp_grat_packets = 0;
-	char error[PCAP_ERRBUF_SIZE];
+	int ret, len, arp_replies = 0, arp_grat_packets = 0;
 	const unsigned char *packet;
-	struct pcap_pkthdr hdr;
 	struct ether_header *recv_ethhdr;
 	struct ether_arp *recv_arphdr;
 #if defined(DEBUG)
@@ -94,10 +92,9 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 #endif
 
 	/* Open the output adapter */
-	if (NULL == (pcap_fp = pcap_open_live(dev, 1500, 1, PCAP_TIMEOUT_MS, error))) {
-		fprintf(stderr, "Error opening adapter: %s\n", error);
-		return -1;
-	}
+	ret = socket_open(dev);
+	if (ret != 0)
+		return ret;
 
 	arp_packet_init();
 	memset(ethhdr->ether_dhost, 0xff, ETH_ALEN);
@@ -108,12 +105,19 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 	*((unsigned int *)arphdr->arp_spa) = htonl(ubnt_local_ip);
 	*((unsigned int *)arphdr->arp_tpa) = htonl(ubnt_remote_ip);
 
+#if !defined(OSX)
+	// TODO: This is a seeming bug in OSX - won't work if we turn on non blocking - Lokkju
+	ret = socket_setnonblock();
+	if (ret != 0)
+		return ret;
+#endif
+
 	fprintf(stderr, "Waiting for device to run auto-detection.\nMake sure, the device is connected directly!\n");
 
 	while (1) {
 		arp_packet_send();
 
-		while (NULL == (packet = pcap_next(pcap_fp, &hdr))) {
+		while (NULL == (packet = socket_read(&len))) {
 #if defined(DEBUG)
 			printf("No packet.\n");
 #endif
@@ -130,9 +134,9 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 			continue;
 		}
 
-		if (hdr.len != 60) {
+		if (len != 60) {
 #if defined(DEBUG)
-			fprintf(stderr, "Expect arp with length 60, received %d\n", hdr.len);
+			fprintf(stderr, "Expect arp with length 60, received %d\n", len);
 #endif
 			continue;
 		}
@@ -200,7 +204,7 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 
 	if (!special && 0 == P(*dip)[0] && 0 == P(*dip)[1] && 0 == P(*dip)[2] && 0 == P(*dip)[3]) {
 		fprintf(stderr, "Telnet for RedBoot not enabled.\n");
-		return -1;
+		return 1;
 	}
 
 #if defined(DEBUG)
@@ -219,13 +223,6 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
 #endif
 
-#if !defined(OSX)
-	// TODO: This is a seeming bug in OSX - won't work if we turn on non blocking - Lokkju
-	if (0 > pcap_setnonblock(pcap_fp, 1, error)) {
-		fprintf(stderr,"Error setting non-blocking mode: %s\n", error);
-		return -1;
-	}
-#endif
 	return 0;
 }
 
@@ -236,7 +233,7 @@ static int extract_boot_prompt(struct ap51_flash_state *s)
 	str_ptr = strchr(s->inputbuffer, '>');
 	if (!str_ptr) {
 		fprintf(stderr, "No RedBoot prompt detected. Exit in line %d\n", __LINE__);
-		return -1;
+		return 1;
 	}
 
 	*(str_ptr + 1) = '\0';
@@ -244,7 +241,7 @@ static int extract_boot_prompt(struct ap51_flash_state *s)
 	str_ptr = strrchr(s->inputbuffer, '\n');
 	if (!str_ptr) {
 		fprintf(stderr, "No RedBoot detected. Exit in line %d\n", __LINE__);
-		return -1;
+		return 1;
 	}
 
 	str_ptr++;
@@ -252,7 +249,7 @@ static int extract_boot_prompt(struct ap51_flash_state *s)
 	if (strlen(str_ptr) > sizeof(boot_prompt)) {
 		fprintf(stderr, "No RedBoot prompt exceeds expected size (%i - expected %i). Exit in line %d\n",
 			(int)strlen(str_ptr), (int)sizeof(boot_prompt), __LINE__);
-		return -1;
+		return 1;
 	}
 
 	memcpy(boot_prompt, str_ptr, sizeof(boot_prompt));
@@ -275,7 +272,7 @@ static int handle_connection(struct ap51_flash_state *s)
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(345, &s->p, '>');
 
-		if (extract_boot_prompt(s) < 0)
+		if (extract_boot_prompt(s) != 0)
 			goto err_close;
 
 		sprintf(str, "version\n");
@@ -315,7 +312,7 @@ sanity_check:
 		if (device_info->flash_size < (unsigned long)rootfs_size + (unsigned long)kernel_size + nvram_part_size) {
 			fprintf(stderr, "rootfs(0x%08x) + kernel(0x%08x) + nvram(0x%08x) exceeds limit of 0x%08lx\n",
 				rootfs_size, kernel_size, nvram_part_size, device_info->flash_size);
-			exit(1);
+			goto err_close;
 		}
 
 		if (device_info->kernel_part_size < kernel_size)
@@ -361,7 +358,7 @@ sanity_check:
 
 		if (tftp_bytes_sent < (unsigned long)rootfs_size) {
 			fprintf(stderr, "Error transferring rootfs, send=%ld, expected=%d\n", tftp_bytes_sent, rootfs_size);
-			exit(1);
+			goto err_close;
 		}
 
 		xfer_in_progress = 0;
@@ -427,7 +424,7 @@ sanity_check:
 		}
 		if (tftp_bytes_sent < (unsigned long)kernel_size) {
 			fprintf(stderr, "Error transferring kernel, send=%ld, expected=%d\n", tftp_bytes_sent, kernel_size);
-			exit(1);
+			goto err_close;
 		}
 
 		xfer_in_progress = 0;
@@ -463,7 +460,6 @@ sanity_check:
 		}
 
 		phase++;
-		break;
 
 	} else if (phase == 6) {
 		if (!strstr(s->inputbuffer, boot_prompt)) {
@@ -479,7 +475,7 @@ sanity_check:
 		if (flash_from_file) {
 			if (!uncomp_loader)
 				sprintf(str, "fis load %s %s\n",
-					(0x1f == fff_data[FFF_KERNEL].buff[0] && 0x8b ==fff_data[FFF_KERNEL].buff[1] ? "-d" : "-l"),
+					(fff_data[FFF_KERNEL].buff[0] == 0x1f && fff_data[FFF_KERNEL].buff[1] == 0x8b ? "-d" : "-l"),
 					kernelpartname);
 			else
 				sprintf(str, "fis load %s\n", kernelpartname);
@@ -502,7 +498,6 @@ sanity_check:
 		s->inputbuffer[0] = 0;
 		PSOCK_READTO(485, &s->p, '>');
 		phase++;
-		break;
 
 	} else if (phase == 7) {
 		if (!strstr(s->inputbuffer, boot_prompt)) {
@@ -512,18 +507,17 @@ sanity_check:
 
 		PSOCK_SEND_STR(495, &s->p, "reset\n");
 		printf("Done. Restarting device...\n");
-		exit(0);
 		phase++;
-		break;
+		return TCP_SUCCESS;
 	}
 
 	PSOCK_END(&s->p);
-	return 0;
+	return TCP_CONTINUE;
 
 err_close:
 	PSOCK_CLOSE(&s->p);
 	PSOCK_EXIT(&s->p);
-	exit(1);
+	return TCP_ERROR;
 }
 
 void ap51_flash_appcall(void)
@@ -533,7 +527,7 @@ void ap51_flash_appcall(void)
 	if (uip_connected())
 		PSOCK_INIT(&s->p, s->inputbuffer, sizeof(s->inputbuffer));
 
-	handle_connection(s);
+	tcp_status = handle_connection(s);
 }
 
 static void send_uip_buffer(void)
@@ -543,10 +537,7 @@ static void send_uip_buffer(void)
 		return;
 #endif
 
-	if (pcap_sendpacket(pcap_fp, uip_buf, uip_len) < 0) {
-		perror("pcap_sendpacket");
-		exit(1);
-	}
+	socket_write(uip_buf, uip_len);
 }
 
 void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len)
@@ -638,27 +629,24 @@ static int open_image_file(char *fname, int *fd, int *file_size, int *flash_size
 	}
 
 	close(*fd);
-	return 1;
+	return 0;
 
 err_free:
 	free(*buff);
 err_close:
 	close(*fd);
 err:
-	return -1;
+	return 1;
 }
 
-int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int nvram, int uncomp, int special)
+int ap51_flash(char *iface, char *rootfs_filename, char *kernel_filename, int nvram, int uncomp, int special)
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
-	pcap_if_t *alldevs = NULL, *d;
-	char *pcap_device, errbuf[PCAP_ERRBUF_SIZE];
-	int ret, i, if_num = 0, ubnt_img = 0;
+	int ret, ubnt_img = 0, fd, size = 0;
 	unsigned char *buf = 0;
-	int fd, size = 0;
+	char *socket_dev;
 
-	pcap_device = device;
 	uip_init();
 	uip_arp_init();
 
@@ -672,6 +660,8 @@ int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int n
 		nvram_part_size = FLASH_PAGE_SIZE;
 
 #if defined(FLASH_FROM_FILE)
+	int i;
+
 	if (flash_from_file) {
 		for (i = 0; i < FFF_NUM; i++) {
 			if (!fff_data[i].fname)
@@ -680,15 +670,15 @@ int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int n
 			ret = open_image_file(fff_data[i].fname, &fff_data[i].fd,
 					      &fff_data[i].file_size, &fff_data[i].flash_size, NULL);
 
-			if (ret < 0)
-				return 1;
+			if (ret != 0)
+				return ret;
 
 			printf("Reading %s file %s with %d bytes ...\n",
 			       (i == 0 ? "rootfs" : (i == 1 ? "kernel" : "ubnt")),
 			       fff_data[i].fname, fff_data[i].flash_size);
 		}
 
-		goto init_pcap;
+		goto init_socket;
 	}
 #endif
 
@@ -696,8 +686,8 @@ int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int n
 		ret = open_image_file(rootfs_filename, &fd,
 				      &size, &rootfs_size, &rootfs_buf);
 
-		if (ret < 0)
-			return 1;
+		if (ret != 0)
+			return ret;
 
 		printf("Reading rootfs file %s with %d bytes ...\n",
 		       rootfs_filename, rootfs_size);
@@ -732,8 +722,8 @@ int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int n
 		ret = open_image_file(kernel_filename, &fd,
 				      &size, &kernel_size, &kernel_buf);
 
-		if (ret < 0)
-			return 1;
+		if (ret != 0)
+			return ret;
 
 		printf("Reading kernel file %s with %d bytes ...\n",
 		       kernel_filename, kernel_size);
@@ -778,7 +768,7 @@ int ap51_flash(char *device, char *rootfs_filename, char *kernel_filename, int n
 	}
 
 #if defined(FLASH_FROM_FILE)
-init_pcap:
+init_socket:
 #endif
 
 	srcmac.addr[0] = 0x00;
@@ -796,29 +786,15 @@ init_pcap:
 	memset(&brcmac, 0xff, sizeof(brcmac));
 
 	/* if the user specified an interface number instead of the name */
-	if_num = strtol(device, NULL, 10);
+	socket_dev = socket_find_dev_by_index(iface);
 
-	if (pcap_findalldevs(&alldevs, errbuf) == -1)
-		alldevs = NULL;
+	if (!socket_dev)
+		socket_dev = iface;
 
-	/* Print the list */
-	i = 0;
-	for (d = alldevs; d != NULL; d = d->next) {
-		i++;
+	ret = ap51_init(socket_dev, &srcipaddr, &dstipaddr, &srcmac, &dstmac, special);
 
-		if (if_num == i) {
-			pcap_device = d->name;
-			break;
-		}
-	}
-
-	i = pcap_init(pcap_device, &srcipaddr, &dstipaddr, &srcmac, &dstmac, special);
-
-	if (alldevs)
-		pcap_freealldevs(alldevs);
-
-	if (i < 0)
-		return 1;
+	if (ret != 0)
+		return ret;
 
 	uip_sethostaddr(srcipaddr);
 	uip_setdraddr(dstipaddr);
@@ -834,18 +810,20 @@ init_pcap:
 	if (flash_mode == MODE_MAYBE_REDBOOT)
 		flash_mode = MODE_REDBOOT;
 
+	ret = 1;
+
 	switch (flash_mode) {
 	case MODE_REDBOOT:
 		if (flash_from_file) {
 			if ((!fff_data[FFF_ROOTFS].fname) ||
 			    (!fff_data[FFF_KERNEL].fname)) {
 				fprintf(stderr, "Error - redboot enabled device detected but rootfs & kernel file not available\n");
-				return 1;
+				goto sock_close;
 			}
 		} else {
 			if (ubnt_img) {
 				fprintf(stderr, "Error - you are trying to flash a redboot device with a ubiquiti image!\n");
-				return 1;
+				goto sock_close;
 			}
 		}
 
@@ -855,7 +833,7 @@ init_pcap:
 
 		if (NULL == uip_connect(&dstipaddr, htons(TELNET_PORT))) {
 			fprintf(stderr, "Error - cannot connect to port %i\n", TELNET_PORT);
-			return 1;
+			goto sock_close;
 		}
 		break;
 	case MODE_TFTP_CLIENT:
@@ -885,7 +863,7 @@ init_pcap:
 					memmove(rootfs_buf, buf, size);
 				} else {
 					perror("no mem");
-					return 1;
+					goto sock_close;
 				}
 			}
 
@@ -895,12 +873,12 @@ init_pcap:
 		if (flash_from_file) {
 			if (!fff_data[FFF_UBNT].fname) {
 				fprintf(stderr, "Error - ubiquiti device detected but ubiquiti file not available\n");
-				return 1;
+				goto sock_close;
 			}
 		} else {
 			if (!ubnt_img) {
 				fprintf(stderr, "Error - you are trying to flash a ubiquiti device with redboot images!\n");
-				return 1;
+				goto sock_close;
 			}
 		}
 
@@ -910,9 +888,13 @@ init_pcap:
 		break;
 	default:
 		fprintf(stderr, "Error - could not auto-detect flash mode!\n");
-		return 1;
+		goto sock_close;
 	}
 
-	return fw_upload();
+	ret = fw_upload();
+
+sock_close:
+	socket_close(socket_dev);
+	return ret;
 }
 

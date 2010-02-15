@@ -19,18 +19,22 @@
 #ifndef __ap51_FLASH_H__
 #define __ap51_FLASH_H__
 
-#include <pcap.h>
 #include "uipopt.h"
 #include "psock.h"
 
 #ifdef WIN32
 /* WIN32 */
 #include <windows.h>
+#include <pcap.h>
 #include "ap51-flash-res.h"
 #include "missing-win32.h"
 #define PCAP_TIMEOUT_MS 1000
+#if defined(NO_LIBPCAP)
+#error NO_LIBPCAP supported on Linux only
+#endif
 #elif defined(OSX)
 /* OSX */
+#include <pcap.h>
 #define O_BINARY 0
 #include <unistd.h>
 #include <netinet/if_ether.h>
@@ -40,6 +44,9 @@
 #include "missing-osx.h"
 #undef HTONS
 #define PCAP_TIMEOUT_MS 200
+#if defined(NO_LIBPCAP)
+#error NO_LIBPCAP supported on Linux only
+#endif
 #elif defined(LINUX)
 /* Linux */
 #define O_BINARY 0
@@ -51,6 +58,9 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #define PCAP_TIMEOUT_MS 200
+#if !defined(NO_LIBPCAP)
+#include <pcap.h>
+#endif
 #else
 #error Unsupported PLATFORM
 #endif
@@ -75,7 +85,7 @@ struct flash_from_file {
 	int file_size;
 	int flash_size;
 	char *fname;
-	char buff[2];
+	unsigned char buff[2];
 };
 
 /* flash modes */
@@ -124,7 +134,6 @@ void ap51_flash_appcall(void);
 void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len);
 void handle_uip_conns(void);
 
-extern pcap_t *pcap_fp;
 extern unsigned int remote_ip;
 extern unsigned int local_ip;
 extern unsigned char *tftp_xfer_buff;

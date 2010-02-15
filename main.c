@@ -24,14 +24,10 @@
 #endif
 
 #include "ap51-flash.h"
+#include "socket.h"
 
 void usage(char *prgname)
 {
-	pcap_if_t *alldevs;
-	pcap_if_t *d;
-	int i=0;
-	char errbuf[PCAP_ERRBUF_SIZE];
-
 	fprintf(stderr, "Usage:\n");
 
 #if defined(EMBEDDED_DATA)
@@ -54,32 +50,7 @@ void usage(char *prgname)
 
 	fprintf(stderr, "\nThe 'ethdevice' has to be one of the devices that are part of the supported device list which follows.\nYou can either specify its name or the interface number.\n");
 
-	/* Retrieve the device list from the local machine */
-	if (pcap_findalldevs(&alldevs, errbuf) == -1) {
-		fprintf(stderr,"Error in pcap_findalldevs_ex: %s\n", errbuf);
-		return;
-	}
-
-	/* Print the list */
-	for(d = alldevs; d != NULL; d = d->next) {
-		i++;
-		fprintf(stderr, "\n%i: %s\n", i, d->name);
-
-		if (!d->description) {
-			fprintf(stderr, "\t(No description available)\n");
-			continue;
-		}
-
-		unsigned char* p = (unsigned char*)d->description;
-		unsigned char c = 0;
-		fprintf(stderr, "\t(Description: ");
-		while (' ' <= *p) {
-			if (c != ' ' || c != *p)
-				fprintf(stderr, "%c", *p);
-			c = *p++;
-		}
-		fprintf(stderr, ")\n");
-	}
+	socket_print_all_devices();
 }
 
 int main(int argc, char* argv[])
