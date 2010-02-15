@@ -43,6 +43,7 @@ ifneq ($(wildcard $(EMBED_UBNT_IMG)),)
 CFLAGS += -DEMBEDDED_DATA
 LIN_OBJS = kernel.o rootfs.o ubnt_img.o
 WIN_OBJS = $(AP51_RC).o
+OSX_OBJ =
 $(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
 $(shell echo 'IDR_KERNEL RCDATA DISCARDABLE "$(EMBED_KERNEL)"' >> $(AP51_RC))
 $(shell echo 'IDR_ROOTFS RCDATA DISCARDABLE "$(EMBED_ROOTFS)"' >> $(AP51_RC))
@@ -52,6 +53,14 @@ CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
 endif
 endif
 endif
+endif
+
+ifeq ($(MAKECMDGOALS),ap51-flash.exe)
+PLATFORM = WIN32
+else ifeq ($(MAKECMDGOALS),ap51-flash-osx)
+PLATFORM = OSX
+else
+PLATFORM = LINUX
 endif
 
 REVISION = $(shell if [ -d .svn ]; then \
@@ -74,21 +83,25 @@ endif
 all: ap51-flash
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) -D$(PLATFORM) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 libap51-flash.a: $(LIB_OBJS) Makefile
 	$(AR) rcs $@ $(LIB_OBJS) $(LDFLAGS)
 
 ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -o $@
 	$(STRIP) $@
 
 ap51-flash-static: $(LIN_OBJS) $(OBJS) libap51-flash.a Makefile
-	$(CC) $(CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -static -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -lpcap -static -o $@
 	$(STRIP) $@
 
 ap51-flash.exe: $(WIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -lwpcap -static -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -lwpcap -static -o $@
+	$(STRIP) $@
+
+ap51-flash-osx: $(OSX_OBJ) $(OBJS) Makefile
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(OSX_OBJ) $(OBJS) $(LDFLAGS) -lpcap -o $@
 	$(STRIP) $@
 
 kernel.o: $(EMBED_KERNEL)
@@ -104,7 +117,7 @@ $(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG)
 	$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	rm -rf *.o *~ *.plg *.ncb libap51-flash.a ap51-flash ap51-flash-static ap51-flash.exe $(AP51_RC)
+	rm -rf *.o *~ *.plg *.ncb libap51-flash.a ap51-flash ap51-flash-static ap51-flash.exe ap51-flash-osx $(AP51_RC)
 
 distclean: clean
 	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG)

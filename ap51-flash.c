@@ -217,11 +217,13 @@ static int pcap_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 	printf("Your IP : %d.%d.%d.%d\n", P(*sip)[0], P(*sip)[1], P(*sip)[2], P(*sip)[3]);
 #endif
 
+#if !defined(OSX)
+	// TODO: This is a seeming bug in OSX - won't work if we turn on non blocking - Lokkju
 	if (0 > pcap_setnonblock(pcap_fp, 1, error)) {
 		fprintf(stderr,"Error setting non-blocking mode: %s\n", error);
 		return -1;
 	}
-
+#endif
 	return 0;
 }
 
@@ -247,7 +249,7 @@ static int extract_boot_prompt(struct ap51_flash_state *s)
 
 	if (strlen(str_ptr) > sizeof(boot_prompt)) {
 		fprintf(stderr, "No RedBoot prompt exceeds expected size (%i - expected %i). Exit in line %d\n",
-			strlen(str_ptr), sizeof(boot_prompt), __LINE__);
+			(int)strlen(str_ptr), (int)sizeof(boot_prompt), __LINE__);
 		return -1;
 	}
 
@@ -528,8 +530,10 @@ void ap51_flash_appcall(void)
 
 static void send_uip_buffer(void)
 {
+#if !defined(OSX)
 	if (uip_len <= 0)
 		return;
+#endif
 
 	if (pcap_sendpacket(pcap_fp, uip_buf, uip_len) < 0) {
 		perror("pcap_sendpacket");

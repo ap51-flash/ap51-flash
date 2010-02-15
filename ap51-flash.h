@@ -29,7 +29,18 @@
 #include "ap51-flash-res.h"
 #include "missing-win32.h"
 #define PCAP_TIMEOUT_MS 1000
-#else
+#elif defined(OSX)
+/* OSX */
+#define O_BINARY 0
+#include <unistd.h>
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <arpa/inet.h>
+#include "missing-osx.h"
+#undef HTONS
+#define PCAP_TIMEOUT_MS 200
+#elif defined(LINUX)
 /* Linux */
 #define O_BINARY 0
 #include <unistd.h>
@@ -40,6 +51,8 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #define PCAP_TIMEOUT_MS 200
+#else
+#error Unsupported PLATFORM
 #endif
 
 typedef struct ap51_flash_state {
