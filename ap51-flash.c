@@ -119,7 +119,7 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 
 		while (NULL == (packet = socket_read(&len))) {
 #if defined(DEBUG)
-			printf("No packet.\n");
+			fprintf(stderr, "device detection: sending ARP request\n");
 #endif
 			usleep(250000);
 			arp_packet_send();
@@ -129,14 +129,14 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 
 		if (recv_ethhdr->ether_type != htons(ETHERTYPE_ARP)) {
 #if defined(DEBUG)
-			fprintf(stderr, "Non arp received. Make sure, the device is connected directly!\n");
+			fprintf(stderr, "device detection: non-arp packet received\n");
 #endif
 			continue;
 		}
 
 		if (len != 60) {
 #if defined(DEBUG)
-			fprintf(stderr, "Expect arp with length 60, received %d\n", len);
+			fprintf(stderr, "device detection: received ARP packet with invalid length (expected: 60): %d\n", len);
 #endif
 			continue;
 		}
@@ -146,14 +146,16 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 		if (recv_arphdr->ea_hdr.ar_op == htons(ARPOP_REPLY)) {
 			if (*((unsigned int *)recv_arphdr->arp_spa) != htonl(ubnt_remote_ip)) {
 #if defined(DEBUG)
-				fprintf(stderr, "Unexpected arp packet, opcode=%d, spa=%u\n",
-					ntohs(recv_arphdr->ea_hdr.ar_op),
+				fprintf(stderr, "device detection: unexpected arp reply for host: %u\n",
 					ntohl(*((unsigned int *)recv_arphdr->arp_spa)));
 #endif
 				continue;
 			}
 
 			if (arp_replies < 20) {
+#if defined(DEBUG)
+			fprintf(stderr, "device detection: received ubnt indicator\n");
+#endif
 				arp_replies++;
 				usleep(250000);
 				continue;
@@ -165,7 +167,7 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 
 		if (recv_arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST)) {
 #if defined(DEBUG)
-			fprintf(stderr, "Unexpected arp packet, opcode=%d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
+			fprintf(stderr, "device detection: arp packet containing unexpected opcode: %d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
 #endif
 			continue;
 		}
@@ -178,6 +180,9 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 		if (*((unsigned int *)recv_arphdr->arp_spa) == htonl(ubnt_remote_ip)) {
 			if (arp_grat_packets < 5) {
 				arp_grat_packets++;
+#if defined(DEBUG)
+			fprintf(stderr, "device detection: received redboot indicator\n");
+#endif
 				continue;
 			}
 
@@ -185,6 +190,9 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 			break;
 		}
 
+#if defined(DEBUG)
+			fprintf(stderr, "device detection: redboot detected\n");
+#endif
 		flash_mode = MODE_REDBOOT;
 		break;
 	}
@@ -585,6 +593,9 @@ void handle_uip_conns(void)
 		if (uip_len > 0) {
 			uip_arp_out();
 			send_uip_buffer();
+#if defined(DEBUG)
+			fprintf(stderr, "fw upload: sending TCP data\n");
+#endif
 		}
 	}
 }

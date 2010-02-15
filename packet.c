@@ -296,6 +296,10 @@ int fw_upload(void)
 			if (xfer_in_progress)
 				continue;
 
+#if defined(DEBUG)
+			fprintf(stderr, "fw upload: waiting for transfer to begin ..\n");
+#endif
+
 			if (flash_mode == MODE_TFTP_CLIENT) {
 				usleep(250000);
 
@@ -340,11 +344,14 @@ int fw_upload(void)
 				*((unsigned int *)arphdr->arp_spa) = local_ip;
 				*((unsigned int *)arphdr->arp_tpa) = remote_ip;
 				arp_packet_send();
+#if defined(DEBUG)
+			fprintf(stderr, "fw upload: replied to ARP request ..\n");
+#endif
 				break;
 			case ARPOP_REPLY:
 				break;
 			default:
-				fprintf(stderr, "Unexpected arp packet, opcode=%d, tpa=%u\n",
+				fprintf(stderr, "fw upload: unexpected arp packet, opcode=%d, tpa=%u\n",
 					ntohs(rcv_arphdr->ea_hdr.ar_op),
 					(unsigned int)ntohl(*((unsigned int *)(rcv_arphdr->arp_tpa))));
 				continue;
@@ -356,7 +363,7 @@ int fw_upload(void)
 			break;
 		case ETH_P_IP:
 			if (len < 20) {
-				fprintf(stderr, "Expected IP with minimum length %i, received %d\n", 20, len);
+				fprintf(stderr, "fw upload: expected IP with minimum length %i, received %d\n", 20, len);
 				continue;
 			}
 
@@ -386,7 +393,7 @@ int fw_upload(void)
 				handle_uip_tcp(packet, len);
 				break;
 			default:
-				fprintf(stderr, "Unexpected IP packet: protocol=%d\n",
+				fprintf(stderr, "fw upload: unexpected IP packet: protocol=%d\n",
 					rcv_iphdr->protocol);
 				continue;
 			}
