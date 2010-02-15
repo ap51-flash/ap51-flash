@@ -782,6 +782,8 @@ uip_process(u8_t flag)
 	  case UIP_SYN_SENT:
 	    /* In the SYN_SENT state, we retransmit out SYN. */
 	    BUF->flags = 0;
+	    /* eliminate backoff time for SYN packets */
+            uip_connr->timer = 1;
 	    goto tcp_send_syn;
 #endif /* UIP_ACTIVE_OPEN */
 	    

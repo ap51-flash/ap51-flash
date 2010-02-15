@@ -285,7 +285,7 @@
  *
  * This should not be changed.
  */
-#define UIP_MAXRTX      8
+#define UIP_MAXRTX      80
 
 /**
  * The maximum number of times a SYN segment should be retransmitted
@@ -294,7 +294,7 @@
  *
  * This should not need to be changed.
  */
-#define UIP_MAXSYNRTX      5
+#define UIP_MAXSYNRTX      50
 
 /**
  * The TCP maximum segment size.
