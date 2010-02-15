@@ -117,6 +117,7 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 	while (1) {
 		arp_packet_send();
 
+read_packet:
 		while (NULL == (packet = socket_read(&len))) {
 #if defined(DEBUG)
 			fprintf(stderr, "device detection: sending ARP request\n");
@@ -131,14 +132,14 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 #if defined(DEBUG)
 			fprintf(stderr, "device detection: non-arp packet received\n");
 #endif
-			continue;
+			goto read_packet;
 		}
 
 		if (len != 60) {
 #if defined(DEBUG)
 			fprintf(stderr, "device detection: received ARP packet with invalid length (expected: 60): %d\n", len);
 #endif
-			continue;
+			goto read_packet;
 		}
 
 		recv_arphdr = (struct ether_arp *)(packet + sizeof(struct ether_header));
