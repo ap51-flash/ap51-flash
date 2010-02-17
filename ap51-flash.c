@@ -112,10 +112,12 @@ static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip
 		return ret;
 #endif
 
-	fprintf(stderr, "Waiting for device to run auto-detection.\nMake sure, the device is connected directly!\n");
+	fprintf(stderr, "Waiting for device to run auto-detection.\nMake sure the device is connected directly!\n");
 
 	while (1) {
-		arp_packet_send();
+		ret = arp_packet_send();
+		if (ret != 0)
+			return ret;
 
 read_packet:
 		while (NULL == (packet = socket_read(&len))) {
@@ -123,7 +125,10 @@ read_packet:
 			fprintf(stderr, "device detection: sending ARP request\n");
 #endif
 			usleep(250000);
-			arp_packet_send();
+
+			ret = arp_packet_send();
+			if (ret != 0)
+				return ret;
 		}
 
 		recv_ethhdr = (struct ether_header *)packet;

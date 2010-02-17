@@ -35,5 +35,5 @@ extern unsigned short xfer_in_progress;
 extern char tcp_status;
 
 void arp_packet_init(void);
-void arp_packet_send(void);
+int arp_packet_send(void);
 int fw_upload(void);

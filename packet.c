@@ -51,9 +51,9 @@ void arp_packet_init(void)
 	arphdr->ea_hdr.ar_pln = 4; /* IPv4 addr len */
 }
 
-void arp_packet_send(void)
+int arp_packet_send(void)
 {
-	socket_write(packet_buff, ARP_LEN);
+	return socket_write(packet_buff, ARP_LEN);
 }
 
 static void tftp_packet_init(unsigned short src_port, unsigned short dst_port)
@@ -343,7 +343,10 @@ int fw_upload(void)
 				memcpy(arphdr->arp_tha, ethhdr->ether_dhost, ETH_ALEN);
 				*((unsigned int *)arphdr->arp_spa) = local_ip;
 				*((unsigned int *)arphdr->arp_tpa) = remote_ip;
-				arp_packet_send();
+
+				ret = arp_packet_send();
+				if (ret != 0)
+					return ret;
 #if defined(DEBUG)
 			fprintf(stderr, "fw upload: replied to ARP request ..\n");
 #endif
