@@ -101,13 +101,13 @@ all: ap51-flash
 	$(CC) -D$(PLATFORM) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 libap51-flash.a: $(LIB_OBJS) Makefile
-	$(AR) rcs $@ $(LIB_OBJS) $(LDFLAGS)
+	$(AR) rcs $@ $(LIB_OBJS)
 
 ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-ap51-flash-static: $(LIN_OBJS) $(OBJS) libap51-flash.a Makefile
+ap51-flash-static: $(LIN_OBJS) $(OBJS) Makefile
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -static -o $@
 	$(STRIP) $@
 
