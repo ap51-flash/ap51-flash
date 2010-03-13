@@ -309,7 +309,7 @@ int fw_upload(void)
 				}
 
 				fprintf(stderr, "TFTP connection timeout .. \n");
-				tftp_write_req();
+				ret = tftp_write_req();
 				if (ret != 0)
 					return ret;
 
