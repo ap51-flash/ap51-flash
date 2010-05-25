@@ -40,20 +40,24 @@ AP51_RC = ap51-flash-res
 EMBED_KERNEL = openwrt-atheros-vmlinux.lzma
 EMBED_ROOTFS = openwrt-atheros-root.squashfs
 EMBED_UBNT_IMG = openwrt-atheros-ubnt2-squashfs.bin
+EMBED_UBOOT_IMG = openwrt-mr500-squashfs.img
 
 ifneq ($(wildcard $(EMBED_KERNEL)),)
 ifneq ($(wildcard $(EMBED_ROOTFS)),)
 ifneq ($(wildcard $(EMBED_UBNT_IMG)),)
+ifneq ($(wildcard $(EMBED_UBOOT_IMG)),)
 CFLAGS += -DEMBEDDED_DATA
-LIN_OBJS = kernel.o rootfs.o ubnt_img.o
+LIN_OBJS = kernel.o rootfs.o ubnt_img.o uboot_img.o
 WIN_OBJS = $(AP51_RC).o
 OSX_OBJ =
 $(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
 $(shell echo 'IDR_KERNEL RCDATA DISCARDABLE "$(EMBED_KERNEL)"' >> $(AP51_RC))
 $(shell echo 'IDR_ROOTFS RCDATA DISCARDABLE "$(EMBED_ROOTFS)"' >> $(AP51_RC))
 $(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT_IMG)"' >> $(AP51_RC))
+$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT_IMG)"' >> $(AP51_RC))
 ifneq ($(DESC),)
 CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
+endif
 endif
 endif
 endif
@@ -128,11 +132,14 @@ rootfs.o: $(EMBED_ROOTFS)
 ubnt_img.o: $(EMBED_UBNT_IMG)
 	$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT_IMG) -O elf32-i386 $@
 
-$(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG)
+uboot_img.o: $(EMBED_UBOOT_IMG)
+	$(OBJCOPY) -B i386 -I binary $(EMBED_UBOOT_IMG) -O elf32-i386 $@
+
+$(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG) $(EMBED_UBOOT_IMG)
 	$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
 	rm -rf *.o *~ *.plg *.ncb libap51-flash.a ap51-flash ap51-flash-static ap51-flash.exe ap51-flash-osx $(AP51_RC)
 
 distclean: clean
-	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG)
+	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG) $(EMBED_UBOOT_IMG)

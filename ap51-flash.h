@@ -94,6 +94,14 @@ enum {
 	MODE_REDBOOT,
 	MODE_MAYBE_REDBOOT,
 	MODE_TFTP_CLIENT,
+	MODE_TFTP_SERVER,
+};
+
+/* image type */
+enum {
+	IMG_REDBOOT,
+	IMG_UBNT,
+	IMG_UBOOT,
 };
 
 /* flash from file data */
@@ -101,6 +109,7 @@ enum {
 	FFF_ROOTFS = 0,
 	FFF_KERNEL,
 	FFF_UBNT,
+	FFF_UBOOT,
 	FFF_NUM,
 };
 

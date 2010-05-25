@@ -31,11 +31,12 @@ void usage(char *prgname)
 	fprintf(stderr, "Usage:\n");
 
 #if defined(EMBEDDED_DATA)
-	fprintf(stderr, "%s [ethdevice]   flashes embedded kernel + rootfs or ubquiti image: %s\n", prgname, EMBEDDED_DESC_STR);
+	fprintf(stderr, "%s [ethdevice]   flashes embedded kernel + rootfs or ubquiti or uboot image: %s\n", prgname, EMBEDDED_DESC_STR);
 #endif
 
 	fprintf(stderr, "%s [ethdevice] rootfs.bin kernel.lzma   flashes your rootfs and kernel\n", prgname);
 	fprintf(stderr, "%s [ethdevice] ubnt.bin   flashes your ubiquiti image\n", prgname);
+	fprintf(stderr, "%s [ethdevice] uboot.bin   flashes your uboot image\n", prgname);
 	fprintf(stderr, "%s -v   prints version information\n", prgname);
 
 #if defined(FLASH_FROM_FILE)
@@ -45,7 +46,8 @@ void usage(char *prgname)
 	fprintf(stderr, "  --flash-from-file   enable 'flash from file' mode\n");
 	fprintf(stderr, "  --rootfs   path to rootfs file\n");
 	fprintf(stderr, "  --kernel   path to kernel file\n");
-	fprintf(stderr, "  --ubnt   path to ubiquiti image\n");
+	fprintf(stderr, "  --ubnt     path to ubiquiti image\n");
+	fprintf(stderr, "  --uboot    path to uboot image\n");
 #endif
 
 	fprintf(stderr, "\nThe 'ethdevice' has to be one of the devices that are part of the supported device list which follows.\nYou can either specify its name or the interface number.\n");
@@ -62,6 +64,7 @@ int main(int argc, char* argv[])
 	int i, found_args = 1, optchar, option_index;
 	struct option long_options[] =
 	{
+		{"uboot", required_argument, 0, 'b'},
 		{"flash-from-file", no_argument, 0, 'f'},
 		{"rootfs", required_argument, 0, 'r'},
 		{"kernel", required_argument, 0, 'k'},
@@ -115,8 +118,12 @@ int main(int argc, char* argv[])
 	for (i = 0; i < FFF_NUM; i++)
 		fff_data[i].fname = NULL;
 
-	while ((optchar = getopt_long(argc, argv, "fk:r:u:", long_options, &option_index)) != -1) {
+	while ((optchar = getopt_long(argc, argv, "fb:k:r:u:", long_options, &option_index)) != -1) {
 		switch (optchar) {
+		case 'b':
+			fff_data[FFF_UBOOT].fname = optarg;
+			found_args += 2;
+			break;
 		case 'f':
 			flash_from_file = 1;
 			found_args++;
@@ -146,8 +153,9 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
-		if (!fff_data[FFF_ROOTFS].fname && !fff_data[FFF_KERNEL].fname && !fff_data[FFF_UBNT].fname) {
-			fprintf(stderr, "Error - you need to specify at least kernel and rootfs or ubiquiti image file\n");
+		if (!fff_data[FFF_ROOTFS].fname && !fff_data[FFF_KERNEL].fname &&
+		    !fff_data[FFF_UBNT].fname && !fff_data[FFF_UBOOT].fname) {
+			fprintf(stderr, "Error - you need to specify at least kernel and rootfs or ubiquiti or uboot image file\n");
 			return 1;
 		}
 

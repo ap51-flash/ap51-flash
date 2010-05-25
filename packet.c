@@ -151,7 +151,8 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 	char *file_name;
 	int tftp_data_len, ret;
 
-	if ((flash_mode == MODE_REDBOOT) && (rcv_udphdr->dest != htons(IPPORT_TFTP)))
+	if (((flash_mode == MODE_REDBOOT) || (flash_mode == MODE_TFTP_SERVER)) &&
+	    (rcv_udphdr->dest != htons(IPPORT_TFTP)))
 		return 1;
 
 	if ((flash_mode == MODE_TFTP_CLIENT) && (rcv_udphdr->source != htons(IPPORT_TFTP)))
@@ -175,6 +176,11 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_ROOTFS] : rootfs_buf);
 			tftp_xfer_size = (flash_from_file ? fff_data[FFF_ROOTFS].flash_size : rootfs_size);
 			printf("Sending rootfs, %ld blocks...\n",
+			       ((tftp_xfer_size + 511) / 512));
+		} else if (strcmp(file_name, "mr500.bin") == 0) {
+			tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_UBOOT] : rootfs_buf);
+			tftp_xfer_size = (flash_from_file ? fff_data[FFF_UBOOT].flash_size : rootfs_size);
+			printf("Sending uboot image, %ld blocks...\n",
 			       ((tftp_xfer_size + 511) / 512));
 		} else {
 			fprintf(stderr, "Unknown file name: %s\n", file_name);
@@ -204,7 +210,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			block = tftp_ack_block;
 		} else {
 			if (block * 512 > tftp_xfer_size) {
-				if (flash_mode == MODE_TFTP_CLIENT) {
+				if ((flash_mode == MODE_TFTP_CLIENT) || (flash_mode == MODE_TFTP_SERVER)) {
 					printf("Image successfully transmitted.\n");
 					printf("Please give the device a couple of minutes to install the new image into the flash.\n");
 					return 0;

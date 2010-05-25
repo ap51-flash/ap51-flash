@@ -19,3 +19,4 @@
 #define IDR_KERNEL 101
 #define IDR_ROOTFS 102
 #define IDR_UBNT_IMG 103
+#define IDR_UBOOT_IMG 104

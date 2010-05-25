@@ -46,6 +46,7 @@ unsigned int remote_ip;
 unsigned int local_ip;
 static unsigned int ubnt_remote_ip = 3232235796UL; /* 192.168.1.20 */
 static unsigned int ubnt_local_ip = 3232235801UL; /* 192.168.1.25 */
+static unsigned int mr500_local_ip = 3232260872UL; /* 192.168.99.8 */
 unsigned char *tftp_xfer_buff = NULL;
 unsigned long tftp_xfer_size = 0;
 
@@ -66,6 +67,10 @@ extern unsigned long _binary_openwrt_atheros_root_squashfs_size;
 extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_start;
 extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_end;
 extern unsigned long _binary_openwrt_atheros_ubnt2_squashfs_bin_size;
+
+extern unsigned long _binary_openwrt_mr500_squashfs_img_start;
+extern unsigned long _binary_openwrt_mr500_squashfs_img_end;
+extern unsigned long _binary_openwrt_mr500_squashfs_img_size;
 #endif
 
 static uip_ipaddr_t srcipaddr;
@@ -176,6 +181,11 @@ read_packet:
 			fprintf(stderr, "device detection: arp packet containing unexpected opcode: %d\n", ntohs(recv_arphdr->ea_hdr.ar_op));
 #endif
 			continue;
+		}
+
+		if (*((unsigned int *)recv_arphdr->arp_tpa) == htonl(mr500_local_ip)) {
+			flash_mode = MODE_TFTP_SERVER;
+			break;
 		}
 
 		/* we are waiting for gratuitous requests */
@@ -660,7 +670,7 @@ int ap51_flash(char *iface, char *rootfs_filename, char *kernel_filename, int nv
 {
 	uip_ipaddr_t netmask;
 	struct uip_eth_addr srcmac, dstmac, brcmac;
-	int ret, ubnt_img = 0, fd, size = 0;
+	int ret, img_type = IMG_REDBOOT, fd, size = 0;
 	unsigned char *buf = 0;
 	char *socket_dev;
 
@@ -777,9 +787,13 @@ int ap51_flash(char *iface, char *rootfs_filename, char *kernel_filename, int nv
 	/* ubnt magic header */
 	if ((strncmp((char *)rootfs_buf, "UBNT", 4) == 0) ||
 	    (strncmp((char *)rootfs_buf, "OPEN", 4) == 0))
-		ubnt_img = 1;
+		img_type = IMG_UBNT;
 
-	if ((FLASH_PAGE_SIZE > kernel_size) && (!ubnt_img)) {
+	/* uboot magic header */
+	if (*((unsigned int *)rootfs_buf) == htonl(0x27051956))
+		img_type = IMG_UBOOT;
+
+	if ((FLASH_PAGE_SIZE > kernel_size) && (img_type == IMG_REDBOOT)) {
 		fprintf(stderr, "kernel implausible small: %d bytes\n", kernel_size);
 		return 1;
 	}
@@ -838,8 +852,12 @@ init_socket:
 				goto sock_close;
 			}
 		} else {
-			if (ubnt_img) {
+			switch (img_type) {
+			case IMG_UBNT:
 				fprintf(stderr, "Error - you are trying to flash a redboot device with a ubiquiti image!\n");
+				goto sock_close;
+			case IMG_UBOOT:
+				fprintf(stderr, "Error - you are trying to flash a redboot device with a uboot image!\n");
 				goto sock_close;
 			}
 		}
@@ -884,7 +902,7 @@ init_socket:
 				}
 			}
 
-			ubnt_img = 1;
+			img_type = IMG_UBNT;
 		}
 #endif /* EMBEDDED_DATA */
 		if (flash_from_file) {
@@ -893,8 +911,12 @@ init_socket:
 				goto sock_close;
 			}
 		} else {
-			if (!ubnt_img) {
+			switch (img_type) {
+			case IMG_REDBOOT:
 				fprintf(stderr, "Error - you are trying to flash a ubiquiti device with redboot images!\n");
+				goto sock_close;
+			case IMG_UBOOT:
+				fprintf(stderr, "Error - you are trying to flash a ubiquiti device with a uboot image!\n");
 				goto sock_close;
 			}
 		}
@@ -902,6 +924,58 @@ init_socket:
 		tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_UBNT] : rootfs_buf);
 		tftp_xfer_size = (flash_from_file ? fff_data[FFF_UBNT].flash_size : rootfs_size);
 		printf("Ubiquiti device detected - using TFTP client to flash\n");
+		break;
+	case MODE_TFTP_SERVER:
+#if defined(EMBEDDED_DATA)
+		if ((!rootfs_filename) && (!flash_from_file)) {
+
+			/* free the rootfs and replace it by the uboot image */
+			free(rootfs_buf);
+
+#if defined(WIN32)
+			HRSRC hRsrc;
+			hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBOOT_IMG), RT_RCDATA);
+			if (NULL != hRsrc) {
+				HGLOBAL hGlobal = LoadResource(NULL, hRsrc);
+				buf = LockResource(hGlobal);
+				size = SizeofResource(NULL, hRsrc);
+			}
+#else
+			buf = (unsigned char*)&_binary_openwrt_mr500_squashfs_img_start;
+			size = (int)&_binary_openwrt_mr500_squashfs_img_size;
+#endif
+
+			if (0 != buf) {
+				rootfs_size = ((size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
+				if (0 != (rootfs_buf = malloc(rootfs_size))) {
+					memset(rootfs_buf, 0xff, rootfs_size);
+					memmove(rootfs_buf, buf, size);
+				} else {
+					perror("no mem");
+					goto sock_close;
+				}
+			}
+
+			img_type = IMG_UBOOT;
+		}
+#endif /* EMBEDDED_DATA */
+		if (flash_from_file) {
+			if (!fff_data[FFF_UBOOT].fname) {
+				fprintf(stderr, "Error - uboot device detected but uboot file not available\n");
+				goto sock_close;
+			}
+		} else {
+			switch (img_type) {
+			case IMG_REDBOOT:
+				fprintf(stderr, "Error - you are trying to flash a uboot device with redboot images!\n");
+				goto sock_close;
+			case IMG_UBNT:
+				fprintf(stderr, "Error - you are trying to flash a uboot device with a ubiquiti image!\n");
+				goto sock_close;
+			}
+		}
+
+		printf("Uboot device detected - using TFTP server to flash\n");
 		break;
 	default:
 		fprintf(stderr, "Error - could not auto-detect flash mode!\n");
