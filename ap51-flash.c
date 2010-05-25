@@ -39,6 +39,11 @@ static int uncomp_loader = 0;
 static int nvram_part_size = 0x00000000;
 static int rootfs_part_size = 0x00000000;
 
+#if defined(LINUX) && defined(FLASH_FROM_FILE)
+static char *ap51_iface = NULL;
+char *pipe_path = NULL;
+#endif
+
 char flash_mode = MODE_NONE;
 int flash_from_file = 0;
 struct flash_from_file fff_data[FFF_NUM];
@@ -85,6 +90,40 @@ void uip_log(char *m)
 	fprintf(stderr, "uIP log message: %s\n", m);
 #endif
 }
+
+#if defined(LINUX) && defined(FLASH_FROM_FILE)
+void pipe_msg(char *event_type, char *msg)
+{
+	int fd, ret;
+
+	if (!flash_from_file)
+		return;
+
+	if (!pipe_path)
+		return;
+
+	if (!ap51_iface)
+		return;
+
+	fd = open(pipe_path, O_WRONLY);
+	if (fd < 0)
+		return;
+
+	ret = flock(fd, LOCK_EX);
+	if (ret < 0)
+		goto out;
+
+	dprintf(fd, "%s %s %s\n", ap51_iface, event_type, msg);
+	flock(fd, LOCK_UN);
+
+out:
+	close(fd);
+}
+#else
+void pipe_msg(char *event_type, char *msg)
+{
+}
+#endif
 
 static int ap51_init(char *dev, uip_ipaddr_t* sip, uip_ipaddr_t* dip, struct uip_eth_addr* smac, struct uip_eth_addr* dmac, int special)
 {
@@ -347,6 +386,11 @@ sanity_check:
 		printf("rootfs(0x%08x) + kernel(0x%08x) + nvram(0x%08x) sums up to 0x%08x bytes\n",
 		       rootfs_part_size, device_info->kernel_part_size, nvram_part_size,
 		       rootfs_part_size + device_info->kernel_part_size + nvram_part_size);
+
+		if (device_info == &flash_8mb_info)
+			pipe_msg("FLASHING", "redboot_8MB");
+		else
+			pipe_msg("FLASHING", "redboot_4MB");
 
 		sprintf(str, "ip_addr -l %d.%d.%d.%d/8 -h %d.%d.%d.%d\n",
 			P(&dstipaddr)[0], P(&dstipaddr)[1], P(&dstipaddr)[2], P(&dstipaddr)[3],
@@ -687,6 +731,7 @@ int ap51_flash(char *iface, char *rootfs_filename, char *kernel_filename, int nv
 		nvram_part_size = FLASH_PAGE_SIZE;
 
 #if defined(FLASH_FROM_FILE)
+	char *fff_desc;
 	int i;
 
 	if (flash_from_file) {
@@ -700,9 +745,24 @@ int ap51_flash(char *iface, char *rootfs_filename, char *kernel_filename, int nv
 			if (ret != 0)
 				return ret;
 
+			switch (i) {
+			case 0:
+				fff_desc = "rootfs";
+				break;
+			case 1:
+				fff_desc = "kernel";
+				break;
+			case 2:
+				fff_desc = "ubnt";
+				break;
+			case 3:
+			default:
+				fff_desc = "uboot";
+				break;
+			}
+
 			printf("Reading %s file %s with %d bytes ...\n",
-			       (i == 0 ? "rootfs" : (i == 1 ? "kernel" : "ubnt")),
-			       fff_data[i].fname, fff_data[i].flash_size);
+			       fff_desc, fff_data[i].fname, fff_data[i].flash_size);
 		}
 
 		goto init_socket;
@@ -822,6 +882,10 @@ init_socket:
 	if (!socket_dev)
 		socket_dev = iface;
 
+#if defined(LINUX) && defined(FLASH_FROM_FILE)
+	ap51_iface = socket_dev;
+#endif
+
 	ret = ap51_init(socket_dev, &srcipaddr, &dstipaddr, &srcmac, &dstmac, special);
 
 	if (ret != 0)
@@ -849,6 +913,7 @@ init_socket:
 			if ((!fff_data[FFF_ROOTFS].fname) ||
 			    (!fff_data[FFF_KERNEL].fname)) {
 				fprintf(stderr, "Error - redboot enabled device detected but rootfs & kernel file not available\n");
+				pipe_msg("ERROR", "no kernel and rootfs for redboot available");
 				goto sock_close;
 			}
 		} else {
@@ -908,6 +973,7 @@ init_socket:
 		if (flash_from_file) {
 			if (!fff_data[FFF_UBNT].fname) {
 				fprintf(stderr, "Error - ubiquiti device detected but ubiquiti file not available\n");
+				pipe_msg("ERROR", "no image for ubiquiti available");
 				goto sock_close;
 			}
 		} else {
@@ -924,6 +990,7 @@ init_socket:
 		tftp_xfer_buff = (flash_from_file ? (unsigned char *)&fff_data[FFF_UBNT] : rootfs_buf);
 		tftp_xfer_size = (flash_from_file ? fff_data[FFF_UBNT].flash_size : rootfs_size);
 		printf("Ubiquiti device detected - using TFTP client to flash\n");
+		pipe_msg("FLASHING", "ubiquiti");
 		break;
 	case MODE_TFTP_SERVER:
 #if defined(EMBEDDED_DATA)
@@ -962,6 +1029,7 @@ init_socket:
 		if (flash_from_file) {
 			if (!fff_data[FFF_UBOOT].fname) {
 				fprintf(stderr, "Error - uboot device detected but uboot file not available\n");
+				pipe_msg("ERROR", "no image for uboot available");
 				goto sock_close;
 			}
 		} else {
@@ -976,13 +1044,22 @@ init_socket:
 		}
 
 		printf("Uboot device detected - using TFTP server to flash\n");
+		pipe_msg("FLASHING", "uboot");
 		break;
 	default:
 		fprintf(stderr, "Error - could not auto-detect flash mode!\n");
+		pipe_msg("ERROR", "could not auto-detect flash mode");
 		goto sock_close;
 	}
 
+#if defined(LINUX) && defined(FLASH_FROM_FILE)
+	signal(SIGTERM, SIG_IGN);
+#endif
+
 	ret = fw_upload();
+
+	if (ret == 0)
+		pipe_msg("SUCCESS", "");
 
 sock_close:
 	socket_close(socket_dev);

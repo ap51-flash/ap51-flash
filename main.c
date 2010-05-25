@@ -48,6 +48,7 @@ void usage(char *prgname)
 	fprintf(stderr, "  --kernel   path to kernel file\n");
 	fprintf(stderr, "  --ubnt     path to ubiquiti image\n");
 	fprintf(stderr, "  --uboot    path to uboot image\n");
+	fprintf(stderr, "  --pipe     write status messages to pipe\n");
 #endif
 
 	fprintf(stderr, "\nThe 'ethdevice' has to be one of the devices that are part of the supported device list which follows.\nYou can either specify its name or the interface number.\n");
@@ -66,6 +67,7 @@ int main(int argc, char* argv[])
 	{
 		{"uboot", required_argument, 0, 'b'},
 		{"flash-from-file", no_argument, 0, 'f'},
+		{"pipe", required_argument, 0, 'p'},
 		{"rootfs", required_argument, 0, 'r'},
 		{"kernel", required_argument, 0, 'k'},
 		{"ubnt", required_argument, 0, 'u'},
@@ -118,7 +120,7 @@ int main(int argc, char* argv[])
 	for (i = 0; i < FFF_NUM; i++)
 		fff_data[i].fname = NULL;
 
-	while ((optchar = getopt_long(argc, argv, "fb:k:r:u:", long_options, &option_index)) != -1) {
+	while ((optchar = getopt_long(argc, argv, "fb:k:p:r:u:", long_options, &option_index)) != -1) {
 		switch (optchar) {
 		case 'b':
 			fff_data[FFF_UBOOT].fname = optarg;
@@ -130,6 +132,10 @@ int main(int argc, char* argv[])
 			break;
 		case 'k':
 			fff_data[FFF_KERNEL].fname = optarg;
+			found_args += 2;
+			break;
+		case 'p':
+			pipe_path = optarg;
 			found_args += 2;
 			break;
 		case 'r':

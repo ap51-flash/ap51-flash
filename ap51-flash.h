@@ -57,6 +57,8 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <sys/file.h>
 #define PCAP_TIMEOUT_MS 200
 #if !defined(NO_LIBPCAP)
 #include <pcap.h>
@@ -138,6 +140,7 @@ enum {
 typedef int uip_udp_appstate_t;
 void ap51_flash_tftp_appcall(void);
 
+void pipe_msg(char *event_type, char *msg);
 int ap51_flash(char* device, char* rootfs_filename, char* kernel_filename, int nvram, int uncomp, int special);
 void ap51_flash_appcall(void);
 void handle_uip_tcp(const unsigned char *packet_buff, unsigned int packet_len);
@@ -153,6 +156,7 @@ extern int rootfs_size;
 extern int kernel_size;
 extern char flash_mode;
 extern int flash_from_file;
+extern char *pipe_path;
 extern struct flash_from_file fff_data[];
 
 #endif /* __ap51_FLASH_H__ */

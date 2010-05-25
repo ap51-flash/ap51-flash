@@ -184,6 +184,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			       ((tftp_xfer_size + 511) / 512));
 		} else {
 			fprintf(stderr, "Unknown file name: %s\n", file_name);
+			pipe_msg("ERROR", "unknown TFTP file name requested");
 			return -1;
 		}
 
@@ -256,6 +257,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 		else
 			fprintf(stderr, "Received TFTP error code: %d\n", block);
 
+		pipe_msg("ERROR", "received TFTP error");
 		return -1;
 		break;
 	default:
