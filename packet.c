@@ -34,7 +34,7 @@ struct udphdr *udphdr = (struct udphdr *)(packet_buff + sizeof(struct ether_head
 void *tftp_data = (void *)(packet_buff + TFTP_BASE_LEN);
 
 unsigned long tftp_bytes_sent = 0;
-unsigned short tftp_ack_block = 0, tftp_sent_block = 0, xfer_in_progress = 0, write_req_timeout = 4;
+unsigned short last_packet_size = 0, tftp_ack_block = 0, tftp_sent_block = 0, xfer_in_progress = 0, write_req_timeout = 4;
 char tcp_status = TCP_CONTINUE;
 
 
@@ -129,6 +129,8 @@ static int read_from_file(void *target_buff, void *data, int len, int seek_pos)
 		read_len = fff->file_size - seek_pos;
 
 	if (read_len > 0) {
+		lseek(fff->fd, seek_pos, SEEK_SET);
+
 		if (read_len != read(fff->fd, target_buff, read_len)) {
 			perror(fff->fname);
 			return 1;
@@ -190,6 +192,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 
 		block = 0;
 		tftp_bytes_sent = 0;
+		last_packet_size = 0;
 		/* fall through - start sending data */
 	/* TFTP ack */
 	case 4:
@@ -203,12 +206,13 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			tftp_sent_block = 0;
 		} else if (block != tftp_sent_block) {
 			if (block < tftp_sent_block)
-				fprintf(stderr, "tftp repeat block %d %d\n", block + 1, tftp_ack_block);
+				fprintf(stderr, "tftp repeat block %d, last received ack: %d\n", block + 1, tftp_ack_block);
 			else
 				fprintf(stderr, "tftp acks unsent block %d (last sent block: %d)\n",
 					block, tftp_sent_block);
 
 			block = tftp_ack_block;
+			tftp_bytes_sent -= last_packet_size;
 		} else {
 			if (block * 512 > tftp_xfer_size) {
 				if ((flash_mode == MODE_TFTP_CLIENT) || (flash_mode == MODE_TFTP_SERVER)) {
@@ -238,6 +242,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			memcpy(tftp_data + 4, (void *)(tftp_xfer_buff + tftp_bytes_sent), tftp_data_len);
 		}
 
+		last_packet_size = tftp_data_len;
 		tftp_bytes_sent += tftp_data_len;
 		tftp_data_len += 4; /* opcode size */
 
