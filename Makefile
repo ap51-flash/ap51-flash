@@ -54,7 +54,7 @@ $(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
 $(shell echo 'IDR_KERNEL RCDATA DISCARDABLE "$(EMBED_KERNEL)"' >> $(AP51_RC))
 $(shell echo 'IDR_ROOTFS RCDATA DISCARDABLE "$(EMBED_ROOTFS)"' >> $(AP51_RC))
 $(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT_IMG)"' >> $(AP51_RC))
-$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT_IMG)"' >> $(AP51_RC))
+$(shell echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT_IMG)"' >> $(AP51_RC))
 ifneq ($(DESC),)
 CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
 endif
