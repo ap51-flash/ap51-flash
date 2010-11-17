@@ -50,7 +50,7 @@ struct flash_from_file fff_data[FFF_NUM];
 unsigned int remote_ip;
 unsigned int local_ip;
 static unsigned int ubnt_remote_ip = 3232235796UL; /* 192.168.1.20 */
-static unsigned int ubnt_local_ip = 3232235801UL; /* 192.168.1.25 */
+static unsigned int ubnt_local_ip = 3232235801UL;  /* 192.168.1.25 */
 static unsigned int mr500_local_ip = 3232260872UL; /* 192.168.99.8 */
 unsigned char *tftp_xfer_buff = NULL;
 unsigned long tftp_xfer_size = 0;

@@ -215,9 +215,14 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 			tftp_bytes_sent -= last_packet_size;
 		} else {
 			if (block * 512 > tftp_xfer_size) {
-				if ((flash_mode == MODE_TFTP_CLIENT) || (flash_mode == MODE_TFTP_SERVER)) {
+				if (flash_mode == MODE_TFTP_CLIENT) {
 					printf("Image successfully transmitted.\n");
 					printf("Please give the device a couple of minutes to install the new image into the flash.\n");
+					return 0;
+				} else if (flash_mode == MODE_TFTP_SERVER) { /* MR500 */
+					printf("Flashing kernel + rootfs...\n");
+					sleep(tftp_xfer_size / 65536);
+					printf("Done. Restarting device...\n");
 					return 0;
 				}
 				return 1;

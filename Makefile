@@ -22,7 +22,7 @@ STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
 OFLAGS  = -Os
-CFLAGS  = -Wall -I. -IWpdPack/Include/ -fno-strict-aliasing -fpack-struct $(OFLAGS)
+CFLAGS  = -Wall -I. -fno-strict-aliasing -fpack-struct $(OFLAGS)
 LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o socket.o
 OBJS    = $(LIB_OBJS) main.o
 AP51_RC = ap51-flash-res
@@ -65,6 +65,7 @@ endif
 
 ifeq ($(MAKECMDGOALS),ap51-flash.exe)
 PLATFORM = WIN32
+CFLAGS += -IWpdPack/Include/
 else ifeq ($(MAKECMDGOALS),ap51-flash-osx)
 PLATFORM = OSX
 else
