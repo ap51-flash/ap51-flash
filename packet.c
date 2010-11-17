@@ -221,7 +221,7 @@ static int tftp_transfer(const unsigned char *packet_buff, unsigned int packet_l
 					return 0;
 				} else if (flash_mode == MODE_TFTP_SERVER) { /* MR500 */
 					printf("Flashing kernel + rootfs...\n");
-					sleep(tftp_xfer_size / 65536);
+					usleep((tftp_xfer_size / 65536) * 1000000);
 					printf("Done. Restarting device...\n");
 					return 0;
 				}
