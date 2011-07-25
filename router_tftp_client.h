@@ -16,9 +16,8 @@
  * 02110-1301, USA
  */
 
-void socket_print_all_ifaces(void);
-char *socket_find_iface_by_index(char *iface_number);
-int socket_open(char *iface);
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sleep_usec);
-int socket_write(char *buff, int len);
-void socket_close(char *iface);
+extern const struct router_type mr500;
+extern const struct router_type om2p;
+
+void tftp_client_flash_time_set(struct node *node);
+int tftp_client_flash_completed(struct node *node);

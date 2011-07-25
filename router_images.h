@@ -16,9 +16,15 @@
  * 02110-1301, USA
  */
 
-void socket_print_all_ifaces(void);
-char *socket_find_iface_by_index(char *iface_number);
-int socket_open(char *iface);
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sleep_usec);
-int socket_write(char *buff, int len);
-void socket_close(char *iface);
+struct file_info *router_image_get_file(struct list *file_list, char *file_name);
+void router_images_init(void);
+void router_images_print_desc(void);
+int router_images_verify_path(char *image_path);
+int router_images_open_path(struct node *node);
+int router_images_read_data(char *dst, struct node *node);
+void router_images_close_path(struct node *node);
+
+extern struct router_image img_uboot;
+extern struct router_image img_ubnt;
+extern struct router_image img_ci;
+extern struct router_image img_ce_om2p;

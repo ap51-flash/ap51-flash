@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Open Mesh, Inc., Marek Lindner
+ * Copyright (C) Marek Lindner
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 3 of the GNU General Public
@@ -16,7 +16,7 @@
  * 02110-1301, USA
  */
 
-#define IDR_KERNEL 101
-#define IDR_ROOTFS 102
+#define IDR_CI_IMG 101
+#define IDR_CE_IMG 102
 #define IDR_UBNT_IMG 103
 #define IDR_UBOOT_IMG 104

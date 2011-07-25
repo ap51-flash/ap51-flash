@@ -1,5 +1,5 @@
 #
-# Copyright (C) Sven-Ola, Open Mesh, Inc., Marek Lindner
+# Copyright (C) Marek Lindner
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of version 3 of the GNU General Public
@@ -16,131 +16,181 @@
 # 02110-1301, USA
 #
 
+# enable debug output
+# EXTRA_CFLAGS += -DDEBUG
+
+# define $EMBED_IMG=/path/to/image to have your image included
+# into the binary where $EMBED_IMG is one of the following:
+# * EMBED_CI
+# * EMBED_CE
+# * EMBED_UBNT
+# * EMBED_UBOOT
+
+
+
+ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifndef V
+	Q_CC = @echo '   ' CC $@;
+	Q_LD = @echo '   ' LD $@;
+	export Q_CC
+	export Q_LD
+endif
+endif
+
+AP51_C = flash.c proto.c router_redboot.c router_tftp_client.c router_tftp_server.c router_types.c router_images.c socket.c
+AP51_H = flash.h proto.h router_redboot.h router_tftp_client.h router_tftp_server.h router_types.h router_images.h socket.h types.h compat.h
+AP51_O = $(AP51_C:.c=.o)
+AP51_RC = ap51-flash-res
+
+BINARY_NAME = ap51-flash
+
 CC      = $(CROSS)gcc
-AR      = $(CROSS)ar
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
-OFLAGS  = -Os
-CFLAGS  = -Wall -I. -fno-strict-aliasing -fpack-struct $(OFLAGS)
-LIB_OBJS= ap51-flash.o uip.o uip_arp.o timer.o clock-arch.o psock.o packet.o socket.o
-OBJS    = $(LIB_OBJS) main.o
-AP51_RC = ap51-flash-res
 
-# enable debug output
-# EXTRA_CFLAGS += -DDEBUG
-# enable packet debug output
-# EXTRA_CFLAGS += -DPACKET_DEBUG
-# enable flash from file mode
-# EXTRA_CFLAGS += -DFLASH_FROM_FILE
-# disable libpcap and use raw sockets instead (linux only!)
-# EXTRA_CFLAGS += -DNO_LIBPCAP
-
-# if you change the names here you also need to change the ap51-flash.c code
-EMBED_KERNEL = openwrt-atheros-vmlinux.lzma
-EMBED_ROOTFS = openwrt-atheros-root.squashfs
-EMBED_UBNT_IMG = openwrt-atheros-ubnt2-squashfs.bin
-EMBED_UBOOT_IMG = openwrt-mr500-squashfs.img
-
-ifneq ($(wildcard $(EMBED_KERNEL)),)
-ifneq ($(wildcard $(EMBED_ROOTFS)),)
-ifneq ($(wildcard $(EMBED_UBNT_IMG)),)
-ifneq ($(wildcard $(EMBED_UBOOT_IMG)),)
-CFLAGS += -DEMBEDDED_DATA
-LIN_OBJS = kernel.o rootfs.o ubnt_img.o uboot_img.o
-WIN_OBJS = $(AP51_RC).o
-OSX_OBJ =
-$(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
-$(shell echo 'IDR_KERNEL RCDATA DISCARDABLE "$(EMBED_KERNEL)"' >> $(AP51_RC))
-$(shell echo 'IDR_ROOTFS RCDATA DISCARDABLE "$(EMBED_ROOTFS)"' >> $(AP51_RC))
-$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT_IMG)"' >> $(AP51_RC))
-$(shell echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT_IMG)"' >> $(AP51_RC))
-ifneq ($(DESC),)
-CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
-endif
-endif
-endif
-endif
+ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
+	PLATFORM = LINUX
+else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
+	LDFLAGS += -LWpdPack/Lib/ -lwpcap
+	CFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
+	PLATFORM = WIN32
+else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
+	PLATFORM = OSX
 endif
 
-ifeq ($(MAKECMDGOALS),ap51-flash.exe)
-PLATFORM = WIN32
-CFLAGS += -IWpdPack/Include/
-else ifeq ($(MAKECMDGOALS),ap51-flash-osx)
-PLATFORM = OSX
-else
-PLATFORM = LINUX
-endif
-
-# detect whether we should link against libpcap
+ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
 ifeq ($(PLATFORM),WIN32)
-LDFLAGS += -lwpcap
-else ifeq ($(PLATFORM),OSX)
-LDFLAGS += -lpcap
-else ifeq ($(PLATFORM),LINUX)
-ifeq ($(findstring NO_LIBPCAP,$(EXTRA_CFLAGS)),)
-LDFLAGS += -lpcap
+$(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
+	AP51_O += $(AP51_RC).o
+endif
+ifeq ($(PLATFORM),LINUX)
+ifeq ($(OBJCP_OUT),)
+	ifeq ($(shell getconf LONG_BIT),64)
+		OBJCP_OUT = elf64-x86-64
+	else
+		OBJCP_OUT = elf32-i386
+	endif
+endif
+endif
+ifneq ($(DESC),)
+	CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
 endif
 endif
 
-REVISION = $(shell if [ -d .svn ]; then \
+ifneq ($(EMBED_CI),)
+	EMBED_CI_SYM = _binary_$(shell echo $(EMBED_CI) | sed 's@[-/.]@_@g')
+	EMBED_O += img_ci.o
+	CFLAGS += -DEMBED_CI
+endif
+
+ifneq ($(EMBED_CE),)
+	EMBED_CE_SYM = _binary_$(shell echo $(EMBED_CE) | sed 's@[-/.]@_@g')
+	EMBED_O += img_ce.o
+	CFLAGS += -DEMBED_CE
+endif
+
+ifneq ($(EMBED_UBNT),)
+	EMBED_UBNT_SYM = _binary_$(shell echo $(EMBED_UBNT) | sed 's@[-/.]@_@g')
+	EMBED_O += img_ubnt.o
+	CFLAGS += -DEMBED_UBNT
+endif
+
+ifneq ($(EMBED_UBOOT),)
+	EMBED_UBOOT_SYM = _binary_$(shell echo $(EMBED_UBOOT) | sed 's@[-/.]@_@g')
+	EMBED_O += img_uboot.o
+	CFLAGS += -DEMBED_UBOOT
+endif
+
+CMDLINE_O = $(AP51_O) commandline.o
+CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM)
+
+NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
+REVISION= $(shell	if [ -d .svn ]; then \
 				if which svn > /dev/null; then \
-					svn info | grep "Rev:" | sed -e '1p' -n | awk '{print "r"$$4}'; \
-				fi \
-			 else \
-				if [ -d .git ]; then \
-					git_rev=`git log --grep="git-svn-id" -n1 --format=short | grep commit | awk '{print $$2}'`; \
-					git svn find-rev $$git_rev | awk '{print "r"$$1"g"}'; \
+					echo rv$$(svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'); \
+				else \
+					echo "[unknown]"; \
 				fi; \
-			 fi)
-
-ifeq ($(REVISION),)
-CFLAGS += -DREVISION_VERSION=\"unknown\"
-else
+			elif [ -d .git ]; then \
+				if which git > /dev/null; then \
+					echo $$(git describe --always --dirty 2> /dev/null); \
+				else \
+					echo "[unknown]"; \
+				fi; \
+			elif [ -d ~/.svk ]; then \
+				if which svk > /dev/null; then \
+					echo rv$$(svk info | grep "Mirrored From" | awk '{print $$5}'); \
+				else \
+					echo "[unknown]"; \
+				fi; \
+			fi)
 CFLAGS += -DREVISION_VERSION=\"$(REVISION)\"
-endif
 
-all: ap51-flash
+all:
+	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
 %.o: %.c
-	$(CC) -D$(PLATFORM) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
+	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MD -c $< -o $@
 
-libap51-flash.a: $(LIB_OBJS) Makefile
-	$(AR) rcs $@ $(LIB_OBJS)
-
-ap51-flash: $(LIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -o $@
+$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O) $(AP51_H) Makefile
+	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(EMBED_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-ap51-flash-static: $(LIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(LIN_OBJS) $(OBJS) $(LDFLAGS) -static -o $@
+$(BINARY_NAME).exe: $(EMBED_O) $(CMDLINE_O) $(AP51_H) Makefile
+	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-ap51-flash.exe: $(WIN_OBJS) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -LWpdPack/Lib/ -DWIN32 -D_CONSOLE -D_MBCS $(WIN_OBJS) $(OBJS) $(LDFLAGS) -o $@
+$(BINARY_NAME)-osx: $(CMDLINE_O) $(AP51_H) Makefile
+	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-ap51-flash-osx: $(OSX_OBJ) $(OBJS) Makefile
-	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(OSX_OBJ) $(OBJS) $(LDFLAGS) -o $@
-	$(STRIP) $@
+ifeq ($(PLATFORM),LINUX)
+img_ci.o:
+	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_CI) -O $(OBJCP_OUT) \
+	--redefine-sym $(EMBED_CI_SYM)_start=_binary_img_ci_start \
+	--redefine-sym $(EMBED_CI_SYM)_end=_binary_img_ci_end \
+	--redefine-sym $(EMBED_CI_SYM)_size=_binary_img_ci_size $@
+else ifeq ($(PLATFORM),WIN32)
+img_ci.o:
+	$(shell echo 'IDR_CI_IMG RCDATA DISCARDABLE "$(EMBED_CI)"' >> $(AP51_RC))
+endif
 
-kernel.o: $(EMBED_KERNEL)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_KERNEL) -O elf32-i386 $@
+ifeq ($(PLATFORM),LINUX)
+img_ce.o:
+	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_CE) -O $(OBJCP_OUT) \
+	--redefine-sym $(EMBED_CE_SYM)_start=_binary_img_ce_start \
+	--redefine-sym $(EMBED_CE_SYM)_end=_binary_img_ce_end \
+	--redefine-sym $(EMBED_CE_SYM)_size=_binary_img_ce_size $@
+else ifeq ($(PLATFORM),WIN32)
+img_ce.o:
+	$(shell echo 'IDR_CE_IMG RCDATA DISCARDABLE "$(EMBED_CE)"' >> $(AP51_RC))
+endif
 
-rootfs.o: $(EMBED_ROOTFS)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_ROOTFS) -O elf32-i386 $@
+ifeq ($(PLATFORM),LINUX)
+img_ubnt.o:
+	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT) -O $(OBJCP_OUT) \
+	--redefine-sym $(EMBED_UBNT_SYM)_start=_binary_img_ubnt_start \
+	--redefine-sym $(EMBED_UBNT_SYM)_end=_binary_img_ubnt_end \
+	--redefine-sym $(EMBED_UBNT_SYM)_size=_binary_img_ubnt_size $@
+else ifeq ($(PLATFORM),WIN32)
+img_ubnt.o:
+	$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT)"' >> $(AP51_RC))
+endif
 
-ubnt_img.o: $(EMBED_UBNT_IMG)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT_IMG) -O elf32-i386 $@
+ifeq ($(PLATFORM),LINUX)
+img_uboot.o:
+	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_UBOOT) -O $(OBJCP_OUT) \
+	--redefine-sym $(EMBED_UBOOT_SYM)_start=_binary_img_uboot_start \
+	--redefine-sym $(EMBED_UBOOT_SYM)_end=_binary_img_uboot_end \
+	--redefine-sym $(EMBED_UBOOT_SYM)_size=_binary_img_uboot_size $@
+else ifeq ($(PLATFORM),WIN32)
+img_uboot.o:
+	$(shell echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT)"' >> $(AP51_RC))
+endif
 
-uboot_img.o: $(EMBED_UBOOT_IMG)
-	$(OBJCOPY) -B i386 -I binary $(EMBED_UBOOT_IMG) -O elf32-i386 $@
-
-$(AP51_RC).o: $(EMBED_KERNEL) $(EMBED_ROOTFS) $(EMBED_UBNT_IMG) $(EMBED_UBOOT_IMG)
-	$(WINDRES) -i $(AP51_RC) -I. -o $@
+$(AP51_RC).o:
+	$(Q_CC)$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	rm -rf *.o *~ *.plg *.ncb libap51-flash.a ap51-flash ap51-flash-static ap51-flash.exe ap51-flash-osx $(AP51_RC)
-
-distclean: clean
-	rm -rf $(EMBED_ROOTFS) $(EMBED_KERNEL) $(EMBED_UBNT_IMG) $(EMBED_UBOOT_IMG)
+	rm -rf *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)

@@ -16,9 +16,10 @@
  * 02110-1301, USA
  */
 
-void socket_print_all_ifaces(void);
-char *socket_find_iface_by_index(char *iface_number);
-int socket_open(char *iface);
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sleep_usec);
-int socket_write(char *buff, int len);
-void socket_close(char *iface);
+#include "types.h"
+
+int router_types_init(void);
+void router_types_detect_pre(uint8_t *our_mac);
+int router_types_detect_main(struct node *node, char *packet_buff, int packet_buff_len);
+
+extern int router_types_priv_size;

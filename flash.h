@@ -16,9 +16,19 @@
  * 02110-1301, USA
  */
 
-void socket_print_all_ifaces(void);
-char *socket_find_iface_by_index(char *iface_number);
-int socket_open(char *iface);
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sleep_usec);
-int socket_write(char *buff, int len);
-void socket_close(char *iface);
+#include "compat.h"
+
+struct node *node_list_get(uint8_t *mac_addr);
+void our_mac_set(struct node *node);
+int flash(char *iface);
+
+static inline void list_prepend(struct list **list, struct list *list_item)
+{
+	if (!(*list)) {
+		*list = list_item;
+		return;
+	}
+
+	list_item->next = (*list)->next;
+	(*list)->next = list_item;
+}
