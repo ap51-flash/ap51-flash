@@ -191,7 +191,7 @@ static void handle_arp_packet(char *packet_buff, int packet_buff_len, struct nod
 		break;
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: booting after successful flash\n",
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: flash complete. Device ready to unplug.\n\n\n\n",
 			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
 			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
