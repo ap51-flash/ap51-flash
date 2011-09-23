@@ -75,10 +75,10 @@ int tftp_client_flash_completed(struct node *node)
 
 	if (node->router_type == &mr500) {
 		mr500_priv = node->router_priv;
-		time2flash = mr500_priv->start_flash + 45 + (node->router_type->image->flash_size / 65536);
+		time2flash = mr500_priv->start_flash + 45 + (node->image_state.total_bytes_sent / 65536);
 	} else if (node->router_type == &om2p) {
 		om2p_priv = node->router_priv;
-		time2flash = om2p_priv->start_flash + (node->router_type->image->flash_size / 65536);
+		time2flash = om2p_priv->start_flash + (node->image_state.total_bytes_sent / 65536);
 	} else {
 		return 0;
 	}
