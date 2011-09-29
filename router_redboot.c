@@ -146,6 +146,7 @@ void redboot_main(struct node *node, char *telnet_msg)
 {
 	struct redboot_priv *redboot_priv = node->router_priv;
 	struct file_info *file_info;
+	unsigned long req_flash_size;
 	char buff[100];
 
 	switch (redboot_priv->redboot_state) {
@@ -161,12 +162,15 @@ void redboot_main(struct node *node, char *telnet_msg)
 		strcpy(redboot_priv->version_info, telnet_msg);
 		redboot_type_detect(node);
 
-		if (redboot_priv->redboot_type->flash_size < node->router_type->image->flash_size) {
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image size '%s' of 0x%08ux exceeds router capacity: 0x%08lx\n",
+		req_flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
+							FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
+
+		if (redboot_priv->redboot_type->flash_size < req_flash_size) {
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image size '%s' of 0x%08lx exceeds router capacity: 0x%08lx\n",
 				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
 				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc, node->router_type->image->path,
-				node->router_type->image->flash_size, redboot_priv->redboot_type->flash_size);
+				req_flash_size, redboot_priv->redboot_type->flash_size);
 			goto redboot_failure;
 		}
 

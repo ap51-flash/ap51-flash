@@ -281,19 +281,20 @@ static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct nod
 	case 4:
 		if (block == 0) {
 			if (node->flash_mode == FLASH_MODE_TFTP_SERVER) {
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %i blocks ...\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-					node->router_type->desc,
-					((node->router_type->image->flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
-
 				ret = router_images_open_path(node);
 				if (ret < 0)
 					return;
 				node->status = NODE_STATUS_FLASHING;
 				node->image_state.file_size = node->router_type->image->file_size;
-				node->image_state.flash_size = node->router_type->image->flash_size;
+				node->image_state.flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
+										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
+
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %i blocks ...\n",
+					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
+					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+					node->router_type->desc,
+					((node->image_state.flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
 			}
 
 			node->image_state.block_acked = 0;

@@ -40,6 +40,7 @@
 #define FLASH_MODE_TFTP_CLIENT	0x03
 
 #define DESC_MAX_LENGTH	30
+#define FLASH_PAGE_SIZE 0x10000
 
 struct list {
 	struct list *next;
@@ -116,7 +117,6 @@ struct router_image {
 	char *path;
 	char *embedded_img;
 	unsigned int file_size;
-	unsigned int flash_size;
 	struct list *file_list;
 };
 

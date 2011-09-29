@@ -28,7 +28,6 @@
 #include "flash.h"
 #include "ap51-flash-res.h"
 
-#define FLASH_PAGE_SIZE 0x10000
 #define TFTP_PAYLOAD_SIZE 512
 
 #if defined(EMBED_UBOOT) && defined(LINUX)
@@ -451,10 +450,7 @@ int router_images_verify_path(char *image_path)
 		if (ret != 1)
 			continue;
 
-		(*router_image)->flash_size = (((*router_image)->file_size + FLASH_PAGE_SIZE - 1) /
-							FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 		(*router_image)->path = image_path;
-
 		found_consumer = 1;
 
 #if defined(DEBUG)
