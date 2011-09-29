@@ -18,6 +18,10 @@
 
 #include "compat.h"
 
+#if defined (CLEAR_SCREEN)
+extern int num_nodes_flashed;
+#endif
+
 struct node *node_list_get(uint8_t *mac_addr);
 void our_mac_set(struct node *node);
 int flash(char *iface);

@@ -18,6 +18,8 @@
 
 # enable debug output
 # EXTRA_CFLAGS += -DDEBUG
+# clear screen after each subsequent flash
+# EXTRA_CFLAGS += -DCLEAR_SCREEN
 
 # define $EMBED_IMG=/path/to/image to have your image included
 # into the binary where $EMBED_IMG is one of the following:
