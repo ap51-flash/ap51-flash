@@ -100,7 +100,7 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 
 #if defined (CLEAR_SCREEN)
 		if (num_nodes_flashed > 0)
-			system("clear");
+			ret = system("clear");
 #endif
 
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s' detected\n",
