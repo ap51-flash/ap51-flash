@@ -149,6 +149,8 @@ static void node_list_maintain(void)
 			if (node->router_type == &mr500) {
 				node->status = NODE_STATUS_UNKNOWN;
 				node->flash_mode = FLASH_MODE_UKNOWN;
+				memset((void *)&node->image_state, 0, sizeof(struct image_state));
+				node->image_state.fd = -1;
 			}
 #if defined(CLEAR_SCREEN)
 			num_nodes_flashed++;
