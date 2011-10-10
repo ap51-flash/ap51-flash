@@ -18,7 +18,7 @@
 
 #include "compat.h"
 
-#if defined (CLEAR_SCREEN)
+#if defined(CLEAR_SCREEN)
 extern int num_nodes_flashed;
 #endif
 

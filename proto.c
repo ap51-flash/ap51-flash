@@ -196,7 +196,7 @@ static void handle_arp_packet(char *packet_buff, int packet_buff_len, struct nod
 			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
 		node->status = NODE_STATUS_REBOOTED;
-#if defined (CLEAR_SCREEN)
+#if defined(CLEAR_SCREEN)
 		num_nodes_flashed++;
 #endif
 		break;

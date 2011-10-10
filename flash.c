@@ -33,7 +33,7 @@ static int running = 1;
 static struct list *node_list;
 static uint8_t our_mac[] = {0x00, 0xba, 0xbe, 0xca, 0xff, 0x00};
 
-#if defined (CLEAR_SCREEN)
+#if defined(CLEAR_SCREEN)
 int num_nodes_flashed = 0;
 #endif
 
@@ -150,7 +150,7 @@ static void node_list_maintain(void)
 				node->status = NODE_STATUS_UNKNOWN;
 				node->flash_mode = FLASH_MODE_UKNOWN;
 			}
-#if defined (CLEAR_SCREEN)
+#if defined(CLEAR_SCREEN)
 			num_nodes_flashed++;
 #endif
 			break;

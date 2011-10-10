@@ -98,8 +98,8 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 		node->router_type = (struct router_type *)(*router_type);
 		node->router_priv = priv;
 
-#if defined (CLEAR_SCREEN)
-#if defined defined(LINUX)
+#if defined(CLEAR_SCREEN)
+#if defined(LINUX)
 		if (num_nodes_flashed > 0)
 			ret = system("clear");
 #elif defined(WIN32)
