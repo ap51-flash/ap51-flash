@@ -99,8 +99,15 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 		node->router_priv = priv;
 
 #if defined (CLEAR_SCREEN)
+#if defined defined(LINUX)
 		if (num_nodes_flashed > 0)
 			ret = system("clear");
+#elif defined(WIN32)
+		if (num_nodes_flashed > 0)
+			ret = system("cls");
+#else
+#error CLEAR_SCREEN is not supported on your OS
+#endif
 #endif
 
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s' detected\n",
