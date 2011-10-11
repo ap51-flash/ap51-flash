@@ -108,6 +108,8 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 #else
 #error CLEAR_SCREEN is not supported on your OS
 #endif
+		/* keep gcc happy by retrieving the return value of the system() call */
+		ret = 1;
 #endif
 
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s' detected\n",
