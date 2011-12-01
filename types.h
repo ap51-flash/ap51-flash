@@ -104,7 +104,7 @@ struct router_type {
 };
 
 struct file_info {
-	char file_name[20];
+	char file_name[33];
 	unsigned int file_offset;
 	unsigned int file_size;
 	unsigned int file_fsize;
@@ -113,7 +113,7 @@ struct file_info {
 struct router_image {
 	char desc[DESC_MAX_LENGTH];
 	int (*image_init)(void);
-	int (*image_verify)(struct router_image *router_image, char *buff, int buff_len, int size);
+	int (*image_verify)(struct router_image *router_image, char *buff, unsigned int buff_len, int size);
 	char *path;
 	char *embedded_img;
 	unsigned int file_size;

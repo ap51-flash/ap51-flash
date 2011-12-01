@@ -22,6 +22,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "types.h"
 #include "router_images.h"
@@ -121,7 +122,7 @@ static int router_image_add_file(struct router_image *router_image, char *file_n
 }
 
 static int uboot_verify(struct router_image *router_image, char *buff,
-			int buff_len, int size)
+			unsigned int buff_len, int size)
 {
 	int ret;
 
@@ -173,7 +174,7 @@ static int uboot_init(void)
 }
 
 static int ubnt_verify(struct router_image *router_image, char *buff,
-		       int buff_len, int size)
+		       unsigned int buff_len, int size)
 {
 	if (buff_len < 4)
 		return 0;
@@ -219,7 +220,7 @@ static int ubnt_init(void)
 }
 
 static int ci_verify(struct router_image *router_image, char *buff,
-		     int buff_len, int size)
+		     unsigned int buff_len, int size)
 {
 	unsigned int kernel_size, rootfs_size;
 	int ret;
@@ -283,13 +284,13 @@ static int ci_init(void)
 }
 
 static int ce_verify_om2p(struct router_image *router_image, char *buff,
-			  int buff_len, int size)
+			  unsigned int buff_len, int size)
 {
-	char name_buff[21];
+	char name_buff[33], md5_buff[33];
 	unsigned int num_files, hdr_offset, file_offset, file_size;
+	unsigned int ce_version = 0, hdr_offset_sec;
 	int ret;
 
-	hdr_offset = 14;
 	file_offset = 64 * 1024;
 
 	if (buff_len < 100)
@@ -299,24 +300,65 @@ static int ce_verify_om2p(struct router_image *router_image, char *buff,
 	if ((buff[0] != 'C') || (buff[1] != 'E'))
 		return 0;
 
-	ret = sscanf(buff, "CE%10s%02x", name_buff, &num_files);
-	if (ret != 2)
+	/* the old format does not have a version field */
+	if (isxdigit(buff[2]) && isxdigit(buff[3])) {
+		ret = sscanf(buff, "CE%02x", &ce_version);
+		if (ret != 1)
+			return 0;
+	}
+
+	switch (ce_version) {
+	case 0:
+		ret = sscanf(buff, "CE%10s%02x", name_buff, &num_files);
+		if (ret != 2)
+			return 0;
+
+		hdr_offset = 14;
+		hdr_offset_sec = 28;
+		break;
+	case 1:
+		ret = sscanf(buff, "CE%*02x%32s%02x", name_buff, &num_files);
+		if (ret != 2)
+			return 0;
+
+		hdr_offset = 38;
+		hdr_offset_sec = 72;
+		break;
+	default:
+		/* unsupported version */
 		return 0;
+	}
 
 	if (strstr(name_buff, "OM2P") == NULL)
 		return 0;
 
 	while (num_files > 0) {
-		ret = sscanf(buff + hdr_offset, "%20s%08x", name_buff, &file_size);
-		if (ret != 2)
+		if (hdr_offset + hdr_offset_sec > buff_len) {
+			fprintf(stderr, "Error - buffer too small to parse CE header\n");
 			return 0;
+		}
+
+		switch (ce_version) {
+		case 0:
+			ret = sscanf(buff + hdr_offset, "%20s%08x", name_buff, &file_size);
+			if (ret != 2)
+				return 0;
+
+			break;
+		case 1:
+			ret = sscanf(buff + hdr_offset, "%32s%08x%32s", name_buff, &file_size, md5_buff);
+			if (ret != 3)
+				return 0;
+
+			break;
+		}
 
 		ret = router_image_add_file(router_image, name_buff, file_size, file_size, file_offset);
 		if (ret)
 			return 0;
 
 		file_offset += file_size;
-		hdr_offset += 28;
+		hdr_offset += hdr_offset_sec;
 		num_files--;
 	}
 
@@ -420,8 +462,13 @@ void router_images_print_desc(void)
 int router_images_verify_path(char *image_path)
 {
 	struct router_image **router_image;
-	char file_buff[100], found_consumer = 0;
+	char *file_buff = NULL, found_consumer = 0;
+	unsigned int file_buff_size = 300;
 	int fd, file_size, ret = -1, len;
+
+	file_buff = malloc(file_buff_size);
+	if (!file_buff_size)
+		goto out;
 
 	fd = open(image_path, O_RDONLY | O_BINARY);
 	if (fd < 0) {
@@ -429,7 +476,7 @@ int router_images_verify_path(char *image_path)
 		goto out;
 	}
 
-	ret = read(fd, file_buff, sizeof(file_buff));
+	ret = read(fd, file_buff, file_buff_size);
 	if (ret < 0) {
 		fprintf(stderr, "Error - can't read image file '%s': %s\n", image_path, strerror(errno));
 		goto close_fd;
@@ -467,6 +514,7 @@ int router_images_verify_path(char *image_path)
 close_fd:
 	close(fd);
 out:
+	free(file_buff);
 	return ret;
 }
 
