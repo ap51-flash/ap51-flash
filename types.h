@@ -39,6 +39,12 @@
 #define FLASH_MODE_TFTP_SERVER	0x02
 #define FLASH_MODE_TFTP_CLIENT	0x03
 
+#define IMAGE_TYPE_UNKNOWN	0x00
+#define IMAGE_TYPE_UBOOT	0x01
+#define IMAGE_TYPE_UBNT		0x02
+#define IMAGE_TYPE_CI		0x03
+#define IMAGE_TYPE_CE		0x04
+
 #define DESC_MAX_LENGTH	30
 #define FILE_NAME_MAX_LENGTH 33
 #define FLASH_PAGE_SIZE 0x10000
@@ -112,11 +118,17 @@ struct file_info {
 };
 
 struct router_image {
+	int type;
 	char desc[DESC_MAX_LENGTH];
-	int (*image_init)(void);
 	int (*image_verify)(struct router_image *router_image, char *buff, unsigned int buff_len, int size);
 	char *path;
 	char *embedded_img;
+#if defined(LINUX)
+	char *embedded_img_pre_check;
+	unsigned int embedded_file_size;
+#elif defined(WIN32)
+	unsigned int embedded_img_res;
+#endif
 	unsigned int file_size;
 	struct list *file_list;
 };

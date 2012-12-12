@@ -161,37 +161,6 @@ static int uboot_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int uboot_init(void)
-{
-	int ret = 0;
-#if defined(EMBED_UBOOT)
-#if defined(LINUX)
-	ret = uboot_verify(&img_uboot, (char *)&_binary_img_uboot_start,
-			   (unsigned long)&_binary_img_uboot_size,
-			   (unsigned long)&_binary_img_uboot_size);
-	if (ret == 1)
-		img_uboot.embedded_img = (char *)&_binary_img_uboot_start;
-#elif defined(WIN32)
-	HGLOBAL hGlobal;
-	HRSRC hRsrc;
-	int size;
-	char *buff;
-
-	hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBOOT_IMG), RT_RCDATA);
-	if (hRsrc) {
-		hGlobal = LoadResource(NULL, hRsrc);
-		buff = LockResource(hGlobal);
-		size = SizeofResource(NULL, hRsrc);
-
-		ret = uboot_verify(&img_uboot, buff, size, size);
-		if (ret == 1)
-			img_uboot.embedded_img = buff;
-	}
-#endif
-#endif /* EMBED_UBOOT */
-	return ret;
-}
-
 static int ubnt_verify(struct router_image *router_image, char *buff,
 		       unsigned int buff_len, int size)
 {
@@ -205,37 +174,6 @@ static int ubnt_verify(struct router_image *router_image, char *buff,
 
 	router_image->file_size = size;
 	return 1;
-}
-
-static int ubnt_init(void)
-{
-	int ret = 0;
-#if defined(EMBED_UBNT)
-#if defined(LINUX)
-	ret = ubnt_verify(&img_ubnt, (char *)&_binary_img_ubnt_start,
-			  (unsigned long)&_binary_img_ubnt_size,
-			  (unsigned long)&_binary_img_ubnt_size);
-	if (ret == 1)
-		img_ubnt.embedded_img = (char *)&_binary_img_ubnt_start;
-#elif defined(WIN32)
-	HGLOBAL hGlobal;
-	HRSRC hRsrc;
-	int size;
-	char *buff;
-
-	hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_UBNT_IMG), RT_RCDATA);
-	if (hRsrc) {
-		hGlobal = LoadResource(NULL, hRsrc);
-		buff = LockResource(hGlobal);
-		size = SizeofResource(NULL, hRsrc);
-
-		ret = ubnt_verify(&img_ubnt, buff, size, size);
-		if (ret == 1)
-			img_ubnt.embedded_img = buff;
-	}
-#endif
-#endif /* EMBED_UBNT */
-	return ret;
 }
 
 static int ci_verify(struct router_image *router_image, char *buff,
@@ -269,37 +207,6 @@ static int ci_verify(struct router_image *router_image, char *buff,
 
 	router_image->file_size = size - (64 * 1024);
 	return 1;
-}
-
-static int ci_init(void)
-{
-	int ret = 0;
-#if defined(EMBED_CI)
-#if defined(LINUX)
-	ret = ci_verify(&img_ci, (char *)&_binary_img_ci_start,
-			(unsigned long)&_binary_img_ci_size,
-			(unsigned long)&_binary_img_ci_size);
-	if (ret == 1)
-		img_ci.embedded_img = (char *)&_binary_img_ci_start;
-#elif defined(WIN32)
-	HGLOBAL hGlobal;
-	HRSRC hRsrc;
-	int size;
-	char *buff;
-
-	hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_CI_IMG), RT_RCDATA);
-	if (hRsrc) {
-		hGlobal = LoadResource(NULL, hRsrc);
-		buff = LockResource(hGlobal);
-		size = SizeofResource(NULL, hRsrc);
-
-		ret = ci_verify(&img_ci, buff, size, size);
-		if (ret == 1)
-			img_ci.embedded_img = buff;
-	}
-#endif
-#endif /* EMBED_CI */
-	return ret;
 }
 
 static int ce_verify_om2p(struct router_image *router_image, char *buff,
@@ -385,58 +292,58 @@ static int ce_verify_om2p(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int ce_init_om2p(void)
+static int router_images_init_embedded(struct router_image *router_image)
 {
 	int ret = 0;
-#if defined(EMBED_CE)
 #if defined(LINUX)
-	ret = ce_verify_om2p(&img_ce_om2p, (char *)&_binary_img_ce_start,
-			     (unsigned long)&_binary_img_ce_size,
-			     (unsigned long)&_binary_img_ce_size);
+	ret = router_image->image_verify(router_image,
+					 router_image->embedded_img_pre_check,
+					 router_image->embedded_file_size,
+					 router_image->embedded_file_size);
 	if (ret == 1)
-		img_ce_om2p.embedded_img = (char *)&_binary_img_ce_start;
+		router_image->embedded_img = router_image->embedded_img_pre_check;
 #elif defined(WIN32)
 	HGLOBAL hGlobal;
 	HRSRC hRsrc;
 	int size;
 	char *buff;
 
-	hRsrc = FindResource(NULL, MAKEINTRESOURCE(IDR_CE_IMG), RT_RCDATA);
+	hRsrc = FindResource(NULL, MAKEINTRESOURCE(router_image->embedded_img_res),
+			     RT_RCDATA);
 	if (hRsrc) {
 		hGlobal = LoadResource(NULL, hRsrc);
 		buff = LockResource(hGlobal);
 		size = SizeofResource(NULL, hRsrc);
 
-		ret = ce_verify_om2p(&img_ce_om2p, buff, size, size);
+		ret = router_image->image_verify(router_image, buff, size, size);
 		if (ret == 1)
-			img_ce_om2p.embedded_img = buff;
+			router_image->embedded_img = buff;
 	}
 #endif
-#endif /* EMBED_CE */
 	return ret;
 }
 
 struct router_image img_uboot = {
+	.type = IMAGE_TYPE_UBOOT,
 	.desc = "uboot image",
-	.image_init = uboot_init,
 	.image_verify = uboot_verify,
 };
 
 struct router_image img_ubnt = {
+	.type = IMAGE_TYPE_UBNT,
 	.desc = "ubiquiti image",
-	.image_init = ubnt_init,
 	.image_verify = ubnt_verify,
 };
 
 struct router_image img_ci = {
+	.type = IMAGE_TYPE_CI,
 	.desc = "combined image",
-	.image_init = ci_init,
 	.image_verify = ci_verify,
 };
 
 struct router_image img_ce_om2p = {
+	.type = IMAGE_TYPE_CE,
 	.desc = "combined ext image (OM2P)",
-	.image_init = ce_init_om2p,
 	.image_verify = ce_verify_om2p,
 };
 
@@ -456,10 +363,55 @@ void router_images_init(void)
 	for (router_image = router_images; *router_image; ++router_image) {
 		(*router_image)->file_list = NULL;
 
-		if (!(*router_image)->image_init)
+		if (!(*router_image)->image_verify)
 			continue;
 
-		ret = (*router_image)->image_init();
+		switch ((*router_image)->type) {
+		case IMAGE_TYPE_UNKNOWN:
+			continue;
+		case IMAGE_TYPE_UBOOT:
+#if defined(EMBED_UBOOT)
+#if defined(LINUX)
+			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_uboot_start;
+			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_uboot_size;
+#elif defined(WIN32)
+			(*router_image)->embedded_img_res = IDR_UBOOT_IMG;
+#endif
+#endif
+			break;
+		case IMAGE_TYPE_UBNT:
+#if defined(EMBED_UBNT)
+#if defined(LINUX)
+			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ubnt_start;
+			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ubnt_size;
+#elif defined(WIN32)
+			(*router_image)->embedded_img_res = IDR_UBNT_IMG;
+#endif
+#endif
+			break;
+		case IMAGE_TYPE_CI:
+#if defined(EMBED_CI)
+#if defined(LINUX)
+			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ci_start;
+			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ci_size;
+#elif defined(WIN32)
+			(*router_image)->embedded_img_res = IDR_CI_IMG;
+#endif
+#endif
+			break;
+		case IMAGE_TYPE_CE:
+#if defined(EMBED_CE)
+#if defined(LINUX)
+			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ce_start;
+			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ce_size;
+#elif defined(WIN32)
+			(*router_image)->embedded_img_res = IDR_CE_IMG;
+#endif
+#endif
+			break;
+		}
+
+		ret = router_images_init_embedded(*router_image);
 		if (ret != 1)
 			continue;
 
