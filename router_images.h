@@ -16,7 +16,7 @@
  * 02110-1301, USA
  */
 
-struct file_info *router_image_get_file(struct list *file_list, char *file_name);
+struct file_info *router_image_get_file(struct router_type *router_type, char *file_name);
 void router_images_init(void);
 void router_images_print_desc(void);
 int router_images_verify_path(char *image_path);

@@ -83,7 +83,7 @@ out:
 }
 
 const struct router_type ubnt = {
-	.desc = "ubiquiti router",
+	.desc = "ubiquiti",
 	.detect_pre = ubnt_detect_pre,
 	.detect_main = ubnt_detect_main,
 	.detect_post = ubnt_detect_post,

@@ -156,7 +156,7 @@ out:
 }
 
 const struct router_type mr600 = {
-	.desc = "MR600 router",
+	.desc = "MR600",
 	.detect_pre = NULL,
 	.detect_main = mr600_detect_main,
 	.detect_post = tftp_client_detect_post,
@@ -191,7 +191,7 @@ out:
 }
 
 const struct router_type om2p = {
-	.desc = "OM2P router",
+	.desc = "OM2P",
 	.detect_pre = NULL,
 	.detect_main = om2p_detect_main,
 	.detect_post = tftp_client_detect_post,

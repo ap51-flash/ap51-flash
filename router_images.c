@@ -55,7 +55,7 @@ extern unsigned long _binary_img_ce_end;
 extern unsigned long _binary_img_ce_size;
 #endif
 
-struct file_info *router_image_get_file(struct list *file_list, char *file_name)
+static struct file_info *_router_image_get_file(struct list *file_list, char *file_name)
 {
 	struct list *list;
 	struct file_info *file_info = NULL, *file_info_tmp;
@@ -63,12 +63,31 @@ struct file_info *router_image_get_file(struct list *file_list, char *file_name)
 	for (list = file_list; list; list = list->next) {
 		file_info_tmp = (struct file_info *)list->data;
 
-		if (strcmp(file_info_tmp->file_name, file_name) != 0)
+		if (strcasecmp(file_info_tmp->file_name, file_name) != 0)
 			continue;
 
 		file_info = file_info_tmp;
 		break;
 	}
+
+	return file_info;
+}
+
+struct file_info *router_image_get_file(struct router_type *router_type, char *file_name)
+{
+	struct file_info *file_info = NULL;
+	char file_name_buff[FILE_NAME_MAX_LENGTH];
+
+	if (strcmp(file_name, "fwupgrade.cfg") == 0) {
+		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s",
+			 file_name, router_type->desc);
+		file_info = _router_image_get_file(router_type->image->file_list,
+						   file_name_buff);
+	}
+
+	if (!file_info)
+		file_info = _router_image_get_file(router_type->image->file_list,
+						   file_name);
 
 	return file_info;
 }
@@ -79,7 +98,7 @@ static struct file_info *_router_image_add_file(struct router_image *router_imag
 	struct list *list;
 	struct file_info *file_info;
 
-	file_info = router_image_get_file(router_image->file_list, file_name);
+	file_info = _router_image_get_file(router_image->file_list, file_name);
 	if (file_info)
 		goto out;
 

@@ -40,6 +40,7 @@
 #define FLASH_MODE_TFTP_CLIENT	0x03
 
 #define DESC_MAX_LENGTH	30
+#define FILE_NAME_MAX_LENGTH 33
 #define FLASH_PAGE_SIZE 0x10000
 
 struct list {
@@ -104,7 +105,7 @@ struct router_type {
 };
 
 struct file_info {
-	char file_name[33];
+	char file_name[FILE_NAME_MAX_LENGTH];
 	unsigned int file_offset;
 	unsigned int file_size;
 	unsigned int file_fsize;

@@ -139,7 +139,7 @@ static void node_list_maintain(void)
 			if (ret == 0)
 				break;
 
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: flash complete. Device ready to unplug.\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
 				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
 				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc);

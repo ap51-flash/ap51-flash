@@ -113,7 +113,7 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 		ret = 1;
 #endif
 
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s' detected\n",
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s router' detected\n",
 			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
 			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
