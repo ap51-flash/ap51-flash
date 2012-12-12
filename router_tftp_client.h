@@ -17,6 +17,7 @@
  */
 
 extern const struct router_type mr500;
+extern const struct router_type mr600;
 extern const struct router_type om2p;
 
 void tftp_client_flash_time_set(struct node *node);
