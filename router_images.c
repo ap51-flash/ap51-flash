@@ -209,8 +209,8 @@ static int ci_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int ce_verify_om2p(struct router_image *router_image, char *buff,
-			  unsigned int buff_len, int size)
+static int ce_verify(struct router_image *router_image, char *buff,
+		     unsigned int buff_len, int size)
 {
 	char name_buff[33], md5_buff[33];
 	unsigned int num_files, hdr_offset, file_offset, file_size;
@@ -255,8 +255,8 @@ static int ce_verify_om2p(struct router_image *router_image, char *buff,
 		return 0;
 	}
 
-	if (strstr(name_buff, "OM2P") == NULL)
-		return 0;
+	/* if (strstr(name_buff, "OM2P") == NULL)
+		return 0; */
 
 	while (num_files > 0) {
 		if (hdr_offset + hdr_offset_sec > buff_len) {
@@ -341,17 +341,17 @@ struct router_image img_ci = {
 	.image_verify = ci_verify,
 };
 
-struct router_image img_ce_om2p = {
+struct router_image img_ce = {
 	.type = IMAGE_TYPE_CE,
-	.desc = "combined ext image (OM2P)",
-	.image_verify = ce_verify_om2p,
+	.desc = "combined ext image",
+	.image_verify = ce_verify,
 };
 
 static struct router_image *router_images[] = {
 	&img_uboot,
 	&img_ubnt,
 	&img_ci,
-	&img_ce_om2p,
+	&img_ce,
 	NULL,
 };
 

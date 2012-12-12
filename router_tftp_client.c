@@ -160,7 +160,7 @@ const struct router_type mr600 = {
 	.detect_pre = NULL,
 	.detect_main = mr600_detect_main,
 	.detect_post = tftp_client_detect_post,
-	.image = &img_ce_om2p,
+	.image = &img_ce,
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -195,6 +195,6 @@ const struct router_type om2p = {
 	.detect_pre = NULL,
 	.detect_main = om2p_detect_main,
 	.detect_post = tftp_client_detect_post,
-	.image = &img_ce_om2p,
+	.image = &img_ce,
 	.priv_size = sizeof(struct om2p_priv),
 };

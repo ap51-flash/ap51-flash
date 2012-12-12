@@ -27,4 +27,4 @@ void router_images_close_path(struct node *node);
 extern struct router_image img_uboot;
 extern struct router_image img_ubnt;
 extern struct router_image img_ci;
-extern struct router_image img_ce_om2p;
+extern struct router_image img_ce;
