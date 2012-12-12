@@ -117,6 +117,10 @@ struct file_info {
 	unsigned int file_fsize;
 };
 
+struct router_info {
+	char router_name[DESC_MAX_LENGTH];
+};
+
 struct router_image {
 	int type;
 	char desc[DESC_MAX_LENGTH];
@@ -131,6 +135,7 @@ struct router_image {
 #endif
 	unsigned int file_size;
 	struct list *file_list;
+	struct list *router_list;
 };
 
 struct redboot_type {

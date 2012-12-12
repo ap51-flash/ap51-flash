@@ -55,6 +55,58 @@ extern unsigned long _binary_img_ce_end;
 extern unsigned long _binary_img_ce_size;
 #endif
 
+struct router_info *router_image_router_get(struct router_image *router_image,
+					    char *router_desc)
+{
+	struct list *list;
+	struct router_info *router_info = NULL, *router_info_tmp;
+
+	for (list = router_image->router_list; list; list = list->next) {
+		router_info_tmp = (struct router_info *)list->data;
+
+		if (strcasecmp(router_info_tmp->router_name, router_desc) != 0)
+			continue;
+
+		router_info = router_info_tmp;
+		break;
+	}
+
+	return router_info;
+}
+
+static struct router_info *router_image_router_add(struct router_image *router_image,
+						   char *router_desc)
+{
+	struct list *list;
+	struct router_info *router_info;
+
+	router_info = router_image_router_get(router_image, router_desc);
+	if (router_info)
+		goto out;
+
+	router_info = malloc(sizeof(struct router_info));
+	if (!router_info)
+		goto out;
+
+	list = malloc(sizeof(struct list));
+	if (!list)
+		goto free_router;
+
+	memset(list, 0, sizeof(struct list));
+	memset(router_info, 0, sizeof(struct router_info));
+	strcpy(router_info->router_name, router_desc);
+	list->data = router_info;
+	list->next = NULL;
+	list_prepend(&router_image->router_list, list);
+	goto out;
+
+free_router:
+	free(router_info);
+	router_info = NULL;
+out:
+	return router_info;
+}
+
 static struct file_info *_router_image_get_file(struct list *file_list, char *file_name)
 {
 	struct list *list;
@@ -212,7 +264,7 @@ static int ci_verify(struct router_image *router_image, char *buff,
 static int ce_verify(struct router_image *router_image, char *buff,
 		     unsigned int buff_len, int size)
 {
-	char name_buff[33], md5_buff[33];
+	char name_buff[33], *name_ptr, md5_buff[33];
 	unsigned int num_files, hdr_offset, file_offset, file_size;
 	unsigned int ce_version = 0, hdr_offset_sec;
 	int ret;
@@ -255,8 +307,11 @@ static int ce_verify(struct router_image *router_image, char *buff,
 		return 0;
 	}
 
-	/* if (strstr(name_buff, "OM2P") == NULL)
-		return 0; */
+	name_ptr = strtok(name_buff, ",");
+	while (name_ptr) {
+		router_image_router_add(router_image, name_ptr);
+		name_ptr = strtok(NULL, ",");
+	}
 
 	while (num_files > 0) {
 		if (hdr_offset + hdr_offset_sec > buff_len) {

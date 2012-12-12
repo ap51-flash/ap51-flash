@@ -24,6 +24,7 @@
 #include "router_redboot.h"
 #include "router_tftp_server.h"
 #include "router_tftp_client.h"
+#include "router_images.h"
 #include "flash.h"
 
 int router_types_priv_size = 0;
@@ -72,6 +73,7 @@ void router_types_detect_pre(uint8_t *our_mac)
 int router_types_detect_main(struct node *node, char *packet_buff, int packet_buff_len)
 {
 	const struct router_type **router_type;
+	struct router_info *router_info;
 	void *priv = node + 1;
 	int ret = 0;
 
@@ -93,6 +95,21 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 			node->status = NODE_STATUS_NO_FLASH;
 			ret = 0;
 			break;
+		}
+
+		if ((*router_type)->image->type == IMAGE_TYPE_CE) {
+			router_info = router_image_router_get((*router_type)->image,
+							      (char *)(*router_type)->desc);
+			if (!router_info) {
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for\n",
+					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
+					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+					(*router_type)->desc);
+
+				node->status = NODE_STATUS_NO_FLASH;
+				ret = 0;
+				break;
+			}
 		}
 
 		our_mac_set(node);
