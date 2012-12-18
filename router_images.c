@@ -489,7 +489,7 @@ int router_images_verify_path(char *image_path)
 {
 	struct router_image **router_image;
 	char *file_buff = NULL, found_consumer = 0;
-	unsigned int file_buff_size = 300;
+	unsigned int file_buff_size = 64 * 1024; // max CE hdr size
 	int fd, file_size, ret = -1, len;
 
 	file_buff = malloc(file_buff_size);
