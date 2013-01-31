@@ -29,6 +29,8 @@
 #include "flash.h"
 #include "ap51-flash-res.h"
 
+static const char fwupgradecfg[] = "fwupgrade.cfg";
+
 #define TFTP_PAYLOAD_SIZE 512
 
 #if defined(EMBED_UBOOT) && defined(LINUX)
@@ -130,7 +132,7 @@ struct file_info *router_image_get_file(struct router_type *router_type, char *f
 	struct file_info *file_info = NULL;
 	char file_name_buff[FILE_NAME_MAX_LENGTH];
 
-	if (strcmp(file_name, "fwupgrade.cfg") == 0) {
+	if (strcmp(file_name, fwupgradecfg) == 0) {
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s",
 			 file_name, router_type->desc);
 		file_info = _router_image_get_file(router_type->image->file_list,
@@ -266,6 +268,7 @@ static int ce_verify(struct router_image *router_image, char *buff,
 {
 	char name_buff[33], *name_ptr, md5_buff[33];
 	unsigned int num_files, hdr_offset, file_offset, file_size;
+	unsigned image_size = 0, fwcfg_size = 0;
 	unsigned int ce_version = 0, hdr_offset_sec;
 	int ret;
 
@@ -341,9 +344,32 @@ static int ce_verify(struct router_image *router_image, char *buff,
 		file_offset += file_size;
 		hdr_offset += hdr_offset_sec;
 		num_files--;
+
+		if (strncmp(name_buff, fwupgradecfg, strlen(fwupgradecfg)) == 0) {
+			/***
+			 * In case this CE image contains multiple fwupgrade.cfg entries
+			 * only the smaller fwupgrade.cfg should be added to the total
+			 * image size in order to detect the end-of-flash correctly.
+			 */
+			if ((fwcfg_size > 0) &&
+			    (fwcfg_size <= file_size))
+				continue;
+
+			if (fwcfg_size > file_size)
+				image_size -= fwcfg_size;
+
+			fwcfg_size = file_size;
+		}
+
+		image_size += file_size;
 	}
 
-	router_image->file_size = size - (64 * 1024);
+	if (image_size > (unsigned)size) {
+		fprintf(stderr, "Error - bogus CE image: claimed size bigger than actual size\n");
+		return 0;
+	}
+
+	router_image->file_size = image_size;
 	return 1;
 }
 
