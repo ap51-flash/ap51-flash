@@ -82,7 +82,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &om2p) ||
 		   (node->router_type == &om5p)) {
 		om2p_priv = node->router_priv;
-		time2flash = om2p_priv->start_flash + (node->image_state.total_bytes_sent / 65536);
+		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
 	} else {
 		return 0;
 	}
