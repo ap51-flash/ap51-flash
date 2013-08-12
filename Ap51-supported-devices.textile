@@ -1,0 +1,25 @@
+
+= Overview about the devices which you can flash using ap51-flash =
+
+In general you can flash all devices which use the redboot bootloader that has the reflashing function enabled. ap51-flash will automatically detect redboot when you turn on the device. If your device is not in the "known to work" list which follows you still can try it and inform us about the result.
+
+List of known to work redboot devices:[[BR]]
+ * FON, La Fonera (2100)
+ * Open Mesh, OM1P
+ * Engenius, EOC-1650
+ * Engenius, 3660
+ * Dlink, DIR-300 (after installing a reflash-enabled redboot)
+ * Ubiquiti, Pico2 & HP
+
+ap51-flash also supports plain tftp flashing without redboot. This method is quite common amongst a variety of devices.
+
+List of known to work tftp devices:[[BR]]
+ * Ubiquiti, !NanoStation2
+ * Ubiquiti, Bullet2 & HP
+ * Ubiquiti, Router Station
+
+
+Note: There are many different devices out there which differ slighty in their way of doing things. Even if your device does not work out of the box it might require only small changes to support it.
+
+
+
