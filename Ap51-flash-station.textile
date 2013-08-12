@@ -1,19 +1,19 @@
-= ap51-flash station for OpenWRT =
 
-OpenWRT-package:
- * [attachment:Makefile]
- * [attachment:ap51-flash.conf files/ap51-flash.conf]
- * [attachment:ap51-flash.init files/ap51-flash.init]
+h1. ap51-flash station for [[OpenWRT]]
+
+
+[[OpenWRT]]-package:
+* [attachment:Makefile]
+* [attachment:ap51-flash.conf files/ap51-flash.conf]
+* [attachment:ap51-flash.init files/ap51-flash.init]
 
 
 Example configuration of a Dlink DIR-300 as a ap51-flash station:
- * minimal [attachment:.config]-file (kicking out a lot of the standard applications and modules to save as much RAM as possible and adding nfs-support for remote images)
- * [attachment:network /etc/config/network] (configuring ports 1-4 as seperate VLANS for flashing other devices and the WAN-port as the adminstration port)
- * [attachment:fstab /etc/fstab] (for mounting nfs-shares at boot time)
+* minimal [attachment:.config]-file (kicking out a lot of the standard applications and modules to save as much RAM as possible and adding nfs-support for remote images)
+* [attachment:network /etc/config/network] (configuring ports 1-4 as seperate VLANS for flashing other devices and the WAN-port as the adminstration port)
+* [attachment:fstab /etc/fstab] (for mounting nfs-shares at boot time)
 
 Example image (using the same config as stated above):
- * [http://x-realis.dyndns.org/Freifunk/firmware/ap51-flash-station/]
-
-2-port-vlan without host learning (hub-mode, for debugging ap51-flash)
- * [attachment:network2 /etc/config/network]
- * [attachment:switch-to-hub /etc/init.d/switch-to-hub]
+* "2-port-vlan without host learning (hub-mode, for debugging ap51-flash)
+* [attachment:network2 /etc/config/network":http://x-realis.dyndns.org/Freifunk/firmware/ap51-flash-station/]
+* [attachment:switch-to-hub /etc/init.d/switch-to-hub]
