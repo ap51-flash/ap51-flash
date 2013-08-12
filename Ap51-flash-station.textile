@@ -13,3 +13,7 @@ Example configuration of a Dlink DIR-300 as a ap51-flash station:
 
 Example image (using the same config as stated above):
  * [http://x-realis.dyndns.org/Freifunk/firmware/ap51-flash-station/]
+
+2-port-vlan without host learning (hub-mode, for debugging ap51-flash)
+ * [attachment:network2 /etc/config/network]
+ * [attachment:switch-to-hub /etc/init.d/switch-to-hub]
