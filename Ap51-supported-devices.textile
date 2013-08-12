@@ -20,6 +20,8 @@ List of known to work tftp devices:[[BR]]
  * Ubiquiti, Bullet2 & HP
  * Ubiquiti, !RouterStation
 
+List of known to work uboot devices:[[BR]]
+ * Open Mesh, OM2P, MR500
 
 Note: There are many different devices out there which differ slighty in their way of doing things. Even if your device does not work out of the box it might require only small changes to support it.
 
