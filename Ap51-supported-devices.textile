@@ -1,10 +1,5 @@
-
-
 h1. Overview about the devices which you can flash using ap51-flash
 
-
-<pre>
-<code class="div">
 
 In general you can flash all devices which use the redboot bootloader that has the reflashing function enabled. ap51-flash will automatically detect redboot when you turn on the device. If your device is not in the "known to work" list which follows you still can try it and inform us about the result.
 
@@ -45,4 +40,3 @@ make ap51-flash-osx
 
 Later versions lack Mac OS X support until someone adds it. If you feel you can close the gap, please contact us.
 
-</code></pre>
