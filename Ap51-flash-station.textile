@@ -10,3 +10,6 @@ Example configuration of a Dlink DIR-300 as a ap51-flash station:
  * minimal [attachment:.config]-file (kicking out a lot of the standard applications and modules to save as much RAM as possible and adding nfs-support for remote images)
  * [attachment:network /etc/config/network] (configuring ports 1-4 as seperate VLANS for flashing other devices and the WAN-port as the adminstration port)
  * [attachment:fstab /etc/fstab] (for mounting nfs-shares at boot time)
+
+Example image (using the same config as stated above):
+ * [http://x-realis.dyndns.org/Freifunk/firmware/ap51-flash-station/]
