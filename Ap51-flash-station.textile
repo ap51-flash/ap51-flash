@@ -1,12 +1,12 @@
 = ap51-flash station for OpenWRT =
 
 OpenWRT-package:
- * [wiki:Makefile]
- * [wiki:ap51-flash.conf files/ap51-flash.conf]
- * [wiki:ap51-flash.init files/ap51-flash.init]
+ * [attachment:Makefile]
+ * [attachment:ap51-flash.conf files/ap51-flash.conf]
+ * [attachment:ap51-flash.init files/ap51-flash.init]
 
 
 Example configuration of a Dlink DIR-300 as a ap51-flash station:
- * minimal [wiki:.config]-file (kicking out a lot of the standard applications and modules to save as much RAM as possible and adding nfs-support for remote images)
- * [wiki:network /etc/config/network] (configuring ports 1-4 as seperate VLANS for flashing other devices and the WAN-port as the adminstration port)
- * [wiki:fstab /etc/fstab] (for mounting nfs-shares at boot time)
+ * minimal [attachment:.config]-file (kicking out a lot of the standard applications and modules to save as much RAM as possible and adding nfs-support for remote images)
+ * [attachment:network /etc/config/network] (configuring ports 1-4 as seperate VLANS for flashing other devices and the WAN-port as the adminstration port)
+ * [attachment:fstab /etc/fstab] (for mounting nfs-shares at boot time)
