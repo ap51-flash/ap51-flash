@@ -10,7 +10,7 @@ List of known to work redboot devices:[[BR]]
  * Engenius, 3660
  * Dlink, DIR-300 (after installing a reflash-enabled redboot)
  * Ubiquiti, Pico2 & HP
- * UniAppliance Colibrì (UniData)
+ * !UniAppliance Colibrì (!UniData)
 
 ap51-flash also supports plain tftp flashing without redboot. This method is quite common amongst a variety of devices.
 
