@@ -1,4 +1,4 @@
-h1. ap51-flash station for [[OpenWRT]]
+h1. ap51-flash station for OpenWRT
 
 
 [[OpenWRT]]-package:
