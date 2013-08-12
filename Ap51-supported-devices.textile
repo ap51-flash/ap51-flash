@@ -25,9 +25,12 @@ Note: There are many different devices out there which differ slighty in their w
 
 == Note on Mac OS X ==
 
-If you need to use ap51 flash with OSX, please compile like this:
+If you need to use ap51 flash with OSX, please checkout version 252 and compile like this:
 
 {{{
 make ap51-flash-osx
 }}}
+
+Later versions lack Mac OS X support until someone adds it. If you feel you can close the gap, please contact us.
+
 
