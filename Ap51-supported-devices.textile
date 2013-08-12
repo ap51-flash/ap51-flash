@@ -15,8 +15,9 @@ ap51-flash also supports plain tftp flashing without redboot. This method is qui
 
 List of known to work tftp devices:[[BR]]
  * Ubiquiti, !NanoStation2
+ * Ubiquiti, !NanoStation5
  * Ubiquiti, Bullet2 & HP
- * Ubiquiti, Router Station
+ * Ubiquiti, !RouterStation
 
 
 Note: There are many different devices out there which differ slighty in their way of doing things. Even if your device does not work out of the box it might require only small changes to support it.
