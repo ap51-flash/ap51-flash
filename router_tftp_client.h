@@ -18,6 +18,7 @@
 
 extern const struct router_type mr500;
 extern const struct router_type mr600;
+extern const struct router_type mr900;
 extern const struct router_type om2p;
 extern const struct router_type om5p;
 
