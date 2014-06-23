@@ -20,6 +20,7 @@ extern const struct router_type mr500;
 extern const struct router_type mr600;
 extern const struct router_type mr900;
 extern const struct router_type om2p;
+extern const struct router_type om2pan;
 extern const struct router_type om5p;
 
 void tftp_client_flash_time_set(struct node *node);

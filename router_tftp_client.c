@@ -64,7 +64,8 @@ void tftp_client_flash_time_set(struct node *node)
 	} else if ((node->router_type == &mr600) ||
 		   (node->router_type == &mr900) ||
 		   (node->router_type == &om2p) ||
-		   (node->router_type == &om5p)) {
+		   (node->router_type == &om5p) ||
+		   (node->router_type == &om2pan)) {
 		om2p_priv = node->router_priv;
 		om2p_priv->start_flash = time(NULL);
 	}
@@ -82,7 +83,8 @@ int tftp_client_flash_completed(struct node *node)
 	} else if ((node->router_type == &mr600) ||
 		   (node->router_type == &mr900) ||
 		   (node->router_type == &om2p) ||
-		   (node->router_type == &om5p)) {
+		   (node->router_type == &om5p) ||
+		   (node->router_type == &om2pan)) {
 		om2p_priv = node->router_priv;
 		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
 	} else {
@@ -287,6 +289,54 @@ const struct router_type om5p = {
 	.desc = "OM5P",
 	.detect_pre = NULL,
 	.detect_main = om5p_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_ce,
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int om2pan_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
+		goto out;
+
+	if (arphdr->arp_tha[0] != 'O')
+		goto out;
+
+	if (arphdr->arp_tha[1] != 'M')
+		goto out;
+
+	if (arphdr->arp_tha[2] != '2')
+		goto out;
+
+	if (arphdr->arp_tha[3] != 'P')
+		goto out;
+
+	if (arphdr->arp_tha[4] != 'A')
+		goto out;
+
+	if (arphdr->arp_tha[5] != 'N')
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type om2pan = {
+	.desc = "OM2P-AN",
+	.detect_pre = NULL,
+	.detect_main = om2pan_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.priv_size = sizeof(struct om2p_priv),
