@@ -279,6 +279,12 @@ static int om5p_detect_main(void (*priv)__attribute__((unused)), char *packet_bu
 	if (arphdr->arp_tha[3] != 'P')
 		goto out;
 
+	if (arphdr->arp_tha[4] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[5] != '\0')
+		goto out;
+
 	ret = 1;
 
 out:
