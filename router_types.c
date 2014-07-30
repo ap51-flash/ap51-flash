@@ -102,9 +102,9 @@ int router_types_detect_main(struct node *node, char *packet_buff, int packet_bu
 
 		if ((*router_type)->image->type == IMAGE_TYPE_CE) {
 			router_info = router_image_router_get((*router_type)->image,
-							      (char *)(*router_type)->desc);
+							      (*router_type)->image_desc ? (char *)(*router_type)->image_desc : (char *)(*router_type)->desc);
 			if (!router_info) {
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for (ce)\n",
 					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
 					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
 					(*router_type)->desc);

@@ -107,6 +107,7 @@ struct router_type {
 	int (*detect_main)(void *priv, char *packet_buff, int packet_buff_len);
 	void (*detect_post)(struct node *node, char *packet_buff, int packet_buff_len);
 	struct router_image *image;
+	char *image_desc;
 	int priv_size;
 };
 
