@@ -346,6 +346,10 @@ static int ce_verify(struct router_image *router_image, char *buff,
 		num_files--;
 
 		if (strncmp(name_buff, fwupgradecfg, strlen(fwupgradecfg)) == 0) {
+			if (strlen(fwupgradecfg) + 1 < strlen(name_buff))
+				router_image_router_add(router_image,
+							&name_buff[strlen(fwupgradecfg)  + 1]);
+
 			/***
 			 * In case this CE image contains multiple fwupgrade.cfg entries
 			 * only the smaller fwupgrade.cfg should be added to the total
