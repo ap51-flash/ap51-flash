@@ -38,6 +38,7 @@ static const struct router_type *router_types[] = {
 	&om2p,
 	&om5p,
 	&om5pan,
+	&om5pac,
 	NULL,
 };
 
