@@ -217,6 +217,54 @@ const struct router_type mr900 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
+static int mr1750_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
+		goto out;
+
+	if (arphdr->arp_tha[0] != 'M')
+		goto out;
+
+	if (arphdr->arp_tha[1] != 'R')
+		goto out;
+
+	if (arphdr->arp_tha[2] != '1')
+		goto out;
+
+	if (arphdr->arp_tha[3] != '7')
+		goto out;
+
+	if (arphdr->arp_tha[4] != '5')
+		goto out;
+
+	if (arphdr->arp_tha[5] != '0')
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type mr1750 = {
+	.desc = "MR1750",
+	.detect_pre = NULL,
+	.detect_main = mr1750_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_ce,
+	.priv_size = sizeof(struct om2p_priv),
+};
+
 static int om2p_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
