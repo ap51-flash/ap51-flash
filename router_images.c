@@ -267,7 +267,7 @@ static int ce_verify(struct router_image *router_image, char *buff,
 		     unsigned int buff_len, int size)
 {
 	char name_buff[33], *name_ptr, md5_buff[33];
-	unsigned int num_files, hdr_offset, file_offset, file_size;
+	unsigned int num_files, hdr_offset, file_offset, file_size = 0;
 	unsigned image_size = 0, fwcfg_size = 0;
 	unsigned int ce_version = 0, hdr_offset_sec;
 	int ret;
@@ -380,11 +380,13 @@ static int ce_verify(struct router_image *router_image, char *buff,
 static int router_images_init_embedded(struct router_image *router_image)
 {
 	int ret = 0;
-#if defined(LINUX)
+
+#if defined(LINUX) || defined(OSX)
+
 	ret = router_image->image_verify(router_image,
 					 router_image->embedded_img_pre_check,
-					 router_image->embedded_file_size,
-					 router_image->embedded_file_size);
+					 (unsigned)router_image->embedded_file_size,
+					 (unsigned)router_image->embedded_file_size);
 	if (ret == 1)
 		router_image->embedded_img = router_image->embedded_img_pre_check;
 #elif defined(WIN32)
@@ -459,6 +461,10 @@ void router_images_init(void)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_uboot_start;
 			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_uboot_size;
+#elif defined(OSX)
+			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_uboot", &(*router_image)->embedded_file_size);
+			if ((*router_image)->embedded_img_pre_check)
+				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_UBOOT_IMG;
 #endif
@@ -469,6 +475,10 @@ void router_images_init(void)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ubnt_start;
 			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ubnt_size;
+#elif defined(OSX)
+			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ubnt", &(*router_image)->embedded_file_size);
+			if ((*router_image)->embedded_img_pre_check)
+				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_UBNT_IMG;
 #endif
@@ -479,6 +489,10 @@ void router_images_init(void)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ci_start;
 			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ci_size;
+#elif defined(OSX)
+			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ci", &(*router_image)->embedded_file_size);
+			if ((*router_image)->embedded_img_pre_check)
+				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_CI_IMG;
 #endif
@@ -489,6 +503,10 @@ void router_images_init(void)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ce_start;
 			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ce_size;
+#elif defined(OSX)
+			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ce", &(*router_image)->embedded_file_size);
+			if ((*router_image)->embedded_img_pre_check)
+				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_CE_IMG;
 #endif
@@ -532,7 +550,7 @@ int router_images_verify_path(char *image_path)
 		goto out;
 	}
 
-	ret = read(fd, file_buff, file_buff_size);
+	ret = (int)read(fd, file_buff, file_buff_size);
 	if (ret < 0) {
 		fprintf(stderr, "Error - can't read image file '%s': %s\n", image_path, strerror(errno));
 		goto close_fd;
@@ -543,7 +561,7 @@ int router_images_verify_path(char *image_path)
 		if (!(*router_image)->image_verify)
 			continue;
 
-		file_size = lseek(fd, 0, SEEK_END);
+		file_size = (int)lseek(fd, 0, SEEK_END);
 		if (file_size < 0) {
 			fprintf(stderr, "Unable to retrieve file size of '%s': %s\n", image_path, strerror(errno));
 			continue;

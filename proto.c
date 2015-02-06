@@ -505,7 +505,7 @@ static int tcp_resend_data(struct node *node)
 
 	packet_buff = node->tcp_state.packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
 
-	return tcp_send(node, strlen(packet_buff), TCP_DATA);
+	return tcp_send(node, (int)strlen(packet_buff), TCP_DATA);
 }
 
 void telnet_handle_connection(struct node *node)
@@ -536,7 +536,7 @@ int telnet_send_cmd(struct node *node, char *cmd)
 
 	packet_buff = node->tcp_state.packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
 	strcpy(packet_buff, cmd);
-	return tcp_send_data(node, strlen(cmd));
+	return tcp_send_data(node, (int)strlen(cmd));
 }
 
 static void handle_tcp_packet(char *packet_buff, int packet_buff_len, struct node *node)

@@ -131,6 +131,9 @@ struct router_image {
 #if defined(LINUX)
 	char *embedded_img_pre_check;
 	unsigned int embedded_file_size;
+#elif defined(OSX)
+	char *embedded_img_pre_check;
+	unsigned long embedded_file_size;
 #elif defined(WIN32)
 	unsigned int embedded_img_res;
 #endif

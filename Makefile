@@ -29,7 +29,6 @@
 # * EMBED_UBOOT
 
 
-
 ifneq ($(findstring $(MAKEFLAGS),s),s)
 ifndef V
 	Q_CC = @echo '   ' CC $@;
@@ -58,6 +57,7 @@ else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
 	CFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
 	PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
+	LDFLAGS += -lpcap
 	PLATFORM = OSX
 endif
 
@@ -84,24 +84,28 @@ ifneq ($(EMBED_CI),)
 	EMBED_CI_SYM = _binary_$(shell echo $(EMBED_CI) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ci.o
 	CFLAGS += -DEMBED_CI
+	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ci $(EMBED_CI)
 endif
 
 ifneq ($(EMBED_CE),)
 	EMBED_CE_SYM = _binary_$(shell echo $(EMBED_CE) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ce.o
 	CFLAGS += -DEMBED_CE
+	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ce $(EMBED_CE)
 endif
 
 ifneq ($(EMBED_UBNT),)
 	EMBED_UBNT_SYM = _binary_$(shell echo $(EMBED_UBNT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ubnt.o
 	CFLAGS += -DEMBED_UBNT
+	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ubnt $(EMBED_UBNT)
 endif
 
 ifneq ($(EMBED_UBOOT),)
 	EMBED_UBOOT_SYM = _binary_$(shell echo $(EMBED_UBOOT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_uboot.o
 	CFLAGS += -DEMBED_UBOOT
+	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
 endif
 
 CMDLINE_O = $(AP51_O) commandline.o
@@ -144,7 +148,7 @@ $(BINARY_NAME).exe: $(EMBED_O) $(CMDLINE_O) $(AP51_H) Makefile
 	$(STRIP) $@
 
 $(BINARY_NAME)-osx: $(CMDLINE_O) $(AP51_H) Makefile
-	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
+	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(OSX_EMBED_CFLAGS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
 ifeq ($(PLATFORM),LINUX)

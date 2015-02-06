@@ -108,7 +108,7 @@ close_sock:
 out:
 	return ret;
 }
-#elif defined(WIN32)
+#elif USE_PCAP
 pcap_t *pcap_fp = NULL;
 #endif
 
@@ -161,11 +161,12 @@ free_resp:
 	free(resp);
 out:
 	return iface;
-#elif defined(WIN32)
+#elif USE_PCAP
 	pcap_if_t *alldevs = NULL, *dev;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	char *iface = NULL;
-	int if_num, ret, i;
+	long if_num;
+	int ret, i;
 
 	if_num = strtol(iface_number, NULL, 10);
 	if (if_num < 1)
@@ -236,7 +237,7 @@ void socket_print_all_ifaces(void)
 	free(resp);
 out:
 	return;
-#elif defined(WIN32)
+#elif USE_PCAP
 	pcap_if_t *alldevs = NULL, *dev;
 	unsigned char *ptr, c;
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -352,19 +353,63 @@ close_sock:
 	raw_sock = -1;
 out:
 	return -1;
-#elif defined(WIN32)
+#elif USE_PCAP
+
 	char error[PCAP_ERRBUF_SIZE];
 
+#if WIN32
 	pcap_fp = pcap_open_live(iface, 1500, 1, 250, error);
 	if (!pcap_fp) {
 		fprintf(stderr, "Error opening adapter: %s\n", error);
 		return -1;
 	}
-
 	if (pcap_setmintocopy(pcap_fp, 1) < 0) {
 		fprintf(stderr, "Error setting mintocopy: %s\n", error);
 		return 1;
 	}
+#else
+	// For Mac OS X, and maybe others in the future,
+	// we take the long way around and set individual options on pcap
+	// in order to be able to set immediate mode before activating the pcap handle.
+
+	int ret;
+
+	pcap_fp = pcap_create(iface, error);
+	if (!pcap_fp) {
+		fprintf(stderr, "Error opening adapter: %s\n", error);
+		return -1;
+	}
+
+	ret = pcap_set_snaplen(pcap_fp, 1500);
+	if (ret != 0) {
+		fprintf(stderr, "Error setting pcap snaplen: %s\n", error);
+		return -1;
+	}
+
+	ret = pcap_set_promisc(pcap_fp, 1);
+	if (ret != 0) {
+		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n", error);
+		return -1;
+	}
+
+	ret = pcap_set_timeout(pcap_fp, 250);
+	if (ret != 0) {
+		fprintf(stderr, "Error setting pcap timeout: %s\n", error);
+		return -1;
+	}
+
+	ret = pcap_set_immediate_mode(pcap_fp, 1);
+	if (ret != 0) {
+		fprintf(stderr, "Error setting pcap immediate mode: %s\n", error);
+		return -1;
+	}
+
+	ret = pcap_activate(pcap_fp);
+	if (ret != 0) {
+		fprintf(stderr, "Error activating pcap handle\n");
+		return -1;
+	}
+#endif
 
 	return 0;
 #else
@@ -373,7 +418,7 @@ out:
 #endif
 }
 
-#if defined(WIN32)
+#if defined(USE_PCAP)
 int socket_read(char *packet_buff, int packet_buff_len,
 		int (*sleep_sec)__attribute__((unused)),
 		int (*sleep_usec)__attribute__((unused)))
@@ -425,7 +470,8 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sle
 
 out:
 	return ret;
-#elif defined(WIN32)
+#elif USE_PCAP
+
 	struct pcap_pkthdr hdr;
 	const unsigned char *tmp_packet;
 	int ret = -1;
@@ -470,7 +516,7 @@ int socket_write(char *buff, int len)
 
 out:
 	return ret;
-#elif defined(WIN32)
+#elif USE_PCAP
 	int ret = -1;
 
 	if (!pcap_fp) {
@@ -525,7 +571,7 @@ close_sock:
 	raw_sock = -1;
 out:
 	return;
-#elif defined(WIN32)
+#elif USE_PCAP
 	if (!pcap_fp) {
 		fprintf(stderr, "Error closing adapter '%s': pcap socket not initialized yet\n", iface);
 		goto out;
