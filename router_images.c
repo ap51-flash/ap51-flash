@@ -30,6 +30,7 @@
 #include "ap51-flash-res.h"
 
 static const char fwupgradecfg[] = "fwupgrade.cfg";
+static const char fwupgradecfgsig[] = "fwupgrade.cfg.sig";
 
 #define TFTP_PAYLOAD_SIZE 512
 
@@ -135,6 +136,13 @@ struct file_info *router_image_get_file(struct router_type *router_type, char *f
 	if (strcmp(file_name, fwupgradecfg) == 0) {
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s",
 			 file_name, router_type->image_desc ? router_type->image_desc : router_type->desc);
+		file_info = _router_image_get_file(router_type->image->file_list,
+						   file_name_buff);
+	}
+
+	if (strcmp(file_name, fwupgradecfgsig) == 0) {
+		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s.sig",
+			 fwupgradecfg, router_type->image_desc ? router_type->image_desc : router_type->desc);
 		file_info = _router_image_get_file(router_type->image->file_list,
 						   file_name_buff);
 	}
