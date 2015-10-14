@@ -263,6 +263,20 @@ static int ci_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
+static int strendswith(const char *str, const char *end)
+{
+	size_t end_len = strlen(end);
+	size_t str_len = strlen(str);
+
+	if (end_len > str_len)
+		return 0;
+
+	if (strcmp(&str[str_len - end_len], end) == 0)
+		return 1;
+
+	return 0;
+}
+
 static int ce_verify(struct router_image *router_image, char *buff,
 		     unsigned int buff_len, int size)
 {
@@ -346,10 +360,10 @@ static int ce_verify(struct router_image *router_image, char *buff,
 		num_files--;
 
 		if (strncmp(name_buff, fwupgradecfg, strlen(fwupgradecfg)) == 0) {
-			if (strlen(fwupgradecfg) + 1 < strlen(name_buff))
+			if (strlen(fwupgradecfg) + 1 < strlen(name_buff) &&
+			    !strendswith(name_buff, ".sig"))
 				router_image_router_add(router_image,
 							&name_buff[strlen(fwupgradecfg)  + 1]);
-
 			/***
 			 * In case this CE image contains multiple fwupgrade.cfg entries
 			 * only the smaller fwupgrade.cfg should be added to the total
