@@ -60,7 +60,7 @@ extern unsigned long _binary_img_ce_size;
 #endif
 
 struct router_info *router_image_router_get(struct router_image *router_image,
-					    char *router_desc)
+					    const char *router_desc)
 {
 	struct list *list;
 	struct router_info *router_info = NULL, *router_info_tmp;
@@ -99,6 +99,7 @@ static struct router_info *router_image_router_add(struct router_image *router_i
 	memset(list, 0, sizeof(struct list));
 	memset(router_info, 0, sizeof(struct router_info));
 	strcpy(router_info->router_name, router_desc);
+	router_info->file_size = 0;
 	list->data = router_info;
 	list->next = NULL;
 	list_prepend(&router_image->router_list, list);
@@ -201,6 +202,23 @@ static int router_image_add_file(struct router_image *router_image, char *file_n
 	file_info->file_fsize = file_fsize;
 	file_info->file_offset = file_offset;
 	return 0;
+}
+
+unsigned int router_image_get_size(struct router_type *router_type)
+{
+	const char *router_desc;
+	struct router_info *router_info;
+
+	if (router_type->image_desc)
+		router_desc = router_type->image_desc;
+	else
+		router_desc = router_type->desc;
+
+	router_info = router_image_router_get(router_type->image, router_desc);
+	if (router_info && router_info->file_size)
+		return router_info->file_size;
+
+	return router_type->image->file_size;
 }
 
 static int uboot_verify(struct router_image *router_image, char *buff,

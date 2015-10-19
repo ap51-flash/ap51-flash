@@ -122,6 +122,7 @@ struct file_info {
 
 struct router_info {
 	char router_name[DESC_MAX_LENGTH];
+	unsigned int file_size;
 };
 
 struct router_image {

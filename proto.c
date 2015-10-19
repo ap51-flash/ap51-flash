@@ -339,7 +339,7 @@ static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct nod
 
 				node->image_state.total_bytes_sent += node->image_state.bytes_sent;
 
-				if (node->image_state.total_bytes_sent >= node->router_type->image->file_size) {
+				if (node->image_state.total_bytes_sent >= router_image_get_size(node->router_type)) {
 					switch (node->flash_mode) {
 					case FLASH_MODE_TFTP_SERVER:
 					case FLASH_MODE_TFTP_CLIENT:

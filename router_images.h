@@ -19,7 +19,7 @@
 #include <stdbool.h>
 
 struct router_info *router_image_router_get(struct router_image *router_image,
-					    char *router_desc);
+					    const char *router_desc);
 struct file_info *router_image_get_file(struct router_type *router_type,
 					char *file_name);
 void router_images_init(void);
@@ -30,6 +30,7 @@ int router_images_verify_path(char *image_path);
 int router_images_open_path(struct node *node);
 int router_images_read_data(char *dst, struct node *node);
 void router_images_close_path(struct node *node);
+unsigned int router_image_get_size(struct router_type *router_type);
 
 extern struct router_image img_uboot;
 extern struct router_image img_ubnt;
