@@ -472,6 +472,9 @@ void router_images_init(void)
 	for (router_image = router_images; *router_image; ++router_image) {
 		(*router_image)->file_list = NULL;
 
+		if ((*router_image)->path || (*router_image)->embedded_img)
+			continue;
+
 		if (!(*router_image)->image_verify)
 			continue;
 
@@ -580,6 +583,9 @@ int router_images_verify_path(char *image_path)
 
 	len = ret;
 	for (router_image = router_images; *router_image; ++router_image) {
+		if ((*router_image)->path || (*router_image)->embedded_img)
+			continue;
+
 		if (!(*router_image)->image_verify)
 			continue;
 
