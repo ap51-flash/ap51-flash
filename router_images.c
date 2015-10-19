@@ -399,7 +399,7 @@ static int ce_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int router_images_init_embedded(struct router_image *router_image)
+static int router_image_init_embedded(struct router_image *router_image)
 {
 	int ret = 0;
 
@@ -467,11 +467,17 @@ static struct router_image *router_images[] = {
 void router_images_init(void)
 {
 	struct router_image **router_image;
+
+	for (router_image = router_images; *router_image; ++router_image)
+		(*router_image)->file_list = NULL;
+}
+
+void router_images_init_embedded(void)
+{
+	struct router_image **router_image;
 	int ret;
 
 	for (router_image = router_images; *router_image; ++router_image) {
-		(*router_image)->file_list = NULL;
-
 		if ((*router_image)->path || (*router_image)->embedded_img)
 			continue;
 
@@ -539,7 +545,7 @@ void router_images_init(void)
 			break;
 		}
 
-		ret = router_images_init_embedded(*router_image);
+		ret = router_image_init_embedded(*router_image);
 		if (ret != 1)
 			continue;
 

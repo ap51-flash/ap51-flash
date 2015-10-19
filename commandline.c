@@ -84,6 +84,8 @@ int main(int argc, char* argv[])
 		argv += 1;
 	}
 
+	router_images_init_embedded();
+
 #if defined(DEBUG)
 	printf("Listening on interface: %s\n", iface);
 #endif
