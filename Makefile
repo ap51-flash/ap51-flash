@@ -38,8 +38,8 @@ ifndef V
 endif
 endif
 
-AP51_C = flash.c proto.c router_redboot.c router_tftp_client.c router_tftp_server.c router_types.c router_images.c socket.c
-AP51_H = flash.h proto.h router_redboot.h router_tftp_client.h router_tftp_server.h router_types.h router_images.h socket.h types.h compat.h
+AP51_C = flash.c proto.c router_redboot.c router_tftp_client.c router_tftp_server.c router_types.c router_images.c socket.c fwcfg.c
+AP51_H = flash.h proto.h router_redboot.h router_tftp_client.h router_tftp_server.h router_types.h router_images.h socket.h fwcfg.h types.h compat.h
 AP51_O = $(AP51_C:.c=.o)
 AP51_RC = ap51-flash-res
 

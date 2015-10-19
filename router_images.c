@@ -29,6 +29,7 @@
 #include "router_images.h"
 #include "flash.h"
 #include "ap51-flash-res.h"
+#include "fwcfg.h"
 
 static const char fwupgradecfg[] = "fwupgrade.cfg";
 static const char fwupgradecfgsig[] = "fwupgrade.cfg.sig";
@@ -112,7 +113,8 @@ out:
 	return router_info;
 }
 
-static struct file_info *_router_image_get_file(struct list *file_list, char *file_name)
+static struct file_info *_router_image_get_file(struct list *file_list,
+						const char *file_name)
 {
 	struct list *list;
 	struct file_info *file_info = NULL, *file_info_tmp;
@@ -157,7 +159,7 @@ struct file_info *router_image_get_file(struct router_type *router_type, char *f
 }
 
 static struct file_info *_router_image_add_file(struct router_image *router_image,
-						char *file_name)
+						const char *file_name)
 {
 	struct list *list;
 	struct file_info *file_info;
@@ -219,6 +221,38 @@ unsigned int router_image_get_size(struct router_type *router_type)
 		return router_info->file_size;
 
 	return router_type->image->file_size;
+}
+
+struct file_info *router_image_get_file_info(struct router_image *router_image,
+					     const char *file_name)
+{
+	struct file_info *file_info;
+
+	file_info = _router_image_get_file(router_image->file_list, file_name);
+	if (!file_info)
+		return NULL;
+
+	return file_info;
+}
+
+static void router_image_set_size(struct router_image *router_image,
+				  const char *router_desc, unsigned int size)
+{
+	struct list *list;
+	struct router_info *router_info_tmp;
+
+	for (list = router_image->router_list; list; list = list->next) {
+		router_info_tmp = (struct router_info *)list->data;
+
+		if (router_desc &&
+		    strcasecmp(router_info_tmp->router_name, router_desc) != 0)
+			continue;
+
+		if (!router_desc && router_info_tmp->file_size)
+			continue;
+
+		router_info_tmp->file_size = size;
+	}
 }
 
 static int uboot_verify(struct router_image *router_image, char *buff,
@@ -302,6 +336,38 @@ static int strendswith(const char *str, const char *end)
 		return 1;
 
 	return 0;
+}
+
+static void ce_calculate_router_file_size(struct router_image *router_image)
+{
+	struct list *file_list = router_image->file_list;
+	struct list *list;
+	struct file_info *file_info_tmp;
+	const char *router_desc;
+	const char *file_name;
+	unsigned int size;
+
+	for (list = file_list; list; list = list->next) {
+		file_info_tmp = (struct file_info *)list->data;
+
+		file_name = file_info_tmp->file_name;
+		if (strncmp(file_name, fwupgradecfg, strlen(fwupgradecfg)) != 0)
+			continue;
+
+		if (strendswith(file_name, ".sig"))
+			continue;
+
+		router_desc = NULL;
+		if (file_name[strlen(fwupgradecfg)] == '-')
+			router_desc = &file_name[strlen(fwupgradecfg) + 1];
+
+		size = fwupgrade_cfg_read_sizes(router_image, file_info_tmp);
+		if (!size)
+			continue;
+
+		router_image_set_size(router_image, router_desc, size);
+	}
+
 }
 
 static int ce_verify(struct router_image *router_image, char *buff,
@@ -407,6 +473,10 @@ static int ce_verify(struct router_image *router_image, char *buff,
 	}
 
 	router_image->file_size = image_size;
+
+	/* calculate size of files referenced by fwupgrade.cfg of each router */
+	ce_calculate_router_file_size(router_image);
+
 	return 1;
 }
 
@@ -416,12 +486,13 @@ static int router_image_init_embedded(struct router_image *router_image)
 
 #if defined(LINUX) || defined(OSX)
 
+	router_image->embedded_img = router_image->embedded_img_pre_check;
 	ret = router_image->image_verify(router_image,
 					 router_image->embedded_img_pre_check,
 					 (unsigned)router_image->embedded_file_size,
 					 (unsigned)router_image->embedded_file_size);
-	if (ret == 1)
-		router_image->embedded_img = router_image->embedded_img_pre_check;
+	if (ret != 1)
+		router_image->embedded_img = NULL;
 #elif defined(WIN32)
 	HGLOBAL hGlobal;
 	HRSRC hRsrc;
@@ -435,9 +506,10 @@ static int router_image_init_embedded(struct router_image *router_image)
 		buff = LockResource(hGlobal);
 		size = SizeofResource(NULL, hRsrc);
 
+		router_image->embedded_img = buff;
 		ret = router_image->image_verify(router_image, buff, size, size);
-		if (ret == 1)
-			router_image->embedded_img = buff;
+		if (ret != 1)
+			router_image->embedded_img = NULL;
 	}
 #endif
 	return ret;
@@ -612,11 +684,13 @@ int router_images_verify_path(char *image_path)
 			continue;
 		}
 
-		ret = (*router_image)->image_verify((*router_image), file_buff, len, file_size);
-		if (ret != 1)
-			continue;
-
 		(*router_image)->path = image_path;
+		ret = (*router_image)->image_verify((*router_image), file_buff, len, file_size);
+		if (ret != 1) {
+			(*router_image)->path = NULL;
+			continue;
+		}
+
 		found_consumer = 1;
 
 #if defined(DEBUG)
