@@ -64,6 +64,8 @@ struct image_state {
 	unsigned short last_packet_size;
 	unsigned short block_acked;
 	unsigned short block_sent;
+	/* flags */
+	unsigned char count_globally:1;
 };
 
 struct tcp_state {

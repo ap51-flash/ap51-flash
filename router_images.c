@@ -291,7 +291,7 @@ static int ce_verify(struct router_image *router_image, char *buff,
 {
 	char name_buff[33], *name_ptr, md5_buff[33];
 	unsigned int num_files, hdr_offset, file_offset, file_size = 0;
-	unsigned image_size = 0, fwcfg_size = 0;
+	unsigned image_size = 0;
 	unsigned int ce_version = 0, hdr_offset_sec;
 	int ret;
 
@@ -374,18 +374,10 @@ static int ce_verify(struct router_image *router_image, char *buff,
 				router_image_router_add(router_image,
 							&name_buff[strlen(fwupgradecfg)  + 1]);
 			/***
-			 * In case this CE image contains multiple fwupgrade.cfg entries
-			 * only the smaller fwupgrade.cfg should be added to the total
-			 * image size in order to detect the end-of-flash correctly.
+			 * Don't add fwupgrade.cfg* files to the file size in
+			 * order to detect the end-of-flash correctly.
 			 */
-			if ((fwcfg_size > 0) &&
-			    (fwcfg_size <= file_size))
-				continue;
-
-			if (fwcfg_size > file_size)
-				image_size -= fwcfg_size;
-
-			fwcfg_size = file_size;
+			continue;
 		}
 
 		image_size += file_size;

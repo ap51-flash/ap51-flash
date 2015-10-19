@@ -221,6 +221,7 @@ static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct nod
 	unsigned short opcode, block;
 	char *file_name;
 	int ret, data_len;
+	static const char fwupgradecfg[] = "fwupgrade.cfg";
 
 	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
 		return;
@@ -287,6 +288,11 @@ static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct nod
 		block = 0;
 		node->image_state.bytes_sent = 0;
 		node->image_state.last_packet_size = 0;
+
+		if (strncmp(file_name, fwupgradecfg, strlen(fwupgradecfg)) == 0)
+			node->image_state.count_globally = 0;
+		else
+			node->image_state.count_globally = 1;
 		/* fall through - start sending data */
 	/* TFTP ack */
 	case 4:
@@ -327,6 +333,10 @@ static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct nod
 		} else {
 			/* nothing more to send */
 			if (node->image_state.last_packet_size != TFTP_PAYLOAD_SIZE) {
+				/* don't count this file as payload? */
+				if (!node->image_state.count_globally)
+					goto out;
+
 				node->image_state.total_bytes_sent += node->image_state.bytes_sent;
 
 				if (node->image_state.total_bytes_sent >= node->router_type->image->file_size) {
