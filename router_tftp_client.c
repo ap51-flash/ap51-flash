@@ -17,6 +17,7 @@
  */
 
 #include <time.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "types.h"
@@ -269,6 +270,53 @@ const struct router_type mr1750 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
+static bool om2p_orig_arp(const uint8_t arp_tha[ETH_ALEN])
+{
+	/* target mac address field has to be zero */
+	if (arp_tha[0] != '\0')
+		return false;
+
+	if (arp_tha[1] != '\0')
+		return false;
+
+	if (arp_tha[2] != '\0')
+		return false;
+
+	if (arp_tha[3] != '\0')
+		return false;
+
+	if (arp_tha[4] != '\0')
+		return false;
+
+	if (arp_tha[5] != '\0')
+		return false;
+
+	return true;
+}
+
+static bool om2p_v4_arp(const uint8_t arp_tha[ETH_ALEN])
+{
+	if (arp_tha[0] != 'O')
+		return false;
+
+	if (arp_tha[1] != 'M')
+		return false;
+
+	if (arp_tha[2] != '2')
+		return false;
+
+	if (arp_tha[3] != 'P')
+		return false;
+
+	if (arp_tha[4] != 'V')
+		return false;
+
+	if (arp_tha[5] != '4')
+		return false;
+
+	return true;
+}
+
 static int om2p_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
@@ -284,9 +332,7 @@ static int om2p_detect_main(void (*priv)__attribute__((unused)), char *packet_bu
 	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
 		goto out;
 
-	/* target mac address field has to be zero */
-	if (arphdr->arp_tha[0] | arphdr->arp_tha[1] | arphdr->arp_tha[2] |
-	    arphdr->arp_tha[3] | arphdr->arp_tha[4] | arphdr->arp_tha[5])
+	if (!om2p_orig_arp(arphdr->arp_tha) && !om2p_v4_arp(arphdr->arp_tha))
 		goto out;
 
 	ret = 1;
