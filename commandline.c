@@ -87,8 +87,13 @@ int main(int argc, char* argv[])
 		load_embedded = false;
 	}
 
-	if (load_embedded)
+	if (load_embedded) {
 		router_images_init_embedded();
+	} else {
+#if defined(EMBED_UBOOT) || defined(EMBED_UBNT) || defined(EMBED_CI) || defined(EMBED_CE)
+		printf("Embedded image disabled\n");
+#endif
+	}
 
 #if defined(DEBUG)
 	printf("Listening on interface: %s\n", iface);
