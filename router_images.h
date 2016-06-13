@@ -16,12 +16,15 @@
  * 02110-1301, USA
  */
 
+#include <stdbool.h>
+
 struct router_info *router_image_router_get(struct router_image *router_image,
 					    char *router_desc);
 struct file_info *router_image_get_file(struct router_type *router_type,
 					char *file_name);
 void router_images_init(void);
 void router_images_init_embedded(void);
+bool router_images_available(void);
 void router_images_print_desc(void);
 int router_images_verify_path(char *image_path);
 int router_images_open_path(struct node *node);

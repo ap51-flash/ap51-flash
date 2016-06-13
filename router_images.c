@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include "types.h"
 #include "router_images.h"
@@ -695,6 +696,18 @@ int router_images_read_data(char *dst, struct node *node)
 
 err:
 	return -1;
+}
+
+bool router_images_available(void)
+{
+	struct router_image **router_image;
+
+	for (router_image = router_images; *router_image; ++router_image) {
+		if ((*router_image)->path || (*router_image)->embedded_img)
+			return true;
+	}
+
+	return false;
 }
 
 void router_images_close_path(struct node *node)

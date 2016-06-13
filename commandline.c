@@ -31,7 +31,7 @@
 #define REVISION_VERSION_STR REVISION_VERSION
 #endif
 
-void usage(char *prgname)
+void usage(const char *prgname)
 {
 	fprintf(stderr, "Usage:\n");
 
@@ -50,6 +50,10 @@ int main(int argc, char* argv[])
 	char *iface = NULL;
 	int ret = -1;
 	bool load_embedded = true;
+	const char *progname = "ap51-flash";
+
+	if (argc >= 1)
+		progname = argv[0];
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DESC)
@@ -62,7 +66,7 @@ int main(int argc, char* argv[])
 
 	if (argc < 2) {
 		fprintf(stderr, "Error - no interface specified\n");
-		usage(argv[0]);
+		usage(progname);
 		goto out;
 	}
 
@@ -98,6 +102,12 @@ int main(int argc, char* argv[])
 #if defined(DEBUG)
 	printf("Listening on interface: %s\n", iface);
 #endif
+
+	if (!router_images_available()) {
+		fprintf(stderr, "Error - no images specified\n");
+		usage(progname);
+		goto out;
+	}
 
 	ret = flash(iface);
 
