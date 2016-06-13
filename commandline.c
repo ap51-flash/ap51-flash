@@ -16,6 +16,7 @@
  * 02110-1301, USA
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -48,6 +49,7 @@ int main(int argc, char* argv[])
 {
 	char *iface = NULL;
 	int ret = -1;
+	bool load_embedded = true;
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DESC)
@@ -82,9 +84,11 @@ int main(int argc, char* argv[])
 
 		argc -= 1;
 		argv += 1;
+		load_embedded = false;
 	}
 
-	router_images_init_embedded();
+	if (load_embedded)
+		router_images_init_embedded();
 
 #if defined(DEBUG)
 	printf("Listening on interface: %s\n", iface);
