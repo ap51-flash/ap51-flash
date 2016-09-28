@@ -155,19 +155,27 @@ static void handle_arp_packet(char *packet_buff, int packet_buff_len, struct nod
 
 	switch (ntohs(arphdr->ea_hdr.ar_op)) {
 	case ARPOP_REQUEST:
-		/* fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: received ARP request, status: %d\n",
-			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-			node->status); */
+		 // fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: received ARP request, status: %d\n",
+			// node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
+			// node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+			// node->status);
+		 // fprintf(stderr, "Request - DEVICE MAC: >>>>>%02x:%02x:%02x:%02x:%02x:%02x\n", arphdr->arp_sha[0],
+		 // 	arphdr->arp_sha[1], arphdr->arp_sha[2], arphdr->arp_sha[3], arphdr->arp_sha[4], arphdr->arp_sha[5]);
+		 // fprintf(stderr, "Request - DEVICE TARGET NAME: >>>>>%02x:%02x:%02x:%02x:%02x:%02x\n", arphdr->arp_tha[0],
+		 // 	arphdr->arp_tha[1], arphdr->arp_tha[2], arphdr->arp_tha[3], arphdr->arp_tha[4], arphdr->arp_tha[5]);
 		break;
 	case ARPOP_REPLY:
-		/* fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: received ARP reply, status: %d\n",
-			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-			node->status); */
+		 // fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: received ARP reply, status: %d\n",
+			// node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
+			// node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+			// node->status);
+		 // fprintf(stderr, "Request - DEVICE MAC: >>>>>%02x:%02x:%02x:%02x:%02x:%02x\n", arphdr->arp_sha[0],
+		 // 	arphdr->arp_sha[1], arphdr->arp_sha[2], arphdr->arp_sha[3], arphdr->arp_sha[4], arphdr->arp_sha[5]);
+		 // fprintf(stderr, "Request - DEVICE TARGET NAME: >>>>>%02x:%02x:%02x:%02x:%02x:%02x\n", arphdr->arp_tha[0],
+		 // 	arphdr->arp_tha[1], arphdr->arp_tha[2], arphdr->arp_tha[3], arphdr->arp_tha[4], arphdr->arp_tha[5]);
 		break;
 	default:
-		/* fprintf(stderr, "ARP, unknown op code: %i, status: %d\n", ntohs(arphdr->ea_hdr.ar_op), node->status); */
+		 fprintf(stderr, "ARP, unknown op code: %i, status: %d\n", ntohs(arphdr->ea_hdr.ar_op), node->status);
 		return;
 	}
 
