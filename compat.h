@@ -74,7 +74,7 @@ struct ether_header {
     uint8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
     uint8_t  ether_shost[ETH_ALEN];	/* source ether addr	*/
     uint16_t ether_type;		/* packet type ID field	*/
-};
+} __attribute__((packed));
 
 struct arphdr {
     uint16_t ar_hrd;		/* format of hardware address	*/
@@ -82,7 +82,7 @@ struct arphdr {
     uint8_t	ar_hln;		/* length of hardware address	*/
     uint8_t	ar_pln;		/* length of protocol address	*/
     uint16_t ar_op;		/* ARP opcode (command)		*/
-};
+} __attribute__((packed));
 
 struct ether_arp {
     struct  arphdr ea_hdr;	/* fixed-size header */
@@ -90,7 +90,7 @@ struct ether_arp {
     uint8_t arp_spa[4];		/* sender protocol address */
     uint8_t arp_tha[ETH_ALEN];	/* target hardware address */
     uint8_t arp_tpa[4];		/* target protocol address */
-};
+} __attribute__((packed));
 
 #endif
 
@@ -123,8 +123,8 @@ struct ether_arp {
 #define tcphdr tcphdr_linux
 
 struct iphdr_linux {
-    unsigned int ihl:4;
-    unsigned int version:4;
+    uint8_t ihl:4;
+    uint8_t version:4;
     uint8_t tos;
     uint16_t tot_len;
     uint16_t id;
