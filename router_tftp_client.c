@@ -393,11 +393,12 @@ out:
 	return ret;
 }
 const struct router_type a40 = {
-	.desc = "A60",
+	.desc = "A40",
 	.detect_pre = NULL,
 	.detect_main = a40_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.image_desc = "A60",
 	.priv_size = sizeof(struct om2p_priv),
 };
 
