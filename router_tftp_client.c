@@ -66,7 +66,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &mr900) ||
 		   (node->router_type == &mr1750) ||
 		   (node->router_type == &a40) ||
-		   (node->router_type == &a40v2) ||
+		   (node->router_type == &a42) ||
 		   (node->router_type == &a60) ||
 		   (node->router_type == &om2p) ||
 		   (node->router_type == &om5p) ||
@@ -90,7 +90,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &mr900) ||
 		   (node->router_type == &mr1750) ||
 		   (node->router_type == &a40) ||
-		   (node->router_type == &a40v2) ||
+		   (node->router_type == &a42) ||
 		   (node->router_type == &a60) ||
 		   (node->router_type == &om2p) ||
 		   (node->router_type == &om5p) ||
@@ -451,7 +451,7 @@ const struct router_type a60 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int a40v2_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+static int a42_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -472,13 +472,13 @@ static int a40v2_detect_main(void (*priv)__attribute__((unused)), char *packet_b
 	if (arphdr->arp_tha[1] != '4')
 		goto out;
 
-	if (arphdr->arp_tha[2] != '0')
+	if (arphdr->arp_tha[2] != '2')
 		goto out;
 
-	if (arphdr->arp_tha[3] != 'v')
+	if (arphdr->arp_tha[3] != '\0')
 		goto out;
 
-	if (arphdr->arp_tha[4] != '2')
+	if (arphdr->arp_tha[4] != '\0')
 		goto out;
 
 	if (arphdr->arp_tha[5] != '\0')
@@ -490,10 +490,10 @@ out:
 	return ret;
 }
 
-const struct router_type a40v2 = {
-	.desc = "A40v2",
+const struct router_type a42 = {
+	.desc = "A42",
 	.detect_pre = NULL,
-	.detect_main = a40v2_detect_main,
+	.detect_main = a42_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.priv_size = sizeof(struct om2p_priv),

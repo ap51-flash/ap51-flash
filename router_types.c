@@ -37,7 +37,7 @@ static const struct router_type *router_types[] = {
 	&mr900,
 	&mr1750,
 	&a40,
-	&a40v2,
+	&a42,
 	&a60,
 	&om2p,
 	&om5p,
