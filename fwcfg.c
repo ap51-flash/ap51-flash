@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <ctype.h>
@@ -80,7 +81,7 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 		} else {
 			/* type value pair */
 			type = line;
-			tv_delim = index(line, '=');
+			tv_delim = strchr(line, '=');
 			if (!tv_delim) {
 				fprintf(stderr,
 					"Found type=value line without '=': %s\n",
