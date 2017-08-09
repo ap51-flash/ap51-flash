@@ -23,6 +23,7 @@ extern const struct router_type mr1750;
 extern const struct router_type a40;
 extern const struct router_type a42;
 extern const struct router_type a60;
+extern const struct router_type a62;
 extern const struct router_type om2p;
 extern const struct router_type om5p;
 extern const struct router_type om5pan;
