@@ -28,7 +28,7 @@ extern const struct router_type om2p;
 extern const struct router_type om5p;
 extern const struct router_type om5pan;
 extern const struct router_type om5pac;
-extern const struct router_type p6;
+extern const struct router_type p60;
 
 void tftp_client_flash_time_set(struct node *node);
 int tftp_client_flash_completed(struct node *node);

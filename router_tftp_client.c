@@ -73,7 +73,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &om5p) ||
 		   (node->router_type == &om5pac) ||
 		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p6)) {
+		   (node->router_type == &p60)) {
 		om2p_priv = node->router_priv;
 		om2p_priv->start_flash = time(NULL);
 	}
@@ -99,7 +99,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &om5p) ||
 		   (node->router_type == &om5pac) ||
 		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p6)) {
+		   (node->router_type == &p60)) {
 		om2p_priv = node->router_priv;
 		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
 	} else {
@@ -697,7 +697,7 @@ const struct router_type om5pac = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int p6_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+static int p60_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -718,7 +718,7 @@ static int p6_detect_main(void (*priv)__attribute__((unused)), char *packet_buff
 	if (arphdr->arp_tha[1] != '6')
 		goto out;
 
-	if (arphdr->arp_tha[2] != '\0')
+	if (arphdr->arp_tha[2] != '0')
 		goto out;
 
 	if (arphdr->arp_tha[3] != '\0')
@@ -736,12 +736,12 @@ out:
 	return ret;
 }
 
-const struct router_type p6 = {
-	.desc = "P6",
+const struct router_type p60 = {
+	.desc = "P60",
 	.detect_pre = NULL,
-	.detect_main = p6_detect_main,
+	.detect_main = p60_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
-	.image_desc = "P6",
+	.image_desc = "P60",
 	.priv_size = sizeof(struct om2p_priv),
 };
