@@ -73,7 +73,10 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &om5p) ||
 		   (node->router_type == &om5pac) ||
 		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p60)) {
+		   (node->router_type == &p60) ||
+		   (node->router_type == &d200) ||
+		   (node->router_type == &g200)) {
+
 		om2p_priv = node->router_priv;
 		om2p_priv->start_flash = time(NULL);
 	}
@@ -99,7 +102,10 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &om5p) ||
 		   (node->router_type == &om5pac) ||
 		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p60)) {
+		   (node->router_type == &p60) ||
+		   (node->router_type == &d200) ||
+		   (node->router_type == &g200)) {
+
 		om2p_priv = node->router_priv;
 		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
 	} else {
@@ -743,5 +749,103 @@ const struct router_type p60 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "P60",
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int d200_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
+		goto out;
+
+	if (arphdr->arp_tha[0] != 'D')
+		goto out;
+
+	if (arphdr->arp_tha[1] != '2')
+		goto out;
+
+	if (arphdr->arp_tha[2] != '0')
+		goto out;
+
+	if (arphdr->arp_tha[3] != '0')
+		goto out;
+
+	if (arphdr->arp_tha[4] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[5] != '\0')
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type d200 = {
+	.desc = "D200",
+	.detect_pre = NULL,
+	.detect_main = d200_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_ce,
+	.image_desc = "D200",
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int g200_detect_main(void (*priv)__attribute__((unused)), char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
+		goto out;
+
+	if (arphdr->arp_tha[0] != 'G')
+		goto out;
+
+	if (arphdr->arp_tha[1] != '2')
+		goto out;
+
+	if (arphdr->arp_tha[2] != '0')
+		goto out;
+
+	if (arphdr->arp_tha[3] != '0')
+		goto out;
+
+	if (arphdr->arp_tha[4] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[5] != '\0')
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type g200 = {
+	.desc = "G200",
+	.detect_pre = NULL,
+	.detect_main = g200_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_ce,
+	.image_desc = "G200",
 	.priv_size = sizeof(struct om2p_priv),
 };
