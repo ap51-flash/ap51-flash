@@ -11,13 +11,35 @@ which follows you still can try it and inform us about the result.
 redboot devices
 ===============
 
-* FON, La Fonera (2100)
-* Open Mesh, OM1P
-* Engenius, EOC-1650, EOC-2610, EOC-2610p
-* Engenius, 3660
-* Dlink, DIR-300 (after installing a reflash-enabled redboot)
-* Ubiquiti, Pico2 & HP
-* UniAppliance Colibrì (!UniData)
+* FON
+
+  - La Fonera (2100)
+
+* Open Mesh
+
+  - OM1P
+
+* Engenius
+
+  - EOC-1650
+  - EOC-2610
+  - EOC-2610p
+
+* Engenius
+
+  - 3660
+
+* Dlink
+
+  - DIR-300 (after installing a reflash-enabled redboot)
+
+* Ubiquiti
+
+  - Pico2 & HP
+
+* UniAppliance
+
+  - Colibrì (!UniData)
 
 
 tftp flash
@@ -28,10 +50,21 @@ quite common amongst a variety of devices.
 
 List of known to work tftp devices:
 
-* Ubiquiti, NanoStation2
-* Ubiquiti, NanoStation5
-* Ubiquiti, Bullet2 & HP
-* Ubiquiti, RouterStation
+* Ubiquiti
+
+  - NanoStation2
+
+* Ubiquiti
+
+  - NanoStation5
+
+* Ubiquiti
+
+  - Bullet2 & HP
+
+* Ubiquiti
+
+  - RouterStation
 
 
 u-boot flashit
