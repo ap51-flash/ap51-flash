@@ -1,0 +1,7 @@
+*.d
+*.o
+
+/ap51-flash
+/ap51-flash.exe
+/ap51-flash-osx
+/docs/_build/
