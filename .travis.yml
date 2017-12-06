@@ -17,4 +17,4 @@ env:
    - EXTRA_CFLAGS="-DCLEAR_SCREEN"
    - EXTRA_CFLAGS="-DCLEAR_SCREEN -DDEBUG"
 script:
- - make clean V=s && make V=s
+ - make clean V=s && make CC="${CC}" V=s
