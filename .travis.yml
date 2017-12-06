@@ -1,0 +1,20 @@
+sudo: false
+dist: trusty
+language: cpp
+compiler:
+  - gcc
+  - clang
+addons:
+  apt:
+    packages:
+    - libpcap-dev
+after_success:
+  - cd test && bash <(curl -s https://codecov.io/bash)
+env:
+  matrix:
+   - EXTRA_CFLAGS=""
+   - EXTRA_CFLAGS="-DDEBUG"
+   - EXTRA_CFLAGS="-DCLEAR_SCREEN"
+   - EXTRA_CFLAGS="-DCLEAR_SCREEN -DDEBUG"
+script:
+ - make clean && make
