@@ -1,0 +1,8 @@
+* text=auto
+
+*.c text
+*.h text
+*.rst text
+*.py text
+*.rst text
+Makefile text
