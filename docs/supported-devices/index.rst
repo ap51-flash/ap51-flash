@@ -39,8 +39,24 @@ u-boot flashit
 
 List of known to work uboot devices:
 
-* Open Mesh, OM2P, MR500
+* OpenMesh
 
+  - A40
+  - A42
+  - A60
+  - A62
+  - D200
+  - G200
+  - MR500
+  - MR600 (v1, v2)
+  - MR900 (v1, v2)
+  - MR1750 (v1, v2)
+  - OM2P (v1, v2, v4)
+  - OM2P-HS (v1, v2, v3, v4)
+  - OM2P-LC
+  - OM5P
+  - OM5P-AN
+  - OM5P-AC (v1, v2)
 
 other devices
 =============
