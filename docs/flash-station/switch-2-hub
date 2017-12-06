@@ -1,4 +1,6 @@
 #!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-3.0+
+# License-Filename: LICENSES/preferred/GPL-3.0
 
 START=45
 
