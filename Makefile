@@ -111,7 +111,7 @@ ifneq ($(EMBED_UBOOT),)
 endif
 
 CMDLINE_O = $(AP51_O) commandline.o
-CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM)
+CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
 REVISION= $(shell	if [ -d .svn ]; then \
