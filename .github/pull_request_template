@@ -1,0 +1,8 @@
+Thanks for your contribution to ap51-flash!
+
+* Prefer small & digestible over long "all in one" patches.
+* Add a "Signed-off-by: Your Name <you@example.com>" line to the patch message to make the ownership of the patch clear.
+* use "ap51-flash: " as prefix in your commit message's subject
+* make sure that you have updated docs/ to reflect your changes
+
+Please remove this message before posting the pull request.
