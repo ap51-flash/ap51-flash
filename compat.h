@@ -98,6 +98,10 @@ struct ether_arp {
 #endif
 
 
+#ifndef IPPORT_TFTP
+#define IPPORT_TFTP	69
+#endif
+
 #if USE_PCAP
 
 #define ETH_P_IP	0x0800
