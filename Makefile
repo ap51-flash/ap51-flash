@@ -204,4 +204,5 @@ clean:
 	rm -rf *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
 
 .PHONY: all clean
+.DELETE_ON_ERROR:
 .DEFAULT_GOAL := all
