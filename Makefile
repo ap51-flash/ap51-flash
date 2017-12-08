@@ -41,7 +41,6 @@ endif
 endif
 
 AP51_C = flash.c proto.c router_redboot.c router_tftp_client.c router_tftp_server.c router_types.c router_images.c socket.c fwcfg.c
-AP51_H = flash.h proto.h router_redboot.h router_tftp_client.h router_tftp_server.h router_types.h router_images.h socket.h fwcfg.h types.h compat.h
 AP51_O = $(AP51_C:.c=.o)
 AP51_RC = ap51-flash-res
 
@@ -139,17 +138,17 @@ all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
 %.o: %.c
-	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MD -c $< -o $@
+	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MD -MP -c $< -o $@
 
-$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O) $(AP51_H) Makefile
+$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O) Makefile
 	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(EMBED_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME).exe: $(EMBED_O) $(CMDLINE_O) $(AP51_H) Makefile
+$(BINARY_NAME).exe: $(EMBED_O) $(CMDLINE_O) Makefile
 	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME)-osx: $(CMDLINE_O) $(AP51_H) Makefile
+$(BINARY_NAME)-osx: $(CMDLINE_O) Makefile
 	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(OSX_EMBED_CFLAGS) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
@@ -202,6 +201,10 @@ $(AP51_RC).o:
 
 clean:
 	rm -rf *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
+
+# load dependencies
+DEP = $(AP51_O:.o=.d)
+-include $(DEP)
 
 .PHONY: all clean
 .DELETE_ON_ERROR:
