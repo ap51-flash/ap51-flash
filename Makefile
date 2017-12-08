@@ -88,54 +88,13 @@ ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
 endif
 
-$(AP51_RC):: Makefile
-	$(Q_SILENT)echo '#include "ap51-flash-res.h"' > $(AP51_RC)
+EMBEDDED_IMAGES += $(EMBED_CI)
+EMBEDDED_IMAGES += $(EMBED_CE)
+EMBEDDED_IMAGES += $(EMBED_UBNT)
+EMBEDDED_IMAGES += $(EMBED_UBOOT)
 
-ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
-ifeq ($(PLATFORM),WIN32)
-OBJ += $(AP51_RC).o
-endif
-
-ifeq ($(PLATFORM),LINUX)
-ifeq ($(OBJCP_OUT),)
-	ifeq ($(shell getconf LONG_BIT),64)
-		OBJCP_OUT = elf64-x86-64
-	else
-		OBJCP_OUT = elf32-i386
-	endif
-endif
-endif
-ifneq ($(DESC),)
-	CPPFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
-endif
-endif
-
-# automatically generate embedding images via:
-# $(call embed_image,TYPE_UPPER,TYPE_LOWER))
-define embed_image
-
-ifneq ($(EMBED_$(1)),)
-	EMBED_$(1)_SYM = _binary_$(shell echo $(EMBED_$(1)) | sed 's@[-/.]@_@g')
-	CPPFLAGS += -DEMBED_$(1)
-
-ifeq ($(PLATFORM),LINUX)
-	OBJ += img_$(2).o
-
-img_$(2).o:
-	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_$(1)) -O $(OBJCP_OUT) \
-	--redefine-sym $$(EMBED_$(1)_SYM)_start=_binary_img_$(2)_start \
-	--redefine-sym $$(EMBED_$(1)_SYM)_end=_binary_img_$(2)_end \
-	--redefine-sym $$(EMBED_$(1)_SYM)_size=_binary_img_$(2)_size img_$(2).o
-else ifeq ($(PLATFORM),WIN32)
-$(AP51_RC)::
-	$(Q_SILENT)[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)
-else ifeq ($(PLATFORM),OSX)
-	LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
-endif
-
-endif
-
-endef # embed_image
+Makefile: embed_image.mk
+include embed_image.mk
 
 $(eval $(call embed_image,CI,ci))
 $(eval $(call embed_image,CE,ce))
