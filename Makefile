@@ -50,15 +50,18 @@ CC      = $(CROSS)gcc
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
+COMPILE.c = $(Q_CC)$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 
 ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
 	PLATFORM = LINUX
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
-	LDFLAGS += -LWpdPack/Lib/ -lwpcap
+	LDFLAGS += -LWpdPack/Lib/
+	LDLIBS += -lwpcap
 	CFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
 	PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
-	LDFLAGS += -lpcap
+	LDLIBS += -lpcap
 	PLATFORM = OSX
 endif
 
@@ -113,7 +116,7 @@ ifneq ($(EMBED_UBOOT),)
 endif
 
 CMDLINE_O = $(AP51_O) commandline.o
-CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE
+CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE $(EXTRA_CFLAGS) -MD -MP
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
 REVISION= $(shell	if [ -d .svn ]; then \
@@ -137,23 +140,27 @@ REVISION= $(shell	if [ -d .svn ]; then \
 			fi)
 CFLAGS += -DREVISION_VERSION=\"$(REVISION)\"
 
+# standard build rules
+.SUFFIXES: .o .c
+.c.o:
+	$(COMPILE.c) -o $@ $<
+
 all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
-%.o: %.c
-	$(Q_CC)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MD -MP -c $< -o $@
-
-$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O) Makefile
-	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(EMBED_O) $(LDFLAGS) -o $@
+$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O)
+	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME).exe: $(CMDLINE_O) Makefile
-	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
+$(BINARY_NAME).exe: $(CMDLINE_O)
+	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME)-osx: $(CMDLINE_O) Makefile
-	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(OSX_EMBED_CFLAGS) $(LDFLAGS) -o $@
+$(BINARY_NAME)-osx: $(CMDLINE_O)
+	$(LINK.o) $^ $(LDLIBS) $(OSX_EMBED_CFLAGS) -o $@
 	$(STRIP) $@
+
+$(AP51_O): Makefile
 
 ifeq ($(PLATFORM),LINUX)
 img_ci.o:
