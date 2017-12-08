@@ -62,11 +62,14 @@ else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
 	PLATFORM = OSX
 endif
 
+$(AP51_RC)::
+	echo '#include "ap51-flash-res.h"' > $(AP51_RC)
+
 ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
 ifeq ($(PLATFORM),WIN32)
-$(shell echo '#include "ap51-flash-res.h"' > $(AP51_RC))
-	AP51_O += $(AP51_RC).o
+AP51_O += $(AP51_RC).o
 endif
+
 ifeq ($(PLATFORM),LINUX)
 ifeq ($(OBJCP_OUT),)
 	ifeq ($(shell getconf LONG_BIT),64)
@@ -144,7 +147,7 @@ $(BINARY_NAME): $(EMBED_O) $(CMDLINE_O) Makefile
 	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(EMBED_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME).exe: $(EMBED_O) $(CMDLINE_O) Makefile
+$(BINARY_NAME).exe: $(CMDLINE_O) Makefile
 	$(Q_LD)$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $(CMDLINE_O) $(LDFLAGS) -o $@
 	$(STRIP) $@
 
@@ -159,8 +162,8 @@ img_ci.o:
 	--redefine-sym $(EMBED_CI_SYM)_end=_binary_img_ci_end \
 	--redefine-sym $(EMBED_CI_SYM)_size=_binary_img_ci_size $@
 else ifeq ($(PLATFORM),WIN32)
-img_ci.o:
-	$(shell echo 'IDR_CI_IMG RCDATA DISCARDABLE "$(EMBED_CI)"' >> $(AP51_RC))
+$(AP51_RC)::
+	[ -z "$(EMBED_CI)" ] || echo 'IDR_CI_IMG RCDATA DISCARDABLE "$(EMBED_CI)"' >> $(AP51_RC)
 endif
 
 ifeq ($(PLATFORM),LINUX)
@@ -170,8 +173,8 @@ img_ce.o:
 	--redefine-sym $(EMBED_CE_SYM)_end=_binary_img_ce_end \
 	--redefine-sym $(EMBED_CE_SYM)_size=_binary_img_ce_size $@
 else ifeq ($(PLATFORM),WIN32)
-img_ce.o:
-	$(shell echo 'IDR_CE_IMG RCDATA DISCARDABLE "$(EMBED_CE)"' >> $(AP51_RC))
+$(AP51_RC)::
+	[ -z "$(EMBED_CE)" ] || echo 'IDR_CE_IMG RCDATA DISCARDABLE "$(EMBED_CE)"' >> $(AP51_RC)
 endif
 
 ifeq ($(PLATFORM),LINUX)
@@ -181,8 +184,8 @@ img_ubnt.o:
 	--redefine-sym $(EMBED_UBNT_SYM)_end=_binary_img_ubnt_end \
 	--redefine-sym $(EMBED_UBNT_SYM)_size=_binary_img_ubnt_size $@
 else ifeq ($(PLATFORM),WIN32)
-img_ubnt.o:
-	$(shell echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT)"' >> $(AP51_RC))
+$(AP51_RC)::
+	[ -z "$(EMBED_UBNT)" ] || echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT)"' >> $(AP51_RC)
 endif
 
 ifeq ($(PLATFORM),LINUX)
@@ -192,11 +195,11 @@ img_uboot.o:
 	--redefine-sym $(EMBED_UBOOT_SYM)_end=_binary_img_uboot_end \
 	--redefine-sym $(EMBED_UBOOT_SYM)_size=_binary_img_uboot_size $@
 else ifeq ($(PLATFORM),WIN32)
-img_uboot.o:
-	$(shell echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT)"' >> $(AP51_RC))
+$(AP51_RC)::
+	[ -z "$(EMBED_UBOOT)" ] || echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT)"' >> $(AP51_RC)
 endif
 
-$(AP51_RC).o:
+$(AP51_RC).o: $(AP51_RC)
 	$(Q_CC)$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
