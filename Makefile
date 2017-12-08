@@ -119,26 +119,14 @@ CMDLINE_O = $(AP51_O) commandline.o
 CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE $(EXTRA_CFLAGS) -MD -MP
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
-REVISION= $(shell	if [ -d .svn ]; then \
-				if which svn > /dev/null; then \
-					echo rv$$(svn info | grep "Rev:" | sed -e '1p' -n | awk '{print $$4}'); \
-				else \
-					echo "[unknown]"; \
-				fi; \
-			elif [ -d .git ]; then \
-				if which git > /dev/null; then \
-					echo $$(git describe --always --dirty 2> /dev/null); \
-				else \
-					echo "[unknown]"; \
-				fi; \
-			elif [ -d ~/.svk ]; then \
-				if which svk > /dev/null; then \
-					echo rv$$(svk info | grep "Mirrored From" | awk '{print $$5}'); \
-				else \
-					echo "[unknown]"; \
-				fi; \
+
+# try to generate revision
+REVISION= $(shell	if [ -d .git ]; then \
+				echo $$(git describe --always --dirty --match "v*" |sed 's/^v//' 2> /dev/null || echo "[unknown]"); \
 			fi)
-CFLAGS += -DREVISION_VERSION=\"$(REVISION)\"
+ifneq ($(REVISION),)
+CPPFLAGS += -DSOURCE_VERSION=\"$(REVISION)\"
+endif
 
 # standard build rules
 .SUFFIXES: .o .c

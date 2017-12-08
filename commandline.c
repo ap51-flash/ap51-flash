@@ -28,10 +28,8 @@
 #include "socket.h"
 #include "router_images.h"
 
-#ifndef REVISION_VERSION
-#define REVISION_VERSION_STR "version information not available"
-#else
-#define REVISION_VERSION_STR REVISION_VERSION
+#ifndef SOURCE_VERSION
+#define SOURCE_VERSION "version information not available"
 #endif
 
 void usage(const char *prgname)
@@ -60,9 +58,9 @@ int main(int argc, char* argv[])
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DESC)
-		printf("ap51-flash (%s) [embedded: %s]\n", REVISION_VERSION_STR, EMBEDDED_DESC);
+		printf("ap51-flash (%s) [embedded: %s]\n", SOURCE_VERSION, EMBEDDED_DESC);
 #else
-		printf("ap51-flash (%s)\n", REVISION_VERSION_STR);
+		printf("ap51-flash (%s)\n", SOURCE_VERSION);
 #endif
 		return 0;
 	}
