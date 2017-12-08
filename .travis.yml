@@ -23,7 +23,8 @@ script:
 # windows cross-compiler
 matrix:
   include:
-    - env:
+    - os: linux
+      env:
       - MXE_CPU=i686
       - PATH="/usr/lib/mxe/usr/bin/:$PATH"
       - EXTRA_CFLAGS="-DCLEAR_SCREEN"
@@ -41,3 +42,6 @@ matrix:
       - unzip WpdPack_4_1_2.zip
       script:
       - make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+    - os: osx
+      script:
+      - make clean V=s && make V=s ap51-flash-osx
