@@ -55,12 +55,12 @@ LDLIBS +=
 # disable verbose output
 ifneq ($(findstring $(MAKEFLAGS),s),s)
 ifndef V
-	Q_CC = @echo '   ' CC $@;
-	Q_LD = @echo '   ' LD $@;
-	Q_SILENT = @
-	export Q_CC
-	export Q_LD
-	export Q_SILENT
+  Q_CC = @echo '   ' CC $@;
+  Q_LD = @echo '   ' LD $@;
+  Q_SILENT = @
+  export Q_CC
+  export Q_LD
+  export Q_SILENT
 endif
 endif
 
@@ -73,15 +73,15 @@ COMPILE.c = $(Q_CC)$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 
 ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
-	PLATFORM = LINUX
+  PLATFORM = LINUX
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
-	LDFLAGS += -LWpdPack/Lib/
-	LDLIBS += -lwpcap
-	CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
-	PLATFORM = WIN32
+  LDFLAGS += -LWpdPack/Lib/
+  LDLIBS += -lwpcap
+  CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
+  PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
-	LDLIBS += -lpcap
-	PLATFORM = OSX
+  LDLIBS += -lpcap
+  PLATFORM = OSX
 endif
 
 ifneq ($(PLATFORM),)
@@ -104,9 +104,10 @@ $(eval $(call embed_image,UBOOT,uboot))
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
 
 # try to generate revision
-REVISION= $(shell	if [ -d .git ]; then \
-				echo $$(git describe --always --dirty --match "v*" |sed 's/^v//' 2> /dev/null || echo "[unknown]"); \
-			fi)
+REVISION= $(shell \
+  if [ -d .git ]; then \
+    echo $$(git describe --always --dirty --match "v*" |sed 's/^v//' 2> /dev/null || echo "[unknown]"); \
+  fi)
 ifneq ($(REVISION),)
 CPPFLAGS += -DSOURCE_VERSION=\"$(REVISION)\"
 endif
