@@ -57,8 +57,10 @@ ifneq ($(findstring $(MAKEFLAGS),s),s)
 ifndef V
 	Q_CC = @echo '   ' CC $@;
 	Q_LD = @echo '   ' LD $@;
+	Q_SILENT = @
 	export Q_CC
 	export Q_LD
+	export Q_SILENT
 endif
 endif
 
@@ -87,7 +89,7 @@ CPPFLAGS += -D$(PLATFORM)
 endif
 
 $(AP51_RC)::
-	echo '#include "ap51-flash-res.h"' > $(AP51_RC)
+	$(Q_SILENT)echo '#include "ap51-flash-res.h"' > $(AP51_RC)
 
 ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
 ifeq ($(PLATFORM),WIN32)
@@ -126,7 +128,7 @@ img_$(2).o:
 	--redefine-sym $$(EMBED_$(1)_SYM)_size=_binary_img_$(2)_size img_$(2).o
 else ifeq ($(PLATFORM),WIN32)
 $(AP51_RC)::
-	[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)
+	$(Q_SILENT)[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)
 else ifeq ($(PLATFORM),OSX)
 	LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
 endif
