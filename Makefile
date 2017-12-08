@@ -104,33 +104,35 @@ ifneq ($(DESC),)
 endif
 endif
 
-ifneq ($(EMBED_CI),)
-	EMBED_CI_SYM = _binary_$(shell echo $(EMBED_CI) | sed 's@[-/.]@_@g')
-	EMBED_O += img_ci.o
-	CPPFLAGS += -DEMBED_CI
-	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ci $(EMBED_CI)
+# automatically generate embedding images via:
+# $(call embed_image,TYPE_UPPER,TYPE_LOWER))
+define embed_image
+
+ifneq ($(EMBED_$(1)),)
+	EMBED_$(1)_SYM = _binary_$(shell echo $(EMBED_$(1)) | sed 's@[-/.]@_@g')
+	EMBED_O += img_$(2).o
+	CPPFLAGS += -DEMBED_$(1)
+	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
+
+ifeq ($(PLATFORM),LINUX)
+img_$(2).o:
+	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_$(1)) -O $(OBJCP_OUT) \
+	--redefine-sym $$(EMBED_$(1)_SYM)_start=_binary_img_$(2)_start \
+	--redefine-sym $$(EMBED_$(1)_SYM)_end=_binary_img_$(2)_end \
+	--redefine-sym $$(EMBED_$(1)_SYM)_size=_binary_img_$(2)_size img_$(2).o
+else ifeq ($(PLATFORM),WIN32)
+$(AP51_RC)::
+	[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)
 endif
 
-ifneq ($(EMBED_CE),)
-	EMBED_CE_SYM = _binary_$(shell echo $(EMBED_CE) | sed 's@[-/.]@_@g')
-	EMBED_O += img_ce.o
-	CPPFLAGS += -DEMBED_CE
-	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ce $(EMBED_CE)
 endif
 
-ifneq ($(EMBED_UBNT),)
-	EMBED_UBNT_SYM = _binary_$(shell echo $(EMBED_UBNT) | sed 's@[-/.]@_@g')
-	EMBED_O += img_ubnt.o
-	CPPFLAGS += -DEMBED_UBNT
-	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ubnt $(EMBED_UBNT)
-endif
+endef # embed_image
 
-ifneq ($(EMBED_UBOOT),)
-	EMBED_UBOOT_SYM = _binary_$(shell echo $(EMBED_UBOOT) | sed 's@[-/.]@_@g')
-	EMBED_O += img_uboot.o
-	CPPFLAGS += -DEMBED_UBOOT
-	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
-endif
+$(eval $(call embed_image,CI,ci))
+$(eval $(call embed_image,CE,ce))
+$(eval $(call embed_image,UBNT,ubnt))
+$(eval $(call embed_image,UBOOT,uboot))
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
 
@@ -163,50 +165,6 @@ $(BINARY_NAME)-osx: $(OBJ)
 	$(STRIP) $@
 
 $(OBJ): Makefile
-
-ifeq ($(PLATFORM),LINUX)
-img_ci.o:
-	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_CI) -O $(OBJCP_OUT) \
-	--redefine-sym $(EMBED_CI_SYM)_start=_binary_img_ci_start \
-	--redefine-sym $(EMBED_CI_SYM)_end=_binary_img_ci_end \
-	--redefine-sym $(EMBED_CI_SYM)_size=_binary_img_ci_size $@
-else ifeq ($(PLATFORM),WIN32)
-$(AP51_RC)::
-	[ -z "$(EMBED_CI)" ] || echo 'IDR_CI_IMG RCDATA DISCARDABLE "$(EMBED_CI)"' >> $(AP51_RC)
-endif
-
-ifeq ($(PLATFORM),LINUX)
-img_ce.o:
-	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_CE) -O $(OBJCP_OUT) \
-	--redefine-sym $(EMBED_CE_SYM)_start=_binary_img_ce_start \
-	--redefine-sym $(EMBED_CE_SYM)_end=_binary_img_ce_end \
-	--redefine-sym $(EMBED_CE_SYM)_size=_binary_img_ce_size $@
-else ifeq ($(PLATFORM),WIN32)
-$(AP51_RC)::
-	[ -z "$(EMBED_CE)" ] || echo 'IDR_CE_IMG RCDATA DISCARDABLE "$(EMBED_CE)"' >> $(AP51_RC)
-endif
-
-ifeq ($(PLATFORM),LINUX)
-img_ubnt.o:
-	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_UBNT) -O $(OBJCP_OUT) \
-	--redefine-sym $(EMBED_UBNT_SYM)_start=_binary_img_ubnt_start \
-	--redefine-sym $(EMBED_UBNT_SYM)_end=_binary_img_ubnt_end \
-	--redefine-sym $(EMBED_UBNT_SYM)_size=_binary_img_ubnt_size $@
-else ifeq ($(PLATFORM),WIN32)
-$(AP51_RC)::
-	[ -z "$(EMBED_UBNT)" ] || echo 'IDR_UBNT_IMG RCDATA DISCARDABLE "$(EMBED_UBNT)"' >> $(AP51_RC)
-endif
-
-ifeq ($(PLATFORM),LINUX)
-img_uboot.o:
-	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_UBOOT) -O $(OBJCP_OUT) \
-	--redefine-sym $(EMBED_UBOOT_SYM)_start=_binary_img_uboot_start \
-	--redefine-sym $(EMBED_UBOOT_SYM)_end=_binary_img_uboot_end \
-	--redefine-sym $(EMBED_UBOOT_SYM)_size=_binary_img_uboot_size $@
-else ifeq ($(PLATFORM),WIN32)
-$(AP51_RC)::
-	[ -z "$(EMBED_UBOOT)" ] || echo 'IDR_UBOOT_IMG RCDATA DISCARDABLE "$(EMBED_UBOOT)"' >> $(AP51_RC)
-endif
 
 $(AP51_RC).o: $(AP51_RC)
 	$(Q_CC)$(WINDRES) -i $(AP51_RC) -I. -o $@
