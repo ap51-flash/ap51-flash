@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0+
 # License-Filename: LICENSES/preferred/GPL-3.0
 
-sudo: false
+sudo: required
 dist: trusty
 language: cpp
 compiler:
@@ -19,3 +19,25 @@ env:
    - EXTRA_CFLAGS="-DCLEAR_SCREEN -DDEBUG"
 script:
  - make clean V=s && make CC="${CC}" V=s
+
+# windows cross-compiler
+matrix:
+  include:
+    - env:
+      - MXE_CPU=i686
+      - PATH="/usr/lib/mxe/usr/bin/:$PATH"
+      - EXTRA_CFLAGS="-DCLEAR_SCREEN"
+      addons:
+        apt:
+          sources:
+          - sourceline: 'deb http://pkg.mxe.cc/repos/apt/debian jessie main'
+            key_url: 'http://pkg.mxe.cc/repos/apt/conf/mxeapt.gpg'
+          packages:
+          - curl
+          - unzip
+          - mxe-i686-w64-mingw32.static-gcc
+      before_script:
+      - curl https://www.winpcap.org/install/bin/WpdPack_4_1_2.zip -o WpdPack_4_1_2.zip
+      - unzip WpdPack_4_1_2.zip
+      script:
+      - make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
