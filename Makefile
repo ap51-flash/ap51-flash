@@ -110,11 +110,12 @@ define embed_image
 
 ifneq ($(EMBED_$(1)),)
 	EMBED_$(1)_SYM = _binary_$(shell echo $(EMBED_$(1)) | sed 's@[-/.]@_@g')
-	EMBED_O += img_$(2).o
 	CPPFLAGS += -DEMBED_$(1)
 	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
 
 ifeq ($(PLATFORM),LINUX)
+	OBJ += img_$(2).o
+
 img_$(2).o:
 	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_$(1)) -O $(OBJCP_OUT) \
 	--redefine-sym $$(EMBED_$(1)_SYM)_start=_binary_img_$(2)_start \
@@ -152,7 +153,7 @@ endif
 all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
-$(BINARY_NAME): $(EMBED_O) $(OBJ)
+$(BINARY_NAME): $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
