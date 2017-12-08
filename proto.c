@@ -412,7 +412,7 @@ out:
 	return;
 }
 
-void tcp_init_state(struct node *node)
+static void tcp_init_state(struct node *node)
 {
 	struct ether_header *ethhdr;
 	struct iphdr *iphdr;

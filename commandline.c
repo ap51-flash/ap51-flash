@@ -32,7 +32,7 @@
 #define SOURCE_VERSION "version information not available"
 #endif
 
-void usage(const char *prgname)
+static void usage(const char *prgname)
 {
 	fprintf(stderr, "Usage:\n");
 

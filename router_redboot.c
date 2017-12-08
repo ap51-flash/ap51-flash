@@ -118,13 +118,13 @@ static struct redboot_type redboot_4mb = {
 	.detect = redboot_4mb_detect,
 };
 
-const struct redboot_type *redboot_types[] = {
+static const struct redboot_type *redboot_types[] = {
 	&redboot_8mb,
 	&redboot_4mb,
 	NULL,
 };
 
-int redboot_type_detect(struct node *node)
+static int redboot_type_detect(struct node *node)
 {
 	struct redboot_priv *redboot_priv = node->router_priv;
 	const struct redboot_type **redboot_type;
