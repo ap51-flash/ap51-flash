@@ -43,6 +43,10 @@ OBJ += router_types.o
 OBJ += socket.o
 AP51_RC = ap51-flash-res
 
+BINARY_TARGET_NAMES += $(BINARY_NAME)
+BINARY_TARGET_NAMES += $(BINARY_NAME).exe
+BINARY_TARGET_NAMES += $(BINARY_NAME)-osx
+
 # ap51-flash flags and options
 CFLAGS += -Wall -W -std=gnu99 -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
 CPPFLAGS += -D_GNU_SOURCE
@@ -154,15 +158,7 @@ endif
 all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
-$(BINARY_NAME): $(OBJ)
-	$(LINK.o) $^ $(LDLIBS) -o $@
-	$(STRIP) $@
-
-$(BINARY_NAME).exe: $(OBJ)
-	$(LINK.o) $^ $(LDLIBS) -o $@
-	$(STRIP) $@
-
-$(BINARY_NAME)-osx: $(OBJ)
+$(BINARY_TARGET_NAMES): $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
@@ -172,7 +168,7 @@ $(AP51_RC).o: $(AP51_RC)
 	$(Q_CC)$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	$(RM) *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
+	$(RM) *.o *.d *~ $(BINARY_TARGET_NAMES) $(AP51_RC)
 
 # load dependencies
 DEP = $(OBJ:.o=.d)
