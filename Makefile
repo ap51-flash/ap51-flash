@@ -108,28 +108,28 @@ ifneq ($(EMBED_CI),)
 	EMBED_CI_SYM = _binary_$(shell echo $(EMBED_CI) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ci.o
 	CPPFLAGS += -DEMBED_CI
-	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ci $(EMBED_CI)
+	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ci $(EMBED_CI)
 endif
 
 ifneq ($(EMBED_CE),)
 	EMBED_CE_SYM = _binary_$(shell echo $(EMBED_CE) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ce.o
 	CPPFLAGS += -DEMBED_CE
-	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ce $(EMBED_CE)
+	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ce $(EMBED_CE)
 endif
 
 ifneq ($(EMBED_UBNT),)
 	EMBED_UBNT_SYM = _binary_$(shell echo $(EMBED_UBNT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ubnt.o
 	CPPFLAGS += -DEMBED_UBNT
-	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ubnt $(EMBED_UBNT)
+	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_ubnt $(EMBED_UBNT)
 endif
 
 ifneq ($(EMBED_UBOOT),)
 	EMBED_UBOOT_SYM = _binary_$(shell echo $(EMBED_UBOOT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_uboot.o
 	CPPFLAGS += -DEMBED_UBOOT
-	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
+	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
 endif
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
@@ -159,7 +159,7 @@ $(BINARY_NAME).exe: $(OBJ)
 	$(STRIP) $@
 
 $(BINARY_NAME)-osx: $(OBJ)
-	$(LINK.o) $^ $(LDLIBS) $(OSX_EMBED_CFLAGS) -o $@
+	$(LINK.o) $^ $(LDLIBS) $(OSX_EMBED_LDFLAGS) -o $@
 	$(STRIP) $@
 
 $(OBJ): Makefile
