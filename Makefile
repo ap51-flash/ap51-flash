@@ -111,7 +111,6 @@ define embed_image
 ifneq ($(EMBED_$(1)),)
 	EMBED_$(1)_SYM = _binary_$(shell echo $(EMBED_$(1)) | sed 's@[-/.]@_@g')
 	CPPFLAGS += -DEMBED_$(1)
-	OSX_EMBED_LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
 
 ifeq ($(PLATFORM),LINUX)
 	OBJ += img_$(2).o
@@ -124,6 +123,8 @@ img_$(2).o:
 else ifeq ($(PLATFORM),WIN32)
 $(AP51_RC)::
 	[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)
+else ifeq ($(PLATFORM),OSX)
+	LDFLAGS += -sectcreate __DATA _binary_img_$(2) $(EMBED_$(1))
 endif
 
 endif
@@ -162,7 +163,7 @@ $(BINARY_NAME).exe: $(OBJ)
 	$(STRIP) $@
 
 $(BINARY_NAME)-osx: $(OBJ)
-	$(LINK.o) $^ $(LDLIBS) $(OSX_EMBED_LDFLAGS) -o $@
+	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
 $(OBJ): Makefile
