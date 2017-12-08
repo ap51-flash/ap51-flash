@@ -40,11 +40,18 @@ ifndef V
 endif
 endif
 
-AP51_C = flash.c proto.c router_redboot.c router_tftp_client.c router_tftp_server.c router_types.c router_images.c socket.c fwcfg.c
-AP51_O = $(AP51_C:.c=.o)
-AP51_RC = ap51-flash-res
-
 BINARY_NAME = ap51-flash
+OBJ += commandline.o
+OBJ += flash.o
+OBJ += fwcfg.o
+OBJ += proto.o
+OBJ += router_images.o
+OBJ += router_redboot.o
+OBJ += router_tftp_client.o
+OBJ += router_tftp_server.o
+OBJ += router_types.o
+OBJ += socket.o
+AP51_RC = ap51-flash-res
 
 CC      = $(CROSS)gcc
 STRIP   = $(CROSS)strip
@@ -70,7 +77,7 @@ $(AP51_RC)::
 
 ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
 ifeq ($(PLATFORM),WIN32)
-AP51_O += $(AP51_RC).o
+OBJ += $(AP51_RC).o
 endif
 
 ifeq ($(PLATFORM),LINUX)
@@ -115,7 +122,6 @@ ifneq ($(EMBED_UBOOT),)
 	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
 endif
 
-CMDLINE_O = $(AP51_O) commandline.o
 CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE $(EXTRA_CFLAGS) -MD -MP
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
@@ -136,19 +142,19 @@ endif
 all:
 	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
 
-$(BINARY_NAME): $(EMBED_O) $(CMDLINE_O)
+$(BINARY_NAME): $(EMBED_O) $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME).exe: $(CMDLINE_O)
+$(BINARY_NAME).exe: $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) -o $@
 	$(STRIP) $@
 
-$(BINARY_NAME)-osx: $(CMDLINE_O)
+$(BINARY_NAME)-osx: $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) $(OSX_EMBED_CFLAGS) -o $@
 	$(STRIP) $@
 
-$(AP51_O): Makefile
+$(OBJ): Makefile
 
 ifeq ($(PLATFORM),LINUX)
 img_ci.o:
@@ -201,7 +207,7 @@ clean:
 	rm -rf *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
 
 # load dependencies
-DEP = $(AP51_O:.o=.d)
+DEP = $(OBJ:.o=.d)
 -include $(DEP)
 
 .PHONY: all clean
