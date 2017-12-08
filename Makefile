@@ -19,9 +19,9 @@
 # License-Filename: LICENSES/preferred/GPL-3.0
 
 # enable debug output
-# EXTRA_CFLAGS += -DDEBUG
+# CPPFLAGS += -DDEBUG
 # clear screen after each subsequent flash
-# EXTRA_CFLAGS += -DCLEAR_SCREEN
+# CPPFLAGS += -DCLEAR_SCREEN
 
 # define $EMBED_IMG=/path/to/image to have your image included
 # into the binary where $EMBED_IMG is one of the following:
@@ -53,6 +53,11 @@ OBJ += router_types.o
 OBJ += socket.o
 AP51_RC = ap51-flash-res
 
+# ap51-flash flags and options
+CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
+CPPFLAGS += -D_GNU_SOURCE
+LDLIBS +=
+
 CC      = $(CROSS)gcc
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
@@ -65,11 +70,15 @@ ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
 	LDFLAGS += -LWpdPack/Lib/
 	LDLIBS += -lwpcap
-	CFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
+	CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
 	PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
 	LDLIBS += -lpcap
 	PLATFORM = OSX
+endif
+
+ifneq ($(PLATFORM),)
+CPPFLAGS += -D$(PLATFORM)
 endif
 
 $(AP51_RC)::
@@ -90,39 +99,37 @@ ifeq ($(OBJCP_OUT),)
 endif
 endif
 ifneq ($(DESC),)
-	CFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
+	CPPFLAGS += -DEMBEDDED_DESC=\"$(DESC)\"
 endif
 endif
 
 ifneq ($(EMBED_CI),)
 	EMBED_CI_SYM = _binary_$(shell echo $(EMBED_CI) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ci.o
-	CFLAGS += -DEMBED_CI
+	CPPFLAGS += -DEMBED_CI
 	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ci $(EMBED_CI)
 endif
 
 ifneq ($(EMBED_CE),)
 	EMBED_CE_SYM = _binary_$(shell echo $(EMBED_CE) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ce.o
-	CFLAGS += -DEMBED_CE
+	CPPFLAGS += -DEMBED_CE
 	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ce $(EMBED_CE)
 endif
 
 ifneq ($(EMBED_UBNT),)
 	EMBED_UBNT_SYM = _binary_$(shell echo $(EMBED_UBNT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_ubnt.o
-	CFLAGS += -DEMBED_UBNT
+	CPPFLAGS += -DEMBED_UBNT
 	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_ubnt $(EMBED_UBNT)
 endif
 
 ifneq ($(EMBED_UBOOT),)
 	EMBED_UBOOT_SYM = _binary_$(shell echo $(EMBED_UBOOT) | sed 's@[-/.]@_@g')
 	EMBED_O += img_uboot.o
-	CFLAGS += -DEMBED_UBOOT
+	CPPFLAGS += -DEMBED_UBOOT
 	OSX_EMBED_CFLAGS += -sectcreate __DATA _binary_img_uboot $(EMBED_UBOOT)
 endif
-
-CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing -D$(PLATFORM) -D_GNU_SOURCE $(EXTRA_CFLAGS) -MD -MP
 
 NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
 
