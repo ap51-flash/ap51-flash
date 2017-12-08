@@ -75,17 +75,21 @@ LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
   PLATFORM = LINUX
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
-  LDFLAGS += -LWpdPack/Lib/
-  LDLIBS += -lwpcap
-  CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
   PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
-  LDLIBS += -lpcap
   PLATFORM = OSX
 endif
 
 ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
+endif
+
+ifeq ($(PLATFORM),WIN32)
+  CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
+  LDFLAGS += -LWpdPack/Lib/
+  LDLIBS += -lwpcap
+else ifeq ($(PLATFORM),OSX)
+  LDLIBS += -lpcap
 endif
 
 EMBEDDED_IMAGES += $(EMBED_CI)
