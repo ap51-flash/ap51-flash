@@ -88,7 +88,7 @@ ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
 endif
 
-$(AP51_RC)::
+$(AP51_RC):: Makefile
 	$(Q_SILENT)echo '#include "ap51-flash-res.h"' > $(AP51_RC)
 
 ifneq ($(EMBED_CI)$(EMBED_CE)$(EMBED_UBNT)$(EMBED_UBOOT),)
