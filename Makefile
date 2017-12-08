@@ -44,7 +44,7 @@ OBJ += socket.o
 AP51_RC = ap51-flash-res
 
 # ap51-flash flags and options
-CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
+CFLAGS += -Wall -W -g3 -std=gnu99 -Os -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
 CPPFLAGS += -D_GNU_SOURCE
 LDLIBS +=
 
