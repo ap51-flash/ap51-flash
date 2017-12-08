@@ -19,8 +19,8 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#ifndef _FWCFG_H
-#define _FWCFG_H
+#ifndef __AP51_FLASH_FWCFG_H__
+#define __AP51_FLASH_FWCFG_H__
 
 #include <stdint.h>
 #include "types.h"
@@ -28,4 +28,4 @@
 unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
 				      struct file_info *file_info);
 
-#endif /* _FWCFG_H */
+#endif /* __AP51_FLASH_FWCFG_H__ */

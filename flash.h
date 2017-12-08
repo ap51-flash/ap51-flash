@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_FLASH_H__
+#define __AP51_FLASH_FLASH_H__
+
 #include "compat.h"
 
 #if defined(CLEAR_SCREEN)
@@ -39,3 +42,5 @@ static inline void list_prepend(struct list **list, struct list *list_item)
 	list_item->next = (*list)->next;
 	(*list)->next = list_item;
 }
+
+#endif /* __AP51_FLASH_FLASH_H__ */

@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_COMPAT_H__
+#define __AP51_FLASH_COMPAT_H__
+
 #if defined(LINUX)
 
 #include <sys/ioctl.h>
@@ -171,3 +174,5 @@ struct tcphdr_linux {
 };
 
 #endif
+
+#endif /* __AP51_FLASH_COMPAT_H__ */

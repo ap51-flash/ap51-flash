@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_ROUTER_IMAGES_H__
+#define __AP51_FLASH_ROUTER_IMAGES_H__
+
 #include <stdbool.h>
 
 struct router_info *router_image_router_get(struct router_image *router_image,
@@ -41,3 +44,5 @@ extern struct router_image img_uboot;
 extern struct router_image img_ubnt;
 extern struct router_image img_ci;
 extern struct router_image img_ce;
+
+#endif /* __AP51_FLASH_ROUTER_IMAGES_H__ */

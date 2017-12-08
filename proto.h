@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_PROTO_H__
+#define __AP51_FLASH_PROTO_H__
+
 #include <stdio.h>
 
 int arp_req_send(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip);
@@ -70,3 +73,5 @@ static inline unsigned short chksum(unsigned short sum, unsigned char *data, uns
 
 	return sum;
 }
+
+#endif /* __AP51_FLASH_PROTO_H__ */

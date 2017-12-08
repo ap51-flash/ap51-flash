@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_ROUTER_TFTP_CLIENT_H__
+#define __AP51_FLASH_ROUTER_TFTP_CLIENT_H__
+
 extern const struct router_type mr500;
 extern const struct router_type mr600;
 extern const struct router_type mr900;
@@ -37,3 +40,5 @@ extern const struct router_type g200;
 
 void tftp_client_flash_time_set(struct node *node);
 int tftp_client_flash_completed(struct node *node);
+
+#endif /* __AP51_FLASH_ROUTER_TFTP_CLIENT_H__ */

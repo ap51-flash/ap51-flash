@@ -19,8 +19,8 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#ifndef _AP51_FLASH_TYPES_H_
-#define _AP51_FLASH_TYPES_H_
+#ifndef __AP51_FLASH_TYPES_H__
+#define __AP51_FLASH_TYPES_H__
 
 #include <stdint.h>
 
@@ -156,4 +156,4 @@ struct redboot_type {
 	int (*detect)(struct node *node);
 };
 
-#endif /* _AP51_FLASH_TYPES_H_ */
+#endif /* __AP51_FLASH_TYPES_H__ */

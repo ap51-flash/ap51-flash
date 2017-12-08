@@ -19,6 +19,9 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_ROUTER_TYPES_H__
+#define __AP51_FLASH_ROUTER_TYPES_H__
+
 #include "types.h"
 
 int router_types_init(void);
@@ -26,3 +29,5 @@ void router_types_detect_pre(uint8_t *our_mac);
 int router_types_detect_main(struct node *node, char *packet_buff, int packet_buff_len);
 
 extern int router_types_priv_size;
+
+#endif /* __AP51_FLASH_ROUTER_TYPES_H__ */

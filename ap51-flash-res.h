@@ -19,7 +19,12 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#ifndef __AP51_FLASH_RES_H__
+#define __AP51_FLASH_RES_H__
+
 #define IDR_CI_IMG 101
 #define IDR_CE_IMG 102
 #define IDR_UBNT_IMG 103
 #define IDR_UBOOT_IMG 104
+
+#endif /* __AP51_FLASH_RES_H__ */
