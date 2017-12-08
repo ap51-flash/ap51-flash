@@ -72,7 +72,9 @@ WINDRES = $(CROSS)windres
 COMPILE.c = $(Q_CC)$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 
-ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
+ifeq ($(MAKECMDGOALS),)
+  PLATFORM = LINUX
+else ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
   PLATFORM = LINUX
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
   PLATFORM = WIN32
@@ -84,11 +86,15 @@ ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
 endif
 
-ifeq ($(PLATFORM),WIN32)
+ifeq ($(PLATFORM),LINUX)
+  BINARY_SUFFIX =
+else ifeq ($(PLATFORM),WIN32)
+  BINARY_SUFFIX = .exe
   CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
   LDFLAGS += -LWpdPack/Lib/
   LDLIBS += -lwpcap
 else ifeq ($(PLATFORM),OSX)
+  BINARY_SUFFIX = -osx
   LDLIBS += -lpcap
 endif
 
@@ -105,8 +111,6 @@ $(eval $(call embed_image,CE,ce))
 $(eval $(call embed_image,UBNT,ubnt))
 $(eval $(call embed_image,UBOOT,uboot))
 
-NUM_CPUS = $(shell nproc 2> /dev/null || echo 1)
-
 # try to generate revision
 REVISION= $(shell \
   if [ -d .git ]; then \
@@ -121,8 +125,7 @@ endif
 .c.o:
 	$(COMPILE.c) -o $@ $<
 
-all:
-	$(MAKE) -j $(NUM_CPUS) $(BINARY_NAME)
+all: $(BINARY_NAME)$(BINARY_SUFFIX)
 
 $(BINARY_TARGET_NAMES): $(OBJ)
 	$(LINK.o) $^ $(LDLIBS) -o $@
