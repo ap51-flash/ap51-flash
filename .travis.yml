@@ -11,8 +11,6 @@ addons:
   apt:
     packages:
     - libpcap-dev
-after_success:
-  - cd test && bash <(curl -s https://codecov.io/bash)
 env:
   matrix:
    - EXTRA_CFLAGS=""
