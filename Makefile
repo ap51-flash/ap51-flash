@@ -30,16 +30,6 @@
 # * EMBED_UBNT
 # * EMBED_UBOOT
 
-
-ifneq ($(findstring $(MAKEFLAGS),s),s)
-ifndef V
-	Q_CC = @echo '   ' CC $@;
-	Q_LD = @echo '   ' LD $@;
-	export Q_CC
-	export Q_LD
-endif
-endif
-
 BINARY_NAME = ap51-flash
 OBJ += commandline.o
 OBJ += flash.o
@@ -57,6 +47,16 @@ AP51_RC = ap51-flash-res
 CFLAGS += -Wall -Werror -W -g3 -std=gnu99 -Os -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
 CPPFLAGS += -D_GNU_SOURCE
 LDLIBS +=
+
+# disable verbose output
+ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifndef V
+	Q_CC = @echo '   ' CC $@;
+	Q_LD = @echo '   ' LD $@;
+	export Q_CC
+	export Q_LD
+endif
+endif
 
 CC      = $(CROSS)gcc
 STRIP   = $(CROSS)strip
