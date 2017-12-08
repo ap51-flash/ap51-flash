@@ -13,10 +13,10 @@ addons:
     - libpcap-dev
 env:
   matrix:
-   - EXTRA_CFLAGS=""
-   - EXTRA_CFLAGS="-DDEBUG"
-   - EXTRA_CFLAGS="-DCLEAR_SCREEN"
-   - EXTRA_CFLAGS="-DCLEAR_SCREEN -DDEBUG"
+   - CPPFLAGS=""
+   - CPPFLAGS="-DDEBUG"
+   - CPPFLAGS="-DCLEAR_SCREEN"
+   - CPPFLAGS="-DCLEAR_SCREEN -DDEBUG"
 script:
  - make clean V=s && make CC="${CC}" V=s
 
@@ -27,7 +27,7 @@ matrix:
       env:
       - MXE_CPU=i686
       - PATH="/usr/lib/mxe/usr/bin/:$PATH"
-      - EXTRA_CFLAGS="-DCLEAR_SCREEN"
+      - CPPFLAGS="-DCLEAR_SCREEN"
       addons:
         apt:
           sources:
