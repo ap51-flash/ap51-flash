@@ -59,6 +59,7 @@ endif
 endif
 
 CC      = $(CROSS)gcc
+RM     ?= rm -f
 STRIP   = $(CROSS)strip
 OBJCOPY = $(CROSS)objcopy
 WINDRES = $(CROSS)windres
@@ -211,7 +212,7 @@ $(AP51_RC).o: $(AP51_RC)
 	$(Q_CC)$(WINDRES) -i $(AP51_RC) -I. -o $@
 
 clean:
-	rm -rf *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
+	$(RM) *.o *.d *~ $(BINARY_NAME) $(BINARY_NAME).exe $(BINARY_NAME)-osx $(AP51_RC)
 
 # load dependencies
 DEP = $(OBJ:.o=.d)
