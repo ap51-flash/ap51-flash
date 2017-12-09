@@ -41,10 +41,12 @@ enum tcp_status {
 	TCP_STATUS_TELNET_READY,
 };
 
-#define FLASH_MODE_UKNOWN	0x00
-#define FLASH_MODE_REDBOOT	0x01
-#define FLASH_MODE_TFTP_SERVER	0x02
-#define FLASH_MODE_TFTP_CLIENT	0x03
+enum flash_mode {
+	FLASH_MODE_UKNOWN,
+	FLASH_MODE_REDBOOT,
+	FLASH_MODE_TFTP_SERVER,
+	FLASH_MODE_TFTP_CLIENT,
+};
 
 #define IMAGE_TYPE_UNKNOWN	0x00
 #define IMAGE_TYPE_UBOOT	0x01
@@ -91,7 +93,7 @@ struct node {
 	uint32_t his_ip_addr;
 	uint32_t our_ip_addr;
 	enum node_status status;
-	uint8_t flash_mode;
+	enum flash_mode flash_mode;
 	struct router_type *router_type;
 	struct image_state image_state;
 	struct tcp_state tcp_state;
