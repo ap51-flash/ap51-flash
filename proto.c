@@ -39,9 +39,11 @@
 
 #define TFTP_PAYLOAD_SIZE 512
 
-#define TCP_SYN 0x01
-#define TCP_ACK 0x02
-#define TCP_DATA 0x03
+enum tcp_packet_type {
+	TCP_SYN,
+	TCP_ACK,
+	TCP_DATA,
+};
 
 #define PACKET_BUFF_LEN 2000
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
@@ -477,7 +479,7 @@ out:
 	return;
 }
 
-static int tcp_send(struct node *node, int tcp_data_len, int flags)
+static int tcp_send(struct node *node, int tcp_data_len, enum tcp_packet_type flags)
 {
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
