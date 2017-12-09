@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "compat.h"
+#include "flash.h"
 
 #if defined(LINUX)
 #define BUFF_LEN 8192
@@ -180,7 +181,8 @@ out:
 	if (ret < 0)
 		goto out;
 
-	for (dev = alldevs, i = 0; dev; dev = dev->next) {
+	i = 0;
+	slist_for_each (dev, alldevs) {
 		i++;
 
 		if (if_num != i)
@@ -253,7 +255,8 @@ out:
 		goto out;
 	}
 
-	for (dev = alldevs, i = 0; dev; dev = dev->next) {
+	i = 0;
+	slist_for_each (dev, alldevs) {
 		i++;
 		fprintf(stderr, "\n%i: %s\n", i, dev->name);
 

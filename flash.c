@@ -56,7 +56,7 @@ struct node *node_list_get(const uint8_t *mac_addr)
 	struct list *list;
 	struct node *node = NULL, *node_tmp;
 
-	for (list = node_list; list; list = list->next) {
+	slist_for_each (list, node_list) {
 		node_tmp = (struct node *)list->data;
 
 		if (memcmp(node_tmp->his_mac_addr, mac_addr, ETH_ALEN) != 0)
@@ -105,7 +105,7 @@ static void node_list_free(void)
 {
 	struct list *list, *list_tmp;
 
-	for (list = node_list; (list) && ((list_tmp = list->next) || 1); list = list_tmp)
+	slist_for_each_safe (list, list_tmp, node_list)
 		_node_list_free(list);
 
 	node_list = NULL;
@@ -117,7 +117,7 @@ static void node_list_maintain(void)
 	struct node *node;
 	int ret;
 
-	for (list = node_list; (list) && ((list_tmp = list->next) || 1); list = list_tmp) {
+	slist_for_each_safe (list, list_tmp, node_list) {
 		node = (struct node *)list->data;
 
 		switch (node->status) {

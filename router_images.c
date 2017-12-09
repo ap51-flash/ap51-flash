@@ -71,7 +71,7 @@ struct router_info *router_image_router_get(struct router_image *router_image,
 	struct list *list;
 	struct router_info *router_info = NULL, *router_info_tmp;
 
-	for (list = router_image->router_list; list; list = list->next) {
+	slist_for_each (list, router_image->router_list) {
 		router_info_tmp = (struct router_info *)list->data;
 
 		if (strcasecmp(router_info_tmp->router_name, router_desc) != 0)
@@ -124,7 +124,7 @@ static struct file_info *_router_image_get_file(struct list *file_list,
 	struct list *list;
 	struct file_info *file_info = NULL, *file_info_tmp;
 
-	for (list = file_list; list; list = list->next) {
+	slist_for_each (list, file_list) {
 		file_info_tmp = (struct file_info *)list->data;
 
 		if (strcasecmp(file_info_tmp->file_name, file_name) != 0)
@@ -246,7 +246,7 @@ static void router_image_set_size(struct router_image *router_image,
 	struct list *list;
 	struct router_info *router_info_tmp;
 
-	for (list = router_image->router_list; list; list = list->next) {
+	slist_for_each (list, router_image->router_list) {
 		router_info_tmp = (struct router_info *)list->data;
 
 		if (router_desc &&
@@ -352,7 +352,7 @@ static void ce_calculate_router_file_size(struct router_image *router_image)
 	const char *file_name;
 	unsigned int size;
 
-	for (list = file_list; list; list = list->next) {
+	slist_for_each (list, file_list) {
 		file_info_tmp = (struct file_info *)list->data;
 
 		file_name = file_info_tmp->file_name;

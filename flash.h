@@ -34,6 +34,14 @@ struct node *node_list_get(const uint8_t *mac_addr);
 void our_mac_set(struct node *node);
 int flash_start(const char *iface);
 
+#define slist_for_each(node, head) \
+	for (node = (head); (node); node = node->next)
+
+#define slist_for_each_safe(node, safe, head) \
+	for (node = (head); \
+	     (node) && (((safe) = node->next) || 1); \
+	     node = safe)
+
 static inline void list_prepend(struct list **list, struct list *list_item)
 {
 	if (!(*list)) {
