@@ -19,6 +19,8 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#include "commandline.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
