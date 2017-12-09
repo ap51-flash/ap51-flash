@@ -117,8 +117,10 @@ struct node {
 struct router_type {
 	char desc[DESC_MAX_LENGTH];
 	void (*detect_pre)(const uint8_t *our_mac);
-	int (*detect_main)(void *priv, const char *packet_buff, int packet_buff_len);
-	void (*detect_post)(struct node *node, const char *packet_buff, int packet_buff_len);
+	int (*detect_main)(void *priv, const char *packet_buff,
+			   int packet_buff_len);
+	void (*detect_post)(struct node *node, const char *packet_buff,
+			    int packet_buff_len);
 	struct router_image *image;
 	char *image_desc;
 	int priv_size;
@@ -139,7 +141,8 @@ struct router_info {
 struct router_image {
 	enum image_type type;
 	char desc[DESC_MAX_LENGTH];
-	int (*image_verify)(struct router_image *router_image, const char *buff, unsigned int buff_len, int size);
+	int (*image_verify)(struct router_image *router_image, const char *buff,
+			    unsigned int buff_len, int size);
 	const char *path;
 	char *embedded_img;
 #if defined(LINUX)

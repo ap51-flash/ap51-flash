@@ -27,7 +27,8 @@
 
 struct node;
 
-int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip);
+int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
+		 unsigned int src_ip, unsigned int dst_ip);
 int tftp_init_upload(struct node *node);
 void telnet_handle_connection(struct node *node);
 int telnet_send_cmd(struct node *node, const char *cmd);
@@ -38,7 +39,8 @@ void proto_free(void);
 #if defined(DEBUG)
 static inline int len_check(int buff_len, int req_len, char *desc)
 #else
-static inline int len_check(int buff_len, int req_len, char (*desc)__attribute__((unused)))
+static inline int len_check(int buff_len, int req_len,
+			    char (*desc)__attribute__((unused)))
 #endif
 {
 	if (buff_len >= req_len)

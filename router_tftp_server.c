@@ -42,7 +42,8 @@ static void ubnt_detect_pre(const uint8_t *our_mac)
 	arp_req_send(our_mac, bcast_mac, htonl(my_ip), htonl(ubnt_ip));
 }
 
-static int ubnt_detect_main(void *priv, const char *packet_buff, int packet_buff_len)
+static int ubnt_detect_main(void *priv, const char *packet_buff,
+			    int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	struct ubnt_priv *ubnt_priv = priv;
@@ -69,7 +70,8 @@ out:
 	return ret;
 }
 
-static void ubnt_detect_post(struct node *node, const char *packet_buff, int packet_buff_len)
+static void ubnt_detect_post(struct node *node, const char *packet_buff,
+			     int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 

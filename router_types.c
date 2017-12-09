@@ -60,7 +60,9 @@ int router_types_init(void)
 
 	for (router_type = router_types; *router_type; ++router_type) {
 		if (!(*router_type)->image) {
-			fprintf(stderr, "Error - can't have router defintion without image attribute set: %s\n", (*router_type)->desc);
+			fprintf(stderr,
+				"Error - can't have router defintion without image attribute set: %s\n",
+				(*router_type)->desc);
 			goto out;
 		}
 
@@ -85,7 +87,8 @@ void router_types_detect_pre(const uint8_t *our_mac)
 	}
 }
 
-int router_types_detect_main(struct node *node, const char *packet_buff, int packet_buff_len)
+int router_types_detect_main(struct node *node, const char *packet_buff,
+			     int packet_buff_len)
 {
 	const struct router_type **router_type;
 	struct router_info *router_info;
@@ -96,15 +99,17 @@ int router_types_detect_main(struct node *node, const char *packet_buff, int pac
 		if (!(*router_type)->detect_main)
 			goto next;
 
-		ret = (*router_type)->detect_main(priv, packet_buff, packet_buff_len);
+		ret = (*router_type)->detect_main(priv, packet_buff,
+						  packet_buff_len);
 		if (ret != 1)
 			goto next;
 
 		/* we detected a router that we have no image for */
 		if ((*router_type)->image->file_size < 1) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
 				(*router_type)->desc);
 
 			node->status = NODE_STATUS_NO_FLASH;
@@ -117,8 +122,12 @@ int router_types_detect_main(struct node *node, const char *packet_buff, int pac
 							      (*router_type)->image_desc ? (char *)(*router_type)->image_desc : (char *)(*router_type)->desc);
 			if (!router_info) {
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for (ce)\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+					node->his_mac_addr[0],
+					node->his_mac_addr[1],
+					node->his_mac_addr[2],
+					node->his_mac_addr[3],
+					node->his_mac_addr[4],
+					node->his_mac_addr[5],
 					(*router_type)->desc);
 
 				node->status = NODE_STATUS_NO_FLASH;
@@ -146,8 +155,9 @@ int router_types_detect_main(struct node *node, const char *packet_buff, int pac
 #endif
 
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: type '%s router' detected\n",
-			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
 
 		if (!(*router_type)->detect_post)

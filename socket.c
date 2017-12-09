@@ -56,7 +56,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
 	if (sock < 0) {
-		fprintf(stderr, "Error - can't create netlink socket: %s\n", strerror(errno));
+		fprintf(stderr, "Error - can't create netlink socket: %s\n",
+			strerror(errno));
 		goto out;
 	}
 
@@ -65,7 +66,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
         ret = bind(sock, (struct sockaddr *)&nl, sizeof(nl));
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't bind netlink socket: %s\n", strerror(errno));
+		fprintf(stderr, "Error - can't bind netlink socket: %s\n",
+			strerror(errno));
 		goto close_sock;
 	}
 
@@ -77,7 +79,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 
 	ret = send(sock, &req, sizeof(req), 0);
 	if (ret < 0) {
-		fprintf(stderr, "Error - unable to send netlink request: %s\n", strerror(errno));
+		fprintf(stderr, "Error - unable to send netlink request: %s\n",
+			strerror(errno));
 		goto close_sock;
 	}
 
@@ -88,7 +91,9 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 	ret = recv(sock, *resp, sizeof(struct nlmsghdr) + BUFF_LEN, 0);
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - unable to receive netlink request: %s\n", strerror(errno));
+		fprintf(stderr,
+			"Error - unable to receive netlink request: %s\n",
+			strerror(errno));
 		goto free_resp;
 	}
 
@@ -97,7 +102,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 
 	if (nh->nlmsg_type == NLMSG_ERROR) {
 		nlme = NLMSG_DATA(nh);
-		fprintf(stderr, "Error - netlink complained: %i\n", nlme->error);
+		fprintf(stderr, "Error - netlink complained: %i\n",
+			nlme->error);
 		goto free_resp;
 	}
 
@@ -233,7 +239,8 @@ void socket_print_all_ifaces(void)
 			if (strcmp((char *)RTA_DATA(rta), "lo") == 0)
 				continue;
 
-			fprintf(stderr, "%i: %s\n", if_count, (char *)RTA_DATA(rta));
+			fprintf(stderr, "%i: %s\n", if_count,
+				(char *)RTA_DATA(rta));
 			fprintf(stderr, "\t(No description available)\n");
 			if_count++;
 		}
@@ -251,7 +258,9 @@ out:
 
 	ret = pcap_findalldevs(&alldevs, errbuf);
 	if (ret < 0) {
-		fprintf(stderr, "Error - unable to retrieve interface list: %s\n", errbuf);
+		fprintf(stderr,
+			"Error - unable to retrieve interface list: %s\n",
+			errbuf);
 		goto out;
 	}
 
@@ -294,14 +303,16 @@ int socket_open(const char *iface)
 	int ret, sock_opts;
 
 	if (strlen(iface) > IFNAMSIZ - 1) {
-		fprintf(stderr, "Error - interface name too long: %s\n", iface);
+		fprintf(stderr, "Error - interface name too long: %s\n",
+			iface);
 		goto out;
 	}
 
 	raw_sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
 	if (raw_sock < 0) {
-		fprintf(stderr, "Error - can't create raw socket: %s\n", strerror(errno));
+		fprintf(stderr, "Error - can't create raw socket: %s\n",
+			strerror(errno));
 		goto out;
 	}
 
@@ -312,15 +323,19 @@ int socket_open(const char *iface)
 
 	if (ret < 0) {
 		if (errno == ENODEV)
-			fprintf(stderr, "Error - interface does not exist: %s\n", iface);
+			fprintf(stderr,
+				"Error - interface does not exist: %s\n",
+				iface);
 		else
-			fprintf(stderr, "Error - can't get interface flags (SIOCGIFFLAGS): %s\n",
+			fprintf(stderr,
+				"Error - can't get interface flags (SIOCGIFFLAGS): %s\n",
 				strerror(errno));
 		goto close_sock;
 	}
 
 	if (!(req.ifr_flags & (IFF_UP | IFF_RUNNING))) {
-		fprintf(stderr, "Error - interface is not up & running: %s\n", iface);
+		fprintf(stderr, "Error - interface is not up & running: %s\n",
+			iface);
 		goto close_sock;
 	}
 
@@ -328,7 +343,8 @@ int socket_open(const char *iface)
 	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
+		fprintf(stderr,
+			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
 			strerror(errno));
 		goto close_sock;
 	}
@@ -336,7 +352,8 @@ int socket_open(const char *iface)
 	ret = ioctl(raw_sock, SIOCGIFINDEX, &req);
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't get interface index (SIOCGIFINDEX): %s\n",
+		fprintf(stderr,
+			"Error - can't get interface index (SIOCGIFINDEX): %s\n",
 			strerror(errno));
 		goto close_sock;
 	}
@@ -347,7 +364,8 @@ int socket_open(const char *iface)
 
 	ret = bind(raw_sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_ll));
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't bind raw socket: %s\n", strerror(errno));
+		fprintf(stderr, "Error - can't bind raw socket: %s\n",
+			strerror(errno));
 		goto close_sock;
 	}
 
@@ -377,7 +395,8 @@ out:
 #else
 	// For Mac OS X, and maybe others in the future,
 	// we take the long way around and set individual options on pcap
-	// in order to be able to set immediate mode before activating the pcap handle.
+	// in order to be able to set immediate mode before activating the pcap
+	// handle.
 
 	int ret;
 
@@ -395,7 +414,8 @@ out:
 
 	ret = pcap_set_promisc(pcap_fp, 1);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n", error);
+		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n",
+			error);
 		return -1;
 	}
 
@@ -407,7 +427,8 @@ out:
 
 	ret = pcap_set_immediate_mode(pcap_fp, 1);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap immediate mode: %s\n", error);
+		fprintf(stderr, "Error setting pcap immediate mode: %s\n",
+			error);
 		return -1;
 	}
 
@@ -430,7 +451,8 @@ int socket_read(char *packet_buff, int packet_buff_len,
 		int (*sleep_sec)__attribute__((unused)),
 		int (*sleep_usec)__attribute__((unused)))
 #else
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sleep_usec)
+int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
+		int *sleep_usec)
 #endif
 {
 #if defined(LINUX)
@@ -440,7 +462,8 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sle
 	int ret = -1;
 
 	if (raw_sock < 0) {
-		fprintf(stderr, "Error reading from network: raw socket not initialized yet\n");
+		fprintf(stderr,
+			"Error reading from network: raw socket not initialized yet\n");
 		goto out;
 	}
 
@@ -457,7 +480,9 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sle
 
 	if (ret < 0) {
 		if (errno != EINTR)
-			fprintf(stderr, "Error waiting for data from network: %s", strerror(errno));
+			fprintf(stderr,
+				"Error waiting for data from network: %s",
+				strerror(errno));
 	}
 
 	if (ret <= 0)
@@ -467,7 +492,8 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec, int *sle
 
 	if (read_len < 0) {
 		if ((errno != EWOULDBLOCK) && (errno != EINTR))
-			fprintf(stderr, "Error reading data from network: %s", strerror(errno));
+			fprintf(stderr, "Error reading data from network: %s",
+				strerror(errno));
 	}
 
 	ret = (int)read_len;
@@ -484,7 +510,8 @@ out:
 	int ret = -1;
 
 	if (!pcap_fp) {
-		fprintf(stderr, "Error reading from network: pcap socket not initialized yet\n");
+		fprintf(stderr,
+			"Error reading from network: pcap socket not initialized yet\n");
 		goto out;
 	}
 
@@ -512,14 +539,17 @@ int socket_write(const char *buff, int len)
 	int ret = -1;
 
 	if (raw_sock < 0) {
-		fprintf(stderr, "Error writing to network: raw socket not initialized yet\n");
+		fprintf(stderr,
+			"Error writing to network: raw socket not initialized yet\n");
 		goto out;
 	}
 
 	ret = write(raw_sock, buff, len);
 
 	if (ret < 0)
-		fprintf(stderr, "Error - can't write to raw socket: %s\n", strerror(errno));
+		fprintf(stderr,
+			"Error - can't write to raw socket: %s\n",
+			strerror(errno));
 
 out:
 	return ret;
@@ -527,7 +557,8 @@ out:
 	int ret = -1;
 
 	if (!pcap_fp) {
-		fprintf(stderr, "Error writing to network: pcap socket not initialized yet\n");
+		fprintf(stderr,
+			"Error writing to network: pcap socket not initialized yet\n");
 		goto out;
 	}
 
@@ -559,7 +590,8 @@ void socket_close(const char *iface)
 	ret = ioctl(raw_sock, SIOCGIFFLAGS, &req);
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't get interface flags (SIOCGIFFLAGS): %s (%i)\n",
+		fprintf(stderr,
+			"Error - can't get interface flags (SIOCGIFFLAGS): %s (%i)\n",
 			strerror(errno), raw_sock);
 		goto close_sock;
 	}
@@ -568,7 +600,8 @@ void socket_close(const char *iface)
 	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
 
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
+		fprintf(stderr,
+			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
 			strerror(errno));
 		goto close_sock;
 	}
@@ -580,7 +613,9 @@ out:
 	return;
 #elif USE_PCAP
 	if (!pcap_fp) {
-		fprintf(stderr, "Error closing adapter '%s': pcap socket not initialized yet\n", iface);
+		fprintf(stderr,
+			"Error closing adapter '%s': pcap socket not initialized yet\n",
+			iface);
 		goto out;
 	}
 

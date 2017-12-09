@@ -71,7 +71,9 @@ static int redboot_8mb_detect(struct node *node)
 	if (!flash_str)
 		goto out;
 
-	sscanf(flash_str, "FLASH: 0x%*08x - 0x%*08x, %d blocks of 0x%08lx bytes each", &num_blocks, &device_size);
+	sscanf(flash_str,
+	       "FLASH: 0x%*08x - 0x%*08x, %d blocks of 0x%08lx bytes each",
+	       &num_blocks, &device_size);
 	if ((!num_blocks) || (!device_size))
 		goto out;
 
@@ -80,8 +82,9 @@ static int redboot_8mb_detect(struct node *node)
 
 #if defined(DEBUG)
 	fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash size of 8 MB was detected ...\n",
-		node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		node->his_mac_addr[0], node->his_mac_addr[1],
+		node->his_mac_addr[2], node->his_mac_addr[3],
+		node->his_mac_addr[4], node->his_mac_addr[5],
 		node->router_type->desc);
 #endif
 
@@ -100,8 +103,9 @@ static int redboot_4mb_detect(struct node (*node)__attribute__((unused)))
 	/* default redboot type */
 #if defined(DEBUG)
 	fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash size of 4 MB was detected (default) ...\n",
-		node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		node->his_mac_addr[0], node->his_mac_addr[1],
+		node->his_mac_addr[2], node->his_mac_addr[3],
+		node->his_mac_addr[4], node->his_mac_addr[5],
 		node->router_type->desc);
 #endif
 	return 1;
@@ -175,8 +179,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 
 		if (redboot_priv->redboot_type->flash_size < req_flash_size) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: image size '%s' of 0x%08lx exceeds router capacity: 0x%08lx\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc, node->router_type->image->path,
 				req_flash_size, redboot_priv->redboot_type->flash_size);
 			goto redboot_failure;
@@ -189,8 +194,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 			((unsigned char *)&node->our_ip_addr)[2], ((unsigned char *)&node->our_ip_addr)[3]);
 
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: setting IP address ...\n",
-		       node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		       node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		       node->his_mac_addr[0], node->his_mac_addr[1],
+		       node->his_mac_addr[2], node->his_mac_addr[3],
+		       node->his_mac_addr[4], node->his_mac_addr[5],
 		       node->router_type->desc);
 
 		telnet_send_cmd(node, buff);
@@ -214,8 +220,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		}
 
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: initializing partitions ...\n",
-		       node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		       node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		       node->his_mac_addr[0], node->his_mac_addr[1],
+		       node->his_mac_addr[2], node->his_mac_addr[3],
+		       node->his_mac_addr[4], node->his_mac_addr[5],
 		       node->router_type->desc);
 
 		telnet_send_cmd(node, "fis init\n");
@@ -231,8 +238,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 			redboot_priv->redboot_type->kernel_load_addr);
 
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flashing kernel ...\n",
-		       node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		       node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		       node->his_mac_addr[0], node->his_mac_addr[1],
+		       node->his_mac_addr[2], node->his_mac_addr[3],
+		       node->his_mac_addr[4], node->his_mac_addr[5],
 		       node->router_type->desc);
 
 		telnet_send_cmd(node, buff);
@@ -258,8 +266,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 			redboot_priv->redboot_type->flash_size - file_info->file_fsize);
 
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flashing rootfs ...\n",
-		       node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		       node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		       node->his_mac_addr[0], node->his_mac_addr[1],
+		       node->his_mac_addr[2], node->his_mac_addr[3],
+		       node->his_mac_addr[4], node->his_mac_addr[5],
 		       node->router_type->desc);
 
 		telnet_send_cmd(node, buff);
@@ -267,8 +276,9 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		break;
 	case REDBOOT_STATE_FL_ROOTFS:
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: setting boot_script_data ...\n",
-		       node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-		       node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+		       node->his_mac_addr[0], node->his_mac_addr[1],
+		       node->his_mac_addr[2], node->his_mac_addr[3],
+		       node->his_mac_addr[4], node->his_mac_addr[5],
 		       node->router_type->desc);
 
 		telnet_send_cmd(node, "fconfig -d boot_script_data\n");
@@ -303,7 +313,8 @@ redboot_failure:
 	return;
 }
 
-static int redboot_detect_main(void *priv, const char *packet_buff, int packet_buff_len)
+static int redboot_detect_main(void *priv, const char *packet_buff,
+			       int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	struct redboot_priv *redboot_priv = priv;
@@ -340,7 +351,8 @@ out:
 	return ret;
 }
 
-static void redboot_detect_post(struct node *node, const char *packet_buff, int packet_buff_len)
+static void redboot_detect_post(struct node *node, const char *packet_buff,
+				int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 

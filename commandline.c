@@ -37,7 +37,8 @@ static void usage(const char *prgname)
 {
 	fprintf(stderr, "Usage:\n");
 
-	fprintf(stderr, "%s interface image\tflash router with given image\n", prgname);
+	fprintf(stderr, "%s interface image\tflash router with given image\n",
+		prgname);
 	fprintf(stderr, "%s -v\t\t\tprints version information\n", prgname);
 
 	fprintf(stderr, "\nOne or multiple images of the following type can be specified:\n");
@@ -59,7 +60,8 @@ int main(int argc, char* argv[])
 
 	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
 #if defined(EMBEDDED_DESC)
-		printf("ap51-flash (%s) [embedded: %s]\n", SOURCE_VERSION, EMBEDDED_DESC);
+		printf("ap51-flash (%s) [embedded: %s]\n", SOURCE_VERSION,
+		       EMBEDDED_DESC);
 #else
 		printf("ap51-flash (%s)\n", SOURCE_VERSION);
 #endif

@@ -28,7 +28,8 @@ struct node;
 
 int router_types_init(void);
 void router_types_detect_pre(const uint8_t *our_mac);
-int router_types_detect_main(struct node *node, const char *packet_buff, int packet_buff_len);
+int router_types_detect_main(struct node *node, const char *packet_buff,
+			     int packet_buff_len);
 
 extern int router_types_priv_size;
 

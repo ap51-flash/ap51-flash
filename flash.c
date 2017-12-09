@@ -144,8 +144,9 @@ static void node_list_maintain(void)
 				break;
 
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc);
 			node->status = NODE_STATUS_REBOOTED;
 
@@ -153,7 +154,8 @@ static void node_list_maintain(void)
 			if (node->router_type == &mr500) {
 				node->status = NODE_STATUS_UNKNOWN;
 				node->flash_mode = FLASH_MODE_UKNOWN;
-				memset((void *)&node->image_state, 0, sizeof(struct image_state));
+				memset((void *)&node->image_state, 0,
+				       sizeof(struct image_state));
 				node->image_state.fd = -1;
 			}
 #if defined(CLEAR_SCREEN)
@@ -218,7 +220,8 @@ int flash_start(const char *iface)
 	sleep_usec = READ_SLEEP_USEC;
 
 	while (running) {
-		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec, &sleep_usec);
+		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec,
+				  &sleep_usec);
 
 		if (ret == 0) {
 			router_types_detect_pre(our_mac);

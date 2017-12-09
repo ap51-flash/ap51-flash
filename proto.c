@@ -49,7 +49,8 @@ enum tcp_packet_type {
 
 #define PACKET_BUFF_LEN 2000
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
-#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - ETH_HLEN - sizeof(struct iphdr) - sizeof(struct tcphdr))
+#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - ETH_HLEN - sizeof(struct iphdr) - \
+			 sizeof(struct tcphdr))
 
 static char *out_packet_buff;
 static struct ether_header *out_ethhdr;
@@ -86,7 +87,9 @@ static unsigned short chksum(unsigned short sum, const unsigned char *data,
 	return sum;
 }
 
-static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip, unsigned short arp_type)
+static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac,
+		     unsigned int src_ip, unsigned int dst_ip,
+		     unsigned short arp_type)
 {
 	memcpy(out_ethhdr->ether_shost, src_mac, ETH_ALEN);
 	memcpy(out_ethhdr->ether_dhost, dst_mac, ETH_ALEN);
@@ -103,14 +106,16 @@ static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned in
 	*((unsigned int *)out_arphdr->arp_tpa) = dst_ip;
 }
 
-int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
+int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
+		 unsigned int src_ip, unsigned int dst_ip)
 {
 	arp_init(src_mac, dst_mac, src_ip, dst_ip, ARPOP_REQUEST);
 
 	return socket_write(out_packet_buff, ARP_LEN);
 }
 
-static int arp_rep_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
+static int arp_rep_send(const uint8_t *src_mac, const uint8_t *dst_mac,
+			unsigned int src_ip, unsigned int dst_ip)
 {
 	arp_init(src_mac, dst_mac, src_ip, dst_ip, ARPOP_REPLY);
 
@@ -123,7 +128,8 @@ static int arp_rep_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned
 	return socket_write(out_packet_buff, ARP_LEN);
 }
 
-static void tftp_packet_init(struct node *node, unsigned short src_port, unsigned short dst_port)
+static void tftp_packet_init(struct node *node, unsigned short src_port,
+			     unsigned short dst_port)
 {
 	memcpy(out_ethhdr->ether_shost, node->our_mac_addr, ETH_ALEN);
 	memcpy(out_ethhdr->ether_dhost, node->his_mac_addr, ETH_ALEN);
@@ -162,7 +168,8 @@ static int tftp_packet_send_data(struct node *node, unsigned short src_port,
 	out_iphdr->check = 0;
 	out_iphdr->check = ~(htons(chksum(0, (void *)out_iphdr, sizeof(struct iphdr))));
 
-	return socket_write(out_packet_buff, ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr) + tftp_data_len);
+	return socket_write(out_packet_buff,
+			    ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr) + tftp_data_len);
 }
 
 int tftp_init_upload(struct node *node)
@@ -176,10 +183,12 @@ int tftp_init_upload(struct node *node)
 	data_len += sprintf(out_tftp_data + data_len + 1, "%s", "octet");
 	data_len += 2; /* sprintf does not count \0 */
 
-	return tftp_packet_send_data(node, htons(TFTP_SRC_PORT), htons(IPPORT_TFTP), data_len);
+	return tftp_packet_send_data(node, htons(TFTP_SRC_PORT),
+				     htons(IPPORT_TFTP), data_len);
 }
 
-static void handle_arp_packet(const char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
+			      struct node *node)
 {
 	struct ether_arp *arphdr;
 	int ret;
@@ -211,7 +220,8 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len, stru
 		 // 	arphdr->arp_tha[1], arphdr->arp_tha[2], arphdr->arp_tha[3], arphdr->arp_tha[4], arphdr->arp_tha[5]);
 		break;
 	default:
-		 fprintf(stderr, "ARP, unknown op code: %i, status: %d\n", ntohs(arphdr->ea_hdr.ar_op), node->status);
+		 fprintf(stderr, "ARP, unknown op code: %i, status: %d\n",
+			 ntohs(arphdr->ea_hdr.ar_op), node->status);
 		return;
 	}
 
@@ -220,7 +230,8 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len, stru
 		node->status = NODE_STATUS_DETECTING;
 		/* fall through */
 	case NODE_STATUS_DETECTING:
-		ret = router_types_detect_main(node, packet_buff, packet_buff_len);
+		ret = router_types_detect_main(node, packet_buff,
+					       packet_buff_len);
 		if (ret == 1)
 			node->status = NODE_STATUS_DETECTED;
 		else
@@ -236,8 +247,9 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len, stru
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
-			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
 		node->status = NODE_STATUS_REBOOTED;
 #if defined(CLEAR_SCREEN)
@@ -250,7 +262,8 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len, stru
 	}
 }
 
-static void handle_udp_packet(const char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
+			      struct node *node)
 {
 	struct udphdr *udphdr;
 	struct file_info *file_info;
@@ -292,11 +305,16 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 		switch (node->flash_mode) {
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
-			file_info = router_image_get_file(node->router_type, file_name);
+			file_info = router_image_get_file(node->router_type,
+							  file_name);
 			if (!file_info) {
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp client asks for '%s' - file not found ...\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+					node->his_mac_addr[0],
+					node->his_mac_addr[1],
+					node->his_mac_addr[2],
+					node->his_mac_addr[3],
+					node->his_mac_addr[4],
+					node->his_mac_addr[5],
 					node->router_type->desc, file_name);
 				goto out;
 			}
@@ -309,9 +327,11 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 			}
 
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp client asks for '%s', serving %s portion of: %s (%i blocks) ...\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc, file_name,file_info->file_name,
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
+				node->router_type->desc,
+				file_name,file_info->file_name,
 				node->router_type->image->path ? node->router_type->image->path : "embedded image",
 				((file_info->file_fsize + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
 
@@ -344,8 +364,12 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 				node->image_state.offset = 0;
 
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: connection to tftp server established - uploading %i blocks ...\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+					node->his_mac_addr[0],
+					node->his_mac_addr[1],
+					node->his_mac_addr[2],
+					node->his_mac_addr[3],
+					node->his_mac_addr[4],
+					node->his_mac_addr[5],
 					node->router_type->desc,
 					((node->image_state.flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
 			}
@@ -355,14 +379,24 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 		} else if (block != node->image_state.block_sent) {
 			if (block < node->image_state.block_sent)
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp repeat block %d, last received ack: %d\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-					node->router_type->desc, block + 1, node->image_state.block_acked);
+					node->his_mac_addr[0],
+					node->his_mac_addr[1],
+					node->his_mac_addr[2],
+					node->his_mac_addr[3],
+					node->his_mac_addr[4],
+					node->his_mac_addr[5],
+					node->router_type->desc, block + 1,
+					node->image_state.block_acked);
 			else
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp acks unsent block %d (last sent block: %d)\n",
-					node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-					node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-					node->router_type->desc, block, node->image_state.block_sent);
+					node->his_mac_addr[0],
+					node->his_mac_addr[1],
+					node->his_mac_addr[2],
+					node->his_mac_addr[3],
+					node->his_mac_addr[4],
+					node->his_mac_addr[5],
+					node->router_type->desc, block,
+					node->image_state.block_sent);
 
 			block = node->image_state.block_acked;
 			node->image_state.bytes_sent -= node->image_state.last_packet_size;
@@ -380,8 +414,12 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 					case FLASH_MODE_TFTP_SERVER:
 					case FLASH_MODE_TFTP_CLIENT:
 						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: image successfully transmitted - writing image to flash ...\n",
-							node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-							node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+							node->his_mac_addr[0],
+							node->his_mac_addr[1],
+							node->his_mac_addr[2],
+							node->his_mac_addr[3],
+							node->his_mac_addr[4],
+							node->his_mac_addr[5],
 							node->router_type->desc);
 						router_images_close_path(node);
 						if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
@@ -409,7 +447,8 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 
 		data_len += 4; /* opcode size */
 
-		ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source, data_len);
+		ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source,
+					    data_len);
 		if (ret < 0)
 			return;
 
@@ -423,20 +462,24 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len, stru
 	case 5:
 		if ((block == 2) && (htons(udphdr->len) - sizeof(struct udphdr) > 4))
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: received TFTP error: %s\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc, (packet_buff + sizeof(struct udphdr) + 4));
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
+				node->router_type->desc,
+				(packet_buff + sizeof(struct udphdr) + 4));
 		else
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: received TFTP error code: %d\n",
-				node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-				node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc, block);
 
 		break;
 	default:
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: unexpected TFTP opcode: %d\n",
-			node->his_mac_addr[0], node->his_mac_addr[1], node->his_mac_addr[2],
-			node->his_mac_addr[3], node->his_mac_addr[4], node->his_mac_addr[5],
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc, opcode);
 		break;
 	}
@@ -481,7 +524,8 @@ out:
 	return;
 }
 
-static int tcp_send(struct node *node, int tcp_data_len, enum tcp_packet_type flags)
+static int tcp_send(struct node *node, int tcp_data_len,
+		    enum tcp_packet_type flags)
 {
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
@@ -510,7 +554,8 @@ static int tcp_send(struct node *node, int tcp_data_len, enum tcp_packet_type fl
 
 		/* send MSS option */
 		tcp_data_len += 4;
-		memcpy((unsigned char *)(tcphdr + 1), &mss_option, sizeof(mss_option));
+		memcpy((unsigned char *)(tcphdr + 1), &mss_option,
+		       sizeof(mss_option));
 		tcphdr->doff++;
 		break;
 	case TCP_ACK:
@@ -593,7 +638,8 @@ int telnet_send_cmd(struct node *node, const char *cmd)
 	return tcp_send_data(node, (int)strlen(cmd));
 }
 
-static void handle_tcp_packet(char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
+			      struct node *node)
 {
 	struct tcphdr *tcphdr;
 	unsigned int data_len;
@@ -678,7 +724,8 @@ out:
 	return;
 }
 
-static void handle_ip_packet(char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_ip_packet(char *packet_buff, int packet_buff_len,
+			     struct node *node)
 {
 	struct iphdr *iphdr;
 	int length;

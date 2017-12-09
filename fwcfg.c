@@ -125,6 +125,7 @@ unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
 	int size = 0;
 	int read_len;
 	char *dst = NULL;
+	uint8_t *file_data;
 
 	/*
 	 * WARNING only call when calle first verified that image size is
@@ -157,10 +158,10 @@ unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
 			}
 		}
 	} else if (router_image->embedded_img) {
+		file_data = (uint8_t *)router_image->embedded_img;
+		file_data += file_info->file_offset;
 		if (read_len > 0)
-			memcpy(dst,
-			       (void *)(router_image->embedded_img + file_info->file_offset),
-			       read_len);
+			memcpy(dst, file_data, read_len);
 	}
 
 	dst[read_len] = '\0';

@@ -137,21 +137,24 @@ static struct file_info *_router_image_get_file(struct list *file_list,
 	return file_info;
 }
 
-struct file_info *router_image_get_file(struct router_type *router_type, const char *file_name)
+struct file_info *router_image_get_file(struct router_type *router_type,
+					const char *file_name)
 {
 	struct file_info *file_info = NULL;
 	char file_name_buff[FILE_NAME_MAX_LENGTH];
 
 	if (strcmp(file_name, fwupgradecfg) == 0) {
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s",
-			 file_name, router_type->image_desc ? router_type->image_desc : router_type->desc);
+			 file_name,
+			 router_type->image_desc ? router_type->image_desc : router_type->desc);
 		file_info = _router_image_get_file(router_type->image->file_list,
 						   file_name_buff);
 	}
 
 	if (strcmp(file_name, fwupgradecfgsig) == 0) {
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s.sig",
-			 fwupgradecfg, router_type->image_desc ? router_type->image_desc : router_type->desc);
+			 fwupgradecfg,
+			 router_type->image_desc ? router_type->image_desc : router_type->desc);
 		file_info = _router_image_get_file(router_type->image->file_list,
 						   file_name_buff);
 	}
@@ -196,8 +199,9 @@ out:
 	return file_info;
 }
 
-static int router_image_add_file(struct router_image *router_image, const char *file_name,
-				 int file_size, int file_fsize, int file_offset)
+static int router_image_add_file(struct router_image *router_image,
+				 const char *file_name, int file_size,
+				 int file_fsize, int file_offset)
 {
 	struct file_info *file_info;
 
@@ -436,20 +440,23 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 
 		switch (ce_version) {
 		case 0:
-			ret = sscanf(buff + hdr_offset, "%20s%08x", name_buff, &file_size);
+			ret = sscanf(buff + hdr_offset, "%20s%08x", name_buff,
+				     &file_size);
 			if (ret != 2)
 				return 0;
 
 			break;
 		case 1:
-			ret = sscanf(buff + hdr_offset, "%32s%08x%32s", name_buff, &file_size, md5_buff);
+			ret = sscanf(buff + hdr_offset, "%32s%08x%32s",
+				     name_buff, &file_size, md5_buff);
 			if (ret != 3)
 				return 0;
 
 			break;
 		}
 
-		ret = router_image_add_file(router_image, name_buff, file_size, file_size, file_offset);
+		ret = router_image_add_file(router_image, name_buff, file_size,
+					    file_size, file_offset);
 		if (ret)
 			return 0;
 
@@ -665,13 +672,15 @@ int router_images_verify_path(const char *image_path)
 
 	fd = open(image_path, O_RDONLY | O_BINARY);
 	if (fd < 0) {
-		fprintf(stderr, "Error - can't open image file '%s': %s\n", image_path, strerror(errno));
+		fprintf(stderr, "Error - can't open image file '%s': %s\n",
+			image_path, strerror(errno));
 		goto out;
 	}
 
 	ret = (int)read(fd, file_buff, file_buff_size);
 	if (ret < 0) {
-		fprintf(stderr, "Error - can't read image file '%s': %s\n", image_path, strerror(errno));
+		fprintf(stderr, "Error - can't read image file '%s': %s\n",
+			image_path, strerror(errno));
 		goto close_fd;
 	}
 
@@ -685,12 +694,14 @@ int router_images_verify_path(const char *image_path)
 
 		file_size = (int)lseek(fd, 0, SEEK_END);
 		if (file_size < 0) {
-			fprintf(stderr, "Unable to retrieve file size of '%s': %s\n", image_path, strerror(errno));
+			fprintf(stderr, "Unable to retrieve file size of '%s': %s\n",
+				image_path, strerror(errno));
 			continue;
 		}
 
 		(*router_image)->path = image_path;
-		ret = (*router_image)->image_verify((*router_image), file_buff, len, file_size);
+		ret = (*router_image)->image_verify((*router_image), file_buff,
+						    len, file_size);
 		if (ret != 1) {
 			(*router_image)->path = NULL;
 			continue;
@@ -700,12 +711,14 @@ int router_images_verify_path(const char *image_path)
 
 #if defined(DEBUG)
 		printf("verify image path: %s: %s (%i bytes)\n",
-		       image_path, (*router_image)->desc, (*router_image)->file_size);
+		       image_path, (*router_image)->desc,
+		       (*router_image)->file_size);
 #endif
 	}
 
 	if (!found_consumer)
-		fprintf(stderr, "Unsupported image '%s': ignoring file\n", image_path);
+		fprintf(stderr, "Unsupported image '%s': ignoring file\n",
+			image_path);
 
 	ret = 0;
 
@@ -726,7 +739,8 @@ int router_images_open_path(struct node *node)
 		    goto out;
 	}
 
-	node->image_state.fd = open(node->router_type->image->path, O_RDONLY | O_BINARY);
+	node->image_state.fd = open(node->router_type->image->path,
+				    O_RDONLY | O_BINARY);
 	if (node->image_state.fd < 0)
 		fprintf(stderr, "Error - can't open image file '%s': %s\n",
 			node->router_type->image->path, strerror(errno));
@@ -738,6 +752,7 @@ out:
 int router_images_read_data(char *dst, struct node *node)
 {
 	int len = TFTP_PAYLOAD_SIZE, read_len;
+	uint8_t *file_data;
 
 	if (node->image_state.flash_size - node->image_state.bytes_sent < TFTP_PAYLOAD_SIZE)
 		len = node->image_state.flash_size - node->image_state.bytes_sent;
@@ -758,11 +773,14 @@ int router_images_read_data(char *dst, struct node *node)
 		}
 
 		if (read_len > 0) {
-			lseek(node->image_state.fd, node->image_state.bytes_sent + node->image_state.offset, SEEK_SET);
+			lseek(node->image_state.fd,
+			      node->image_state.bytes_sent + node->image_state.offset,
+			      SEEK_SET);
 
 			if (read_len != read(node->image_state.fd, dst, read_len)) {
 				fprintf(stderr, "Error - reading from file '%s': %s\n",
-					node->router_type->image->path, strerror(errno));
+					node->router_type->image->path,
+					strerror(errno));
 				return -1;
 			}
 		}
@@ -772,10 +790,12 @@ int router_images_read_data(char *dst, struct node *node)
 
 		return len;
 	} else if (node->router_type->image->embedded_img) {
+		file_data = (uint8_t *)node->router_type->image->embedded_img;
+		file_data += node->image_state.bytes_sent;
+		file_data += node->image_state.offset;
+
 		if (read_len > 0)
-			memcpy(dst,
-			       (void *)(node->router_type->image->embedded_img + node->image_state.bytes_sent + node->image_state.offset),
-			       read_len);
+			memcpy(dst, file_data, read_len);
 
 		if (read_len != len)
 			memset(dst + read_len, 0, len - read_len);

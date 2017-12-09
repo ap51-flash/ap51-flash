@@ -42,7 +42,8 @@ struct om2p_priv {
 	time_t start_flash;
 };
 
-static void tftp_client_detect_post(struct node *node, const char *packet_buff, int packet_buff_len)
+static void tftp_client_detect_post(struct node *node, const char *packet_buff,
+				    int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 
@@ -123,7 +124,8 @@ int tftp_client_flash_completed(struct node *node)
 	return 1;
 }
 
-static int mr500_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int mr500_detect_main(void (*priv)__attribute__((unused)),
+			     const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -153,7 +155,8 @@ const struct router_type mr500 = {
 	.priv_size = sizeof(struct mr500_priv),
 };
 
-static int mr600_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int mr600_detect_main(void (*priv)__attribute__((unused)),
+			     const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -198,7 +201,8 @@ const struct router_type mr600 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int mr900_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int mr900_detect_main(void (*priv)__attribute__((unused)),
+			     const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -243,7 +247,8 @@ const struct router_type mr900 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int mr1750_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int mr1750_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -338,7 +343,8 @@ static bool om2p_v4_arp(const uint8_t arp_tha[ETH_ALEN])
 	return true;
 }
 
-static int om2p_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int om2p_detect_main(void (*priv)__attribute__((unused)),
+			    const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -371,7 +377,8 @@ const struct router_type om2p = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int a40_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int a40_detect_main(void (*priv)__attribute__((unused)),
+			   const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -419,7 +426,8 @@ const struct router_type a40 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int a60_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int a60_detect_main(void (*priv)__attribute__((unused)),
+			   const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -466,7 +474,8 @@ const struct router_type a60 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int a42_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int a42_detect_main(void (*priv)__attribute__((unused)),
+			   const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -514,7 +523,8 @@ const struct router_type a42 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int a62_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int a62_detect_main(void (*priv)__attribute__((unused)),
+			   const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -562,7 +572,8 @@ const struct router_type a62 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int om5p_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int om5p_detect_main(void (*priv)__attribute__((unused)),
+			    const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -610,7 +621,8 @@ const struct router_type om5p = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int om5pan_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int om5pan_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -659,7 +671,8 @@ const struct router_type om5pan = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int om5pac_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int om5pac_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -708,7 +721,8 @@ const struct router_type om5pac = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int p60_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int p60_detect_main(void (*priv)__attribute__((unused)),
+			   const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -757,7 +771,8 @@ const struct router_type p60 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int d200_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int d200_detect_main(void (*priv)__attribute__((unused)),
+			    const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
@@ -806,7 +821,8 @@ const struct router_type d200 = {
 	.priv_size = sizeof(struct om2p_priv),
 };
 
-static int g200_detect_main(void (*priv)__attribute__((unused)), const char *packet_buff, int packet_buff_len)
+static int g200_detect_main(void (*priv)__attribute__((unused)),
+			    const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	int ret = 0;
