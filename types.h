@@ -24,14 +24,16 @@
 
 #include <stdint.h>
 
-#define NODE_STATUS_UNKNOWN	0x00
-#define NODE_STATUS_DETECTING	0x01
-#define NODE_STATUS_DETECTED	0x02
-#define NODE_STATUS_FLASHING	0x03
-#define NODE_STATUS_FINISHED	0x04
-#define NODE_STATUS_RESET_SENT	0x05
-#define NODE_STATUS_REBOOTED	0x06
-#define NODE_STATUS_NO_FLASH	0x99
+enum node_status {
+	NODE_STATUS_UNKNOWN,
+	NODE_STATUS_DETECTING,
+	NODE_STATUS_DETECTED,
+	NODE_STATUS_FLASHING,
+	NODE_STATUS_FINISHED,
+	NODE_STATUS_RESET_SENT,
+	NODE_STATUS_REBOOTED,
+	NODE_STATUS_NO_FLASH,
+};
 
 #define TCP_STATUS_SYN_SENT	0x00
 #define TCP_STATUS_ESTABLISHED	0x01
@@ -86,7 +88,7 @@ struct node {
 	uint8_t our_mac_addr[6];
 	uint32_t his_ip_addr;
 	uint32_t our_ip_addr;
-	uint8_t status;
+	enum node_status status;
 	uint8_t flash_mode;
 	struct router_type *router_type;
 	struct image_state image_state;
