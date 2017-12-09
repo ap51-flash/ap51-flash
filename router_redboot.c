@@ -21,11 +21,13 @@
 
 #include "router_redboot.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
-#include "flash.h"
+#include "compat.h"
 #include "proto.h"
 #include "router_images.h"
 #include "types.h"

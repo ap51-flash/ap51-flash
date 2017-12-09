@@ -26,10 +26,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "flash.h"
-#include "types.h"
+#include "compat.h"
 
 #if defined(LINUX)
 #define BUFF_LEN 8192

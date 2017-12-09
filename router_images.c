@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "ap51-flash-res.h"
+#include "compat.h"
 #include "flash.h"
 #include "fwcfg.h"
 #include "types.h"

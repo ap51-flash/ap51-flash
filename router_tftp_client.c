@@ -22,10 +22,11 @@
 #include "router_tftp_client.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
+#include <stdint.h>
+#include <sys/types.h>
 #include <time.h>
 
-#include "flash.h"
+#include "compat.h"
 #include "proto.h"
 #include "router_images.h"
 #include "types.h"

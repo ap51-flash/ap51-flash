@@ -25,10 +25,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "compat.h"
 #include "flash.h"
 #include "router_images.h"
 #include "socket.h"
-#include "types.h"
 
 #ifndef SOURCE_VERSION
 #define SOURCE_VERSION "version information not available"

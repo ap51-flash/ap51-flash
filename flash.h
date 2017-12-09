@@ -22,6 +22,8 @@
 #ifndef __AP51_FLASH_FLASH_H__
 #define __AP51_FLASH_FLASH_H__
 
+#include <stdint.h>
+
 #include "compat.h"
 #include "types.h"
 

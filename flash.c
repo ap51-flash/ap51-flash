@@ -25,8 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
+#include "compat.h"
 #include "proto.h"
 #include "router_tftp_client.h"
 #include "router_types.h"

@@ -22,7 +22,6 @@
 #include "router_types.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "flash.h"
 #include "router_images.h"

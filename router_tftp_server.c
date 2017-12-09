@@ -21,9 +21,9 @@
 
 #include "router_tftp_server.h"
 
-#include <stdlib.h>
+#include <stdint.h>
 
-#include "flash.h"
+#include "compat.h"
 #include "proto.h"
 #include "router_images.h"
 #include "types.h"

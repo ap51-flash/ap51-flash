@@ -24,17 +24,12 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include "flash.h"
+#include "compat.h"
 #include "router_images.h"
 #include "types.h"
 

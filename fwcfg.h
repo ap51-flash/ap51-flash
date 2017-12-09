@@ -22,8 +22,6 @@
 #ifndef __AP51_FLASH_FWCFG_H__
 #define __AP51_FLASH_FWCFG_H__
 
-#include <stdint.h>
-
 struct file_info;
 struct router_image;
 

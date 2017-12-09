@@ -1,0 +1,142 @@
+[
+	{
+		include: [
+			"<arpa/inet.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<linux/if_ether.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<linux/netlink.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<linux/rtnetlink.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<mach-o/dyld.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<mach-o/getsect.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<net/if.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netinet/if_ether.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netinet/ip.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netinet/tcp.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netinet/udp.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netpacket/packet.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<pcap.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<sys/ioctl.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<Win32-Extensions.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+
+
+	{
+		include: [
+			"<net/ethernet.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<net/if_arp.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<netinet/in.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<asm/errno-base.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<asm/errno.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<bits/socket_type.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<linux/if_link.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+	{
+		include: [
+			"<sys/socket.h>", "private",
+			"\"compat.h\"", "public"
+		]
+	},
+]
