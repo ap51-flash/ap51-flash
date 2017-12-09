@@ -74,7 +74,7 @@ out:
 	return ret;
 }
 
-void router_types_detect_pre(uint8_t *our_mac)
+void router_types_detect_pre(const uint8_t *our_mac)
 {
 	const struct router_type **router_type;
 
@@ -86,7 +86,7 @@ void router_types_detect_pre(uint8_t *our_mac)
 	}
 }
 
-int router_types_detect_main(struct node *node, char *packet_buff, int packet_buff_len)
+int router_types_detect_main(struct node *node, const char *packet_buff, int packet_buff_len)
 {
 	const struct router_type **router_type;
 	struct router_info *router_info;

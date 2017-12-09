@@ -84,7 +84,7 @@ struct router_info *router_image_router_get(struct router_image *router_image,
 }
 
 static struct router_info *router_image_router_add(struct router_image *router_image,
-						   char *router_desc)
+						   const char *router_desc)
 {
 	struct list *list;
 	struct router_info *router_info;
@@ -136,7 +136,7 @@ static struct file_info *_router_image_get_file(struct list *file_list,
 	return file_info;
 }
 
-struct file_info *router_image_get_file(struct router_type *router_type, char *file_name)
+struct file_info *router_image_get_file(struct router_type *router_type, const char *file_name)
 {
 	struct file_info *file_info = NULL;
 	char file_name_buff[FILE_NAME_MAX_LENGTH];
@@ -195,7 +195,7 @@ out:
 	return file_info;
 }
 
-static int router_image_add_file(struct router_image *router_image, char *file_name,
+static int router_image_add_file(struct router_image *router_image, const char *file_name,
 				 int file_size, int file_fsize, int file_offset)
 {
 	struct file_info *file_info;
@@ -213,7 +213,7 @@ static int router_image_add_file(struct router_image *router_image, char *file_n
 unsigned int router_image_get_size(struct router_type *router_type)
 {
 	const char *router_desc;
-	struct router_info *router_info;
+	const struct router_info *router_info;
 
 	if (router_type->image_desc)
 		router_desc = router_type->image_desc;
@@ -259,7 +259,7 @@ static void router_image_set_size(struct router_image *router_image,
 	}
 }
 
-static int uboot_verify(struct router_image *router_image, char *buff,
+static int uboot_verify(struct router_image *router_image, const char *buff,
 			unsigned int buff_len, int size)
 {
 	int ret;
@@ -280,7 +280,7 @@ static int uboot_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int ubnt_verify(struct router_image *router_image, char *buff,
+static int ubnt_verify(struct router_image *router_image, const char *buff,
 		       unsigned int buff_len, int size)
 {
 	if (buff_len < 4)
@@ -295,7 +295,7 @@ static int ubnt_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int ci_verify(struct router_image *router_image, char *buff,
+static int ci_verify(struct router_image *router_image, const char *buff,
 		     unsigned int buff_len, int size)
 {
 	unsigned int kernel_size, rootfs_size;
@@ -328,7 +328,7 @@ static int ci_verify(struct router_image *router_image, char *buff,
 	return 1;
 }
 
-static int strendswith(const char *str, const char *end)
+static int strendswith(const const char *str, const const char *end)
 {
 	size_t end_len = strlen(end);
 	size_t str_len = strlen(str);
@@ -374,7 +374,7 @@ static void ce_calculate_router_file_size(struct router_image *router_image)
 
 }
 
-static int ce_verify(struct router_image *router_image, char *buff,
+static int ce_verify(struct router_image *router_image, const char *buff,
 		     unsigned int buff_len, int size)
 {
 	char name_buff[33], *name_ptr, md5_buff[33];
@@ -651,7 +651,7 @@ void router_images_print_desc(void)
 		fprintf(stderr, " * %s\n", (*router_image)->desc);
 }
 
-int router_images_verify_path(char *image_path)
+int router_images_verify_path(const char *image_path)
 {
 	struct router_image **router_image;
 	char *file_buff = NULL, found_consumer = 0;

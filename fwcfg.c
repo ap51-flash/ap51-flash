@@ -124,7 +124,7 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 }
 
 unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
-				      struct file_info *file_info)
+				      const struct file_info *file_info)
 {
 	int fd = -1;
 	int size = 0;

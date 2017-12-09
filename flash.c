@@ -51,7 +51,7 @@ static int node_list_init(void)
 	return 0;
 }
 
-struct node *node_list_get(uint8_t *mac_addr)
+struct node *node_list_get(const uint8_t *mac_addr)
 {
 	struct list *list;
 	struct node *node = NULL, *node_tmp;
@@ -186,7 +186,7 @@ static void sig_handler(int signal)
 	}
 }
 
-int flash(char *iface)
+int flash(const char *iface)
 {
 	char *packet_buff;
 	int ret, sleep_sec, sleep_usec;

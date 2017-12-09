@@ -28,21 +28,21 @@
 #include "router_images.h"
 #include "types.h"
 
-static unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
-static unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */
+static const unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
+static const unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */
 
 struct ubnt_priv {
 	int arp_count;
 };
 
-static void ubnt_detect_pre(uint8_t *our_mac)
+static void ubnt_detect_pre(const uint8_t *our_mac)
 {
 	uint8_t bcast_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 	arp_req_send(our_mac, bcast_mac, htonl(my_ip), htonl(ubnt_ip));
 }
 
-static int ubnt_detect_main(void *priv, char *packet_buff, int packet_buff_len)
+static int ubnt_detect_main(void *priv, const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	struct ubnt_priv *ubnt_priv = priv;
@@ -69,7 +69,7 @@ out:
 	return ret;
 }
 
-static void ubnt_detect_post(struct node *node, char *packet_buff, int packet_buff_len)
+static void ubnt_detect_post(struct node *node, const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 

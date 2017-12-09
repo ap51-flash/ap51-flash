@@ -47,7 +47,7 @@
 #define REDBOOT_STATE_FIS_INITY	0x51
 #define REDBOOT_STATE_FAILED	0x99
 
-static unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
+static const unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
 
 struct redboot_priv {
 	int arp_count;
@@ -103,7 +103,7 @@ static int redboot_4mb_detect(struct node (*node)__attribute__((unused)))
 	return 1;
 }
 
-static struct redboot_type redboot_8mb = {
+static const struct redboot_type redboot_8mb = {
 	.flash_size = 0x7A0000,
 	.freememlo = 0x80041000, /* %{FREEMEMLO} provokes errors on the meraki mini */
 	.flash_addr = 0xa8030000,
@@ -111,7 +111,7 @@ static struct redboot_type redboot_8mb = {
 	.detect = redboot_8mb_detect,
 };
 
-static struct redboot_type redboot_4mb = {
+static const struct redboot_type redboot_4mb = {
 	.flash_size = 0x3A0000,
 	.freememlo = 0, /* we can use %{FREEMEMLO} */
 	.flash_addr = 0xbfc30000,
@@ -146,7 +146,7 @@ static int redboot_type_detect(struct node *node)
 	return ret;
 }
 
-void redboot_main(struct node *node, char *telnet_msg)
+void redboot_main(struct node *node, const char *telnet_msg)
 {
 	struct redboot_priv *redboot_priv = node->router_priv;
 	struct file_info *file_info;
@@ -299,7 +299,7 @@ redboot_failure:
 	return;
 }
 
-static int redboot_detect_main(void *priv, char *packet_buff, int packet_buff_len)
+static int redboot_detect_main(void *priv, const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 	struct redboot_priv *redboot_priv = priv;
@@ -336,7 +336,7 @@ out:
 	return ret;
 }
 
-static void redboot_detect_post(struct node *node, char *packet_buff, int packet_buff_len)
+static void redboot_detect_post(struct node *node, const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 

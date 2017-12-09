@@ -27,10 +27,10 @@
 
 struct node;
 
-int arp_req_send(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip);
+int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip);
 int tftp_init_upload(struct node *node);
 void telnet_handle_connection(struct node *node);
-int telnet_send_cmd(struct node *node, char *cmd);
+int telnet_send_cmd(struct node *node, const char *cmd);
 void handle_eth_packet(char *packet_buff, int packet_buff_len);
 int proto_init(void);
 void proto_free(void);

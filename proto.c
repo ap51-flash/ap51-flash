@@ -55,11 +55,11 @@ static struct udphdr *out_udphdr;
 static char *out_tftp_data;
 
 
-static unsigned short chksum(unsigned short sum, unsigned char *data,
+static unsigned short chksum(unsigned short sum, const unsigned char *data,
 			     unsigned short len)
 {
 	unsigned short t;
-	unsigned char *dataptr, *last_byte;
+	const unsigned char *dataptr, *last_byte;
 
 	dataptr = data;
 	last_byte = data + len - 1;
@@ -82,7 +82,7 @@ static unsigned short chksum(unsigned short sum, unsigned char *data,
 	return sum;
 }
 
-static void arp_init(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip, unsigned short arp_type)
+static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip, unsigned short arp_type)
 {
 	memcpy(out_ethhdr->ether_shost, src_mac, ETH_ALEN);
 	memcpy(out_ethhdr->ether_dhost, dst_mac, ETH_ALEN);
@@ -99,14 +99,14 @@ static void arp_init(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, un
 	*((unsigned int *)out_arphdr->arp_tpa) = dst_ip;
 }
 
-int arp_req_send(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
+int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
 {
 	arp_init(src_mac, dst_mac, src_ip, dst_ip, ARPOP_REQUEST);
 
 	return socket_write(out_packet_buff, ARP_LEN);
 }
 
-static int arp_rep_send(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
+static int arp_rep_send(const uint8_t *src_mac, const uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip)
 {
 	arp_init(src_mac, dst_mac, src_ip, dst_ip, ARPOP_REPLY);
 
@@ -175,7 +175,7 @@ int tftp_init_upload(struct node *node)
 	return tftp_packet_send_data(node, htons(TFTP_SRC_PORT), htons(IPPORT_TFTP), data_len);
 }
 
-static void handle_arp_packet(char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_arp_packet(const char *packet_buff, int packet_buff_len, struct node *node)
 {
 	struct ether_arp *arphdr;
 	int ret;
@@ -246,12 +246,12 @@ static void handle_arp_packet(char *packet_buff, int packet_buff_len, struct nod
 	}
 }
 
-static void handle_udp_packet(char *packet_buff, int packet_buff_len, struct node *node)
+static void handle_udp_packet(const char *packet_buff, int packet_buff_len, struct node *node)
 {
 	struct udphdr *udphdr;
 	struct file_info *file_info;
 	unsigned short opcode, block;
-	char *file_name;
+	const char *file_name;
 	int ret, data_len;
 	static const char fwupgradecfg[] = "fwupgrade.cfg";
 
@@ -580,7 +580,7 @@ out:
 	return;
 }
 
-int telnet_send_cmd(struct node *node, char *cmd)
+int telnet_send_cmd(struct node *node, const char *cmd)
 {
 	char *packet_buff;
 

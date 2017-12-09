@@ -26,6 +26,6 @@ struct node;
 
 extern const struct router_type redboot;
 
-void redboot_main(struct node *node, char *telnet_msg);
+void redboot_main(struct node *node, const char *telnet_msg);
 
 #endif /* __AP51_FLASH_ROUTER_REDBOOT_H__ */

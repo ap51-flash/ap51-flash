@@ -116,7 +116,7 @@ out:
 pcap_t *pcap_fp = NULL;
 #endif
 
-char *socket_find_iface_by_index(char *iface_number)
+char *socket_find_iface_by_index(const char *iface_number)
 {
 #if defined(LINUX)
 	struct ifinfomsg *ifinfomsg;
@@ -283,7 +283,7 @@ out:
 #endif
 }
 
-int socket_open(char *iface)
+int socket_open(const char *iface)
 {
 #if defined(LINUX)
 	struct sockaddr_ll addr;
@@ -503,7 +503,7 @@ out:
 #endif
 }
 
-int socket_write(char *buff, int len)
+int socket_write(const char *buff, int len)
 {
 #if defined(LINUX)
 	int ret = -1;
@@ -541,7 +541,7 @@ out:
 #endif
 }
 
-void socket_close(char *iface)
+void socket_close(const char *iface)
 {
 #if defined(LINUX)
 	struct ifreq req;

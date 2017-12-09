@@ -28,6 +28,6 @@ struct file_info;
 struct router_image;
 
 unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
-				      struct file_info *file_info);
+				      const struct file_info *file_info);
 
 #endif /* __AP51_FLASH_FWCFG_H__ */

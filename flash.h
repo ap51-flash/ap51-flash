@@ -29,9 +29,9 @@
 extern int num_nodes_flashed;
 #endif
 
-struct node *node_list_get(uint8_t *mac_addr);
+struct node *node_list_get(const uint8_t *mac_addr);
 void our_mac_set(struct node *node);
-int flash(char *iface);
+int flash(const char *iface);
 
 static inline void list_prepend(struct list **list, struct list *list_item)
 {
