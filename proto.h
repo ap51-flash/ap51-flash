@@ -51,30 +51,4 @@ static inline int len_check(int buff_len, int req_len, char (*desc)__attribute__
 	return 0;
 }
 
-static inline unsigned short chksum(unsigned short sum, unsigned char *data, unsigned short len)
-{
-	unsigned short t;
-	unsigned char *dataptr, *last_byte;
-
-	dataptr = data;
-	last_byte = data + len - 1;
-
-	while (dataptr < last_byte) {
-		t = (dataptr[0] << 8) + dataptr[1];
-		sum += t;
-		if(sum < t)
-			sum++;
-		dataptr += 2;
-	}
-
-	if (dataptr == last_byte) {
-		t = (dataptr[0] << 8) + 0;
-		sum += t;
-		if(sum < t)
-			sum++;
-	}
-
-	return sum;
-}
-
 #endif /* __AP51_FLASH_PROTO_H__ */

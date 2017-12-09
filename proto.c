@@ -54,6 +54,34 @@ static struct iphdr *out_iphdr;
 static struct udphdr *out_udphdr;
 static char *out_tftp_data;
 
+
+static unsigned short chksum(unsigned short sum, unsigned char *data,
+			     unsigned short len)
+{
+	unsigned short t;
+	unsigned char *dataptr, *last_byte;
+
+	dataptr = data;
+	last_byte = data + len - 1;
+
+	while (dataptr < last_byte) {
+		t = (dataptr[0] << 8) + dataptr[1];
+		sum += t;
+		if(sum < t)
+			sum++;
+		dataptr += 2;
+	}
+
+	if (dataptr == last_byte) {
+		t = (dataptr[0] << 8) + 0;
+		sum += t;
+		if(sum < t)
+			sum++;
+	}
+
+	return sum;
+}
+
 static void arp_init(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip, unsigned short arp_type)
 {
 	memcpy(out_ethhdr->ether_shost, src_mac, ETH_ALEN);
