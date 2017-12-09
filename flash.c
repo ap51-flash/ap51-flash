@@ -186,7 +186,7 @@ static void sig_handler(int signal)
 	}
 }
 
-int flash(const char *iface)
+int flash_start(const char *iface)
 {
 	char *packet_buff;
 	int ret, sleep_sec, sleep_usec;

@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 
-#include "compat.h"
 #include "types.h"
 
 #if defined(CLEAR_SCREEN)
@@ -33,7 +32,7 @@ extern int num_nodes_flashed;
 
 struct node *node_list_get(const uint8_t *mac_addr);
 void our_mac_set(struct node *node);
-int flash(const char *iface);
+int flash_start(const char *iface);
 
 static inline void list_prepend(struct list **list, struct list *list_item)
 {

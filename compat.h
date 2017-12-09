@@ -57,9 +57,6 @@
 #define ETH_HLEN        14
 #define ETH_DATA_LEN    1500
 
-// Avoid conflict with ncurses flash
-#define flash flashit
-
 #elif defined(WIN32)
 
 #define USE_PCAP 1

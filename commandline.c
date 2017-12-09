@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "compat.h"
 #include "flash.h"
 #include "router_images.h"
 #include "socket.h"
@@ -112,7 +111,7 @@ int main(int argc, char* argv[])
 		goto out;
 	}
 
-	ret = flash(iface);
+	ret = flash_start(iface);
 
 out:
 	return ret;
