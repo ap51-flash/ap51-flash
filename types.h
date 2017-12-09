@@ -48,11 +48,13 @@ enum flash_mode {
 	FLASH_MODE_TFTP_CLIENT,
 };
 
-#define IMAGE_TYPE_UNKNOWN	0x00
-#define IMAGE_TYPE_UBOOT	0x01
-#define IMAGE_TYPE_UBNT		0x02
-#define IMAGE_TYPE_CI		0x03
-#define IMAGE_TYPE_CE		0x04
+enum image_type {
+	IMAGE_TYPE_UNKNOWN,
+	IMAGE_TYPE_UBOOT,
+	IMAGE_TYPE_UBNT,
+	IMAGE_TYPE_CI,
+	IMAGE_TYPE_CE,
+};
 
 #define DESC_MAX_LENGTH	30
 #define FILE_NAME_MAX_LENGTH 33
@@ -135,7 +137,7 @@ struct router_info {
 };
 
 struct router_image {
-	int type;
+	enum image_type type;
 	char desc[DESC_MAX_LENGTH];
 	int (*image_verify)(struct router_image *router_image, char *buff, unsigned int buff_len, int size);
 	char *path;
