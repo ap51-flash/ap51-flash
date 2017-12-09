@@ -24,6 +24,10 @@
 
 #include <stdbool.h>
 
+struct router_image;
+struct router_type;
+struct node;
+
 struct router_info *router_image_router_get(struct router_image *router_image,
 					    const char *router_desc);
 struct file_info *router_image_get_file(struct router_type *router_type,

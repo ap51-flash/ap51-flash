@@ -22,7 +22,10 @@
 #ifndef __AP51_FLASH_PROTO_H__
 #define __AP51_FLASH_PROTO_H__
 
+#include <stdint.h>
 #include <stdio.h>
+
+struct node;
 
 int arp_req_send(uint8_t *src_mac, uint8_t *dst_mac, unsigned int src_ip, unsigned int dst_ip);
 int tftp_init_upload(struct node *node);

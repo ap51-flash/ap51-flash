@@ -23,6 +23,7 @@
 #define __AP51_FLASH_FLASH_H__
 
 #include "compat.h"
+#include "types.h"
 
 #if defined(CLEAR_SCREEN)
 extern int num_nodes_flashed;

@@ -22,6 +22,8 @@
 #ifndef __AP51_FLASH_ROUTER_REDBOOT_H__
 #define __AP51_FLASH_ROUTER_REDBOOT_H__
 
+struct node;
+
 extern const struct router_type redboot;
 
 void redboot_main(struct node *node, char *telnet_msg);

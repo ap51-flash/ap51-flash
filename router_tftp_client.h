@@ -22,6 +22,8 @@
 #ifndef __AP51_FLASH_ROUTER_TFTP_CLIENT_H__
 #define __AP51_FLASH_ROUTER_TFTP_CLIENT_H__
 
+struct node;
+
 extern const struct router_type mr500;
 extern const struct router_type mr600;
 extern const struct router_type mr900;

@@ -22,7 +22,9 @@
 #ifndef __AP51_FLASH_ROUTER_TYPES_H__
 #define __AP51_FLASH_ROUTER_TYPES_H__
 
-#include "types.h"
+#include <stdint.h>
+
+struct node;
 
 int router_types_init(void);
 void router_types_detect_pre(uint8_t *our_mac);
