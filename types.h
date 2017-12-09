@@ -35,9 +35,11 @@ enum node_status {
 	NODE_STATUS_NO_FLASH,
 };
 
-#define TCP_STATUS_SYN_SENT	0x00
-#define TCP_STATUS_ESTABLISHED	0x01
-#define TCP_STATUS_TELNET_READY	0x02
+enum tcp_status {
+	TCP_STATUS_SYN_SENT,
+	TCP_STATUS_ESTABLISHED,
+	TCP_STATUS_TELNET_READY,
+};
 
 #define FLASH_MODE_UKNOWN	0x00
 #define FLASH_MODE_REDBOOT	0x01
@@ -75,7 +77,7 @@ struct image_state {
 
 struct tcp_state {
 	char *packet_buff;
-	uint8_t status;
+	enum tcp_status status;
 	unsigned int his_seq;
 	unsigned int his_ack_seq;
 	unsigned int his_last_len;
