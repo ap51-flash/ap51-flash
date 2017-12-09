@@ -23,10 +23,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "types.h"
 #include "flash.h"
-#include "socket.h"
 #include "router_images.h"
+#include "socket.h"
+#include "types.h"
 
 #ifndef SOURCE_VERSION
 #define SOURCE_VERSION "version information not available"

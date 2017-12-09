@@ -19,23 +19,24 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#include "fwcfg.h"
+
+#include <ctype.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <strings.h>
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <ctype.h>
-#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include "fwcfg.h"
-#include "types.h"
-#include "router_images.h"
 #include "flash.h"
+#include "router_images.h"
+#include "types.h"
 
 static void rtrim(char *s)
 {

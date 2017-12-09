@@ -19,16 +19,17 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-
-#include "types.h"
 #include "router_types.h"
-#include "router_redboot.h"
-#include "router_tftp_server.h"
-#include "router_tftp_client.h"
-#include "router_images.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "flash.h"
+#include "router_images.h"
+#include "router_redboot.h"
+#include "router_tftp_client.h"
+#include "router_tftp_server.h"
+#include "types.h"
 
 int router_types_priv_size = 0;
 

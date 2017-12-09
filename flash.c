@@ -19,18 +19,19 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#include <signal.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "types.h"
 #include "flash.h"
+
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "proto.h"
-#include "socket.h"
-#include "router_types.h"
 #include "router_tftp_client.h"
+#include "router_types.h"
+#include "socket.h"
+#include "types.h"
 
 static int running = 1;
 static struct list *node_list;

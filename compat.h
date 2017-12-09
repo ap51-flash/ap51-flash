@@ -24,14 +24,14 @@
 
 #if defined(LINUX)
 
-#include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <netinet/if_ether.h>
 #include <netpacket/packet.h>
+#include <sys/ioctl.h>
 #include <linux/if_ether.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
@@ -43,11 +43,11 @@
 #elif defined(OSX)
 
 #include <arpa/inet.h>
-#include <net/if.h>
-#include <netinet/ip.h>
-#include <netinet/if_ether.h>
 #include <mach-o/dyld.h>
 #include <mach-o/getsect.h>
+#include <net/if.h>
+#include <netinet/if_ether.h>
+#include <netinet/ip.h>
 #include <pcap.h>
 
 #define O_BINARY 0

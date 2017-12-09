@@ -19,20 +19,21 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <stdbool.h>
-
-#include "types.h"
 #include "router_images.h"
-#include "flash.h"
+
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "ap51-flash-res.h"
+#include "flash.h"
 #include "fwcfg.h"
+#include "types.h"
 
 static const char fwupgradecfg[] = "fwupgrade.cfg";
 static const char fwupgradecfgsig[] = "fwupgrade.cfg.sig";

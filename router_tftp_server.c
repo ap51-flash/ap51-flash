@@ -19,13 +19,14 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#include "router_tftp_server.h"
+
 #include <stdlib.h>
 
-#include "types.h"
-#include "router_tftp_server.h"
-#include "proto.h"
 #include "flash.h"
+#include "proto.h"
 #include "router_images.h"
+#include "types.h"
 
 static unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
 static unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */

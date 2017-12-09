@@ -19,15 +19,16 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#include <time.h>
+#include "router_tftp_client.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 
-#include "types.h"
-#include "router_tftp_client.h"
-#include "proto.h"
 #include "flash.h"
+#include "proto.h"
 #include "router_images.h"
+#include "types.h"
 
 static unsigned int mr500_ip = 3232260872UL; /* 192.168.99.8 */
 static unsigned int om2p_ip = 3232261128UL; /* 192.168.100.8 */

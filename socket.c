@@ -19,16 +19,17 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
+#include "socket.h"
+
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <fcntl.h>
 
-#include "types.h"
-#include "socket.h"
 #include "flash.h"
+#include "types.h"
 
 #if defined(LINUX)
 #define BUFF_LEN 8192

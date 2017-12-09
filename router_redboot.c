@@ -19,15 +19,16 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#include <stdlib.h>
+#include "router_redboot.h"
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "types.h"
-#include "router_redboot.h"
-#include "proto.h"
 #include "flash.h"
+#include "proto.h"
 #include "router_images.h"
+#include "types.h"
 
 #define REDBOOT_STATE_INIT	0x00
 #define REDBOOT_STATE_VERSION	0x01
