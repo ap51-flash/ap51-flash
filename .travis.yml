@@ -25,9 +25,9 @@ script:
  - make clean V=s && make CC="${CC}" V=s
  - make clean V=s && make CC="${CC}" EMBED_CI="test.img" V=s
 
-# windows cross-compiler
 matrix:
   include:
+    # windows cross-compiler
     - os: linux
       env:
       - MXE_CPU=i686
@@ -49,6 +49,22 @@ matrix:
       script:
       - make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
       - make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" EMBED_CI="test.img" ap51-flash.exe
+    # musl static cross build
+    - os: linux
+      env:
+      - CPPFLAGS="-Ikernel-headers/x86/include/"
+      - CFLAGS="-static -m64 -flto -O2"
+      - LDFLAGS="-Wl,-m -Wl,elf_x86_64"
+      addons:
+        apt:
+          packages:
+          - git
+          - musl-tools
+      before_script:
+      - git clone https://github.com/sabotage-linux/kernel-headers -b v3.12.6-5 kernel-headers
+      script:
+      - make clean V=s && make V=s CC=musl-gcc && mv ap51-flash ap51-flash-x86_64-linux
+    # osx native build
     - os: osx
       before_script:
       - dd if=/dev/urandom of=test.img count=10000 bs=1024
