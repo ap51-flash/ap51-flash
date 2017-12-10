@@ -3,9 +3,9 @@
 
 * text=auto
 
-*.c text
-*.h text
+*.c text diff=cpp
+*.h text diff=cpp
 *.rst text
-*.py text
+*.py text diff=python
 *.rst text
 Makefile text
