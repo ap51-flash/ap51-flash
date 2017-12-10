@@ -73,4 +73,6 @@ matrix:
       - dd if=/dev/urandom of=test.img count=10000 bs=1024
       script:
       - make clean V=s && make V=s ap51-flash-osx
+      - make clean V=s && CPPFLAGS="-DDEBUG" make V=s ap51-flash-osx
       - make clean V=s && make V=s EMBED_CI="test.img" ap51-flash-osx
+      - make clean V=s && CFLAGS="-flto -O2" make V=s ap51-flash-osx
