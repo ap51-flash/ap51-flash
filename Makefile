@@ -29,6 +29,7 @@
 # * EMBED_CE
 # * EMBED_UBNT
 # * EMBED_UBOOT
+# * EMBED_ZYXEL
 
 BINARY_NAME = ap51-flash
 OBJ += commandline.o
@@ -102,6 +103,7 @@ EMBEDDED_IMAGES += $(EMBED_CI)
 EMBEDDED_IMAGES += $(EMBED_CE)
 EMBEDDED_IMAGES += $(EMBED_UBNT)
 EMBEDDED_IMAGES += $(EMBED_UBOOT)
+EMBEDDED_IMAGES += $(EMBED_ZYXEL)
 
 Makefile: embed_image.mk
 include embed_image.mk
@@ -110,6 +112,7 @@ $(eval $(call embed_image,CI,ci))
 $(eval $(call embed_image,CE,ce))
 $(eval $(call embed_image,UBNT,ubnt))
 $(eval $(call embed_image,UBOOT,uboot))
+$(eval $(call embed_image,ZYXEL,zyxel))
 
 # try to generate revision
 REVISION= $(shell \

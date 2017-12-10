@@ -65,6 +65,12 @@ extern unsigned long _binary_img_ce_end;
 extern unsigned long _binary_img_ce_size;
 #endif
 
+#if defined(EMBED_ZYXEL) && defined(LINUX)
+extern unsigned long _binary_img_zyxel_start;
+extern unsigned long _binary_img_zyxel_end;
+extern unsigned long _binary_img_zyxel_size;
+#endif
+
 struct router_info *router_image_router_get(struct router_image *router_image,
 					    const char *router_desc)
 {
@@ -494,6 +500,27 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 	return 1;
 }
 
+static int zyxel_verify(struct router_image *router_image, const char *buff,
+                       unsigned int buff_len, int size)
+{
+	int ret;
+
+	if (buff_len < 12)
+		return 0;
+	/* zyxel undocumented header */
+	if ((buff[0] != 0x0) || (buff[1] != 0x0) ||
+	    (buff[8] != 0x56) || (buff[9] != 0x31) ||
+	    (buff[10] != 0x2e) || (buff[11] != 0x30))
+		return 0;
+
+	ret = router_image_add_file(router_image, "ras.bin", size, size, 0);
+	if (ret)
+		return 0;
+
+	router_image->file_size = size;
+	return 1;
+}
+
 static int router_image_init_embedded(struct router_image *router_image)
 {
 	int ret = 0;
@@ -553,11 +580,18 @@ struct router_image img_ce = {
 	.image_verify = ce_verify,
 };
 
+struct router_image img_zyxel = {
+	.type = IMAGE_TYPE_ZYXEL,
+	.desc = "Zyxel image",
+	.image_verify = zyxel_verify,
+};
+
 static struct router_image *router_images[] = {
 	&img_uboot,
 	&img_ubnt,
 	&img_ci,
 	&img_ce,
+	&img_zyxel,
 	NULL,
 };
 
@@ -637,6 +671,20 @@ void router_images_init_embedded(void)
 				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_CE_IMG;
+#endif
+#endif
+			break;
+		case IMAGE_TYPE_ZYXEL:
+#if defined(EMBED_ZYXEL)
+#if defined(LINUX)
+			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_zyxel_start;
+			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_zyxel_size;
+#elif defined(OSX)
+			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_zyxel", &(*router_image)->embedded_file_size);
+			if ((*router_image)->embedded_img_pre_check)
+				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
+#elif defined(WIN32)
+			(*router_image)->embedded_img_res = IDR_ZYXEL_IMG;
 #endif
 #endif
 			break;

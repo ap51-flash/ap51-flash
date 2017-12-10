@@ -54,6 +54,7 @@ enum image_type {
 	IMAGE_TYPE_UBNT,
 	IMAGE_TYPE_CI,
 	IMAGE_TYPE_CE,
+	IMAGE_TYPE_ZYXEL,
 };
 
 #define DESC_MAX_LENGTH	30

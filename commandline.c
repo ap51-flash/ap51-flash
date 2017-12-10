@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
 	if (load_embedded) {
 		router_images_init_embedded();
 	} else {
-#if defined(EMBED_UBOOT) || defined(EMBED_UBNT) || defined(EMBED_CI) || defined(EMBED_CE)
+#if defined(EMBED_UBOOT) || defined(EMBED_UBNT) || defined(EMBED_CI) || defined(EMBED_CE) || defined(EMBED_ZYXEL)
 		printf("Embedded image disabled\n");
 #endif
 	}
