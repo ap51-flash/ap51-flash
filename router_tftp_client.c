@@ -33,6 +33,7 @@
 
 static const unsigned int mr500_ip = 3232260872UL; /* 192.168.99.8 */
 static const unsigned int om2p_ip = 3232261128UL; /* 192.168.100.8 */
+static const unsigned int zyxel_ip = 3232235875UL; /* 192.168.1.99 */
 
 struct mr500_priv {
 	time_t start_flash;
@@ -81,7 +82,8 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &om5pan) ||
 		   (node->router_type == &p60) ||
 		   (node->router_type == &d200) ||
-		   (node->router_type == &g200)) {
+		   (node->router_type == &g200) ||
+		   (node->router_type == &zyxel)) {
 
 		om2p_priv = node->router_priv;
 		om2p_priv->start_flash = time(NULL);
@@ -110,7 +112,8 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &om5pan) ||
 		   (node->router_type == &p60) ||
 		   (node->router_type == &d200) ||
-		   (node->router_type == &g200)) {
+		   (node->router_type == &g200) ||
+		   (node->router_type == &zyxel)) {
 
 		om2p_priv = node->router_priv;
 		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
@@ -868,5 +871,55 @@ const struct router_type g200 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "G200",
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int zyxel_detect_main(void (*priv)__attribute__((unused)),
+			     const char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(zyxel_ip))
+		goto out;
+
+	if (arphdr->arp_tha[0] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[1] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[2] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[3] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[4] != '\0')
+		goto out;
+
+	if (arphdr->arp_tha[5] != '\0')
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type zyxel = {
+	.desc = "Zyxel",
+	.detect_pre = NULL,
+	.detect_main = zyxel_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_zyxel,
+	.image_desc = "Zyxel",
 	.priv_size = sizeof(struct om2p_priv),
 };

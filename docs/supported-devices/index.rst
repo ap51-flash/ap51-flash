@@ -63,6 +63,10 @@ Tested
 
   - Colibrì (!UniData)
 
+* Zyxel
+
+ - NBG6817
+
 
 Other Devices
 =============
