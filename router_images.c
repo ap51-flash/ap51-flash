@@ -333,7 +333,7 @@ static int ci_verify(struct router_image *router_image, const char *buff,
 	return 1;
 }
 
-static int strendswith(const const char *str, const const char *end)
+static int strendswith(const char *str, const char *end)
 {
 	size_t end_len = strlen(end);
 	size_t str_len = strlen(str);
