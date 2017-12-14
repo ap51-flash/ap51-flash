@@ -30,6 +30,12 @@
 #include "router_tftp_server.h"
 #include "types.h"
 
+#if defined(CLEAR_SCREEN)
+#if defined(LINUX) || defined(WIN32)
+#include <stdlib.h>
+#endif
+#endif
+
 int router_types_priv_size = 0;
 
 static const struct router_type *router_types[] = {
