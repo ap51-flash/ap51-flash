@@ -122,6 +122,8 @@ static void node_list_maintain(void)
 
 		switch (node->status) {
 		case NODE_STATUS_UNKNOWN:
+		case NODE_STATUS_RESET_SENT:
+		case NODE_STATUS_DETECTING:
 			/* ignored */
 			break;
 		case NODE_STATUS_DETECTED:
