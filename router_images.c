@@ -667,7 +667,7 @@ int router_images_verify_path(const char *image_path)
 	int fd, file_size, ret = -1, len;
 
 	file_buff = malloc(file_buff_size);
-	if (!file_buff_size)
+	if (!file_buff)
 		goto out;
 
 	fd = open(image_path, O_RDONLY | O_BINARY);
