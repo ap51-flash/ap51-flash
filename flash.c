@@ -121,6 +121,9 @@ static void node_list_maintain(void)
 		node = (struct node *)list->data;
 
 		switch (node->status) {
+		case NODE_STATUS_UNKNOWN:
+			/* ignored */
+			break;
 		case NODE_STATUS_DETECTED:
 			switch (node->flash_mode) {
 			case FLASH_MODE_TFTP_SERVER:
