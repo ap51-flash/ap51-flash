@@ -739,6 +739,9 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 		return;
 
 	iphdr = (struct iphdr *)packet_buff;
+	if (iphdr->ihl < 5)
+		return;
+
 	if (!len_check(packet_buff_len, iphdr->ihl * 4, "IPv4 full"))
 		return;
 
