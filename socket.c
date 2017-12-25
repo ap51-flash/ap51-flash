@@ -394,7 +394,19 @@ int socket_open(const char *iface)
 	}
 
 	sock_opts = fcntl(raw_sock, F_GETFL, 0);
-	fcntl(raw_sock, F_SETFL, sock_opts | O_NONBLOCK);
+	if (sock_opts == -1) {
+		fprintf(stderr, "Error - can't read socket flags: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	ret = fcntl(raw_sock, F_SETFL, sock_opts | O_NONBLOCK);
+	if (ret < 0) {
+		fprintf(stderr, "Error - can't set socket flags: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
 	return 0;
 
 close_sock:
