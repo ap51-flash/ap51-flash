@@ -633,6 +633,7 @@ void telnet_handle_connection(struct node *node)
 		tcp_send_syn(node);
 		break;
 	case TCP_STATUS_ESTABLISHED:
+	case TCP_STATUS_TELNET_READY:
 		/* TODO: check timer if we need to resend */
 		break;
 	}
