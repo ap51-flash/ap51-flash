@@ -126,6 +126,7 @@ unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
 	int read_len;
 	char *dst = NULL;
 	uint8_t *file_data;
+	off_t reto;
 
 	/*
 	 * WARNING only call when calle first verified that image size is
@@ -149,7 +150,12 @@ unsigned int fwupgrade_cfg_read_sizes(struct router_image *router_image,
 		}
 
 		if (read_len > 0) {
-			lseek(fd, file_info->file_offset, SEEK_SET);
+			reto = lseek(fd, file_info->file_offset, SEEK_SET);
+			if (reto == (off_t) -1) {
+				fprintf(stderr, "Error - seeking in file '%s': %s\n",
+					router_image->path, strerror(errno));
+				goto out;
+			}
 
 			if (read_len != read(fd, dst, read_len)) {
 				fprintf(stderr, "Error - reading from file '%s': %s\n",

@@ -755,6 +755,7 @@ int router_images_read_data(char *dst, struct node *node)
 {
 	int len = TFTP_PAYLOAD_SIZE, read_len;
 	uint8_t *file_data;
+	off_t reto;
 
 	if (node->image_state.flash_size - node->image_state.bytes_sent < TFTP_PAYLOAD_SIZE)
 		len = node->image_state.flash_size - node->image_state.bytes_sent;
@@ -775,9 +776,15 @@ int router_images_read_data(char *dst, struct node *node)
 		}
 
 		if (read_len > 0) {
-			lseek(node->image_state.fd,
-			      node->image_state.bytes_sent + node->image_state.offset,
-			      SEEK_SET);
+			reto = lseek(node->image_state.fd,
+				     node->image_state.bytes_sent + node->image_state.offset,
+				     SEEK_SET);
+			if (reto == (off_t) -1) {
+				fprintf(stderr, "Error - seeking in file '%s': %s\n",
+					node->router_type->image->path,
+					strerror(errno));
+				return -1;
+			}
 
 			if (read_len != read(node->image_state.fd, dst, read_len)) {
 				fprintf(stderr, "Error - reading from file '%s': %s\n",
