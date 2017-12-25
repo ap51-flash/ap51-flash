@@ -131,7 +131,8 @@ char *socket_find_iface_by_index(const char *iface_number)
 	struct rtattr *rta;
 	struct resp *resp = NULL;
 	unsigned int len = 0, if_count = 1;
-	int ret, attr_len, if_num;
+	int ret, if_num;
+	size_t attr_len;
 	char *iface = NULL;
 
 	if_num = strtol(iface_number, NULL, 10);
@@ -156,14 +157,22 @@ char *socket_find_iface_by_index(const char *iface_number)
 		attr_len = IFLA_PAYLOAD(nh);
 
 		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
+			char *rta_data = RTA_DATA(rta);
+			size_t rta_payload = RTA_PAYLOAD(rta);
+
+			if (rta_payload <= 0)
+				continue;
+
+			rta_data[rta_payload - 1] = '\0';
+
 			if (rta->rta_type != IFLA_IFNAME)
 				continue;
 
-			if (strcmp((char *)RTA_DATA(rta), "lo") == 0)
+			if (strncmp(rta_data, "lo", rta_payload) == 0)
 				continue;
 
 			if (if_count == (unsigned int)if_num) {
-				iface = strdup((char *)RTA_DATA(rta));
+				iface = strdup(rta_data);
 				goto free_resp;
 			}
 
@@ -219,7 +228,8 @@ void socket_print_all_ifaces(void)
 	struct rtattr *rta;
 	struct resp *resp = NULL;
 	unsigned int len = 0, if_count = 1;
-	int ret, attr_len;
+	int ret;
+	size_t attr_len;
 
 	ret = socket_get_all_ifaces(&resp, &len);
 	if (ret < 0)
@@ -239,14 +249,21 @@ void socket_print_all_ifaces(void)
 		attr_len = IFLA_PAYLOAD(nh);
 
 		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
+			char *rta_data = RTA_DATA(rta);
+			size_t rta_payload = RTA_PAYLOAD(rta);
+
+			if (rta_payload <= 0)
+				continue;
+
+			rta_data[rta_payload - 1] = '\0';
+
 			if (rta->rta_type != IFLA_IFNAME)
 				continue;
 
-			if (strcmp((char *)RTA_DATA(rta), "lo") == 0)
+			if (strncmp(rta_data, "lo", rta_payload) == 0)
 				continue;
 
-			fprintf(stderr, "%i: %s\n", if_count,
-				(char *)RTA_DATA(rta));
+			fprintf(stderr, "%i: %s\n", if_count, rta_data);
 			fprintf(stderr, "\t(No description available)\n");
 			if_count++;
 		}
