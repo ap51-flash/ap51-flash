@@ -306,6 +306,9 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		case FLASH_MODE_UKNOWN:
 			/* ignore */
 			break;
+		case FLASH_MODE_TFTP_SERVER:
+			/* ignored; handled in node_list_maintain */
+			break;
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
 			file_info = router_image_get_file(node->router_type,
@@ -428,6 +431,9 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 						if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
 							tftp_client_flash_time_set(node);
 						node->status = NODE_STATUS_FINISHED;
+						break;
+					case FLASH_MODE_REDBOOT:
+						/* ignored; handled in REDBOOT_STATE_EXECY */
 						break;
 					case FLASH_MODE_UKNOWN:
 						/* ignore */
