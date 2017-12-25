@@ -761,21 +761,20 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 	if (iphdr->daddr != node->our_ip_addr)
 		return;
 
+	length = packet_buff_len;
+	if (length > ntohs(iphdr->tot_len))
+		length = ntohs(iphdr->tot_len);
+
+	if (length < iphdr->ihl * 4)
+		return;
+
 	switch (iphdr->protocol) {
 	case IPPROTO_UDP:
 		handle_udp_packet(packet_buff + (iphdr->ihl * 4),
-				  packet_buff_len - (iphdr->ihl * 4),
-				  node);
+				  length - (iphdr->ihl * 4), node);
 		break;
 	case IPPROTO_TCP:
 		if (node->flash_mode != FLASH_MODE_REDBOOT)
-			break;
-
-		length = packet_buff_len;
-		if (length > ntohs(iphdr->tot_len))
-			length = ntohs(iphdr->tot_len);
-
-		if (length < iphdr->ihl * 4)
 			break;
 
 		handle_tcp_packet(packet_buff + (iphdr->ihl * 4),
