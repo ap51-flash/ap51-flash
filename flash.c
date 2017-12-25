@@ -129,6 +129,12 @@ static void node_list_maintain(void)
 			case FLASH_MODE_REDBOOT:
 				telnet_handle_connection(node);
 				break;
+			case FLASH_MODE_UKNOWN:
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: Error, flash mode unknown.\n",
+					node->his_mac_addr[0], node->his_mac_addr[1],
+					node->his_mac_addr[2], node->his_mac_addr[3],
+					node->his_mac_addr[4], node->his_mac_addr[5]);
+				break;
 			}
 			break;
 		case NODE_STATUS_FLASHING:
