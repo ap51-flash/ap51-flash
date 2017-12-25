@@ -770,6 +770,9 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 		if (length > ntohs(iphdr->tot_len))
 			length = ntohs(iphdr->tot_len);
 
+		if (length < iphdr->ihl * 4)
+			break;
+
 		handle_tcp_packet(packet_buff + (iphdr->ihl * 4),
 				  length - (iphdr->ihl * 4), node);
 		break;
