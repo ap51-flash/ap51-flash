@@ -318,6 +318,7 @@ int socket_open(const char *iface)
 
 	memset(&req, 0, sizeof (struct ifreq));
 	strncpy(req.ifr_name, iface, IFNAMSIZ);
+	req.ifr_name[sizeof(req.ifr_name) - 1] = '\0';
 
 	ret = ioctl(raw_sock, SIOCGIFFLAGS, &req);
 
@@ -586,6 +587,7 @@ void socket_close(const char *iface)
 
 	memset(&req, 0, sizeof (struct ifreq));
 	strncpy(req.ifr_name, iface, IFNAMSIZ);
+	req.ifr_name[sizeof(req.ifr_name) - 1] = '\0';
 
 	ret = ioctl(raw_sock, SIOCGIFFLAGS, &req);
 
