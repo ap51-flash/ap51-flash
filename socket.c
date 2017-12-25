@@ -148,6 +148,9 @@ char *socket_find_iface_by_index(const char *iface_number)
 		if (nh->nlmsg_type == NLMSG_DONE)
 			break;
 
+		if (nh->nlmsg_type != RTM_NEWLINK)
+			continue;
+
 		ifinfomsg = NLMSG_DATA(nh);
 		rta = IFLA_RTA(ifinfomsg);
 		attr_len = IFLA_PAYLOAD(nh);
@@ -227,6 +230,9 @@ void socket_print_all_ifaces(void)
 	for (;NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
 			break;
+
+		if (nh->nlmsg_type != RTM_NEWLINK)
+			continue;
 
 		ifinfomsg = NLMSG_DATA(nh);
 		rta = IFLA_RTA(ifinfomsg);
