@@ -171,7 +171,8 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		if (!redboot_priv->version_info)
 			goto redboot_failure;
 
-		strcpy(redboot_priv->version_info, telnet_msg);
+		strncpy(redboot_priv->version_info, telnet_msg, strlen(telnet_msg) + 1);
+		redboot_priv->version_info[strlen(telnet_msg)] = '\0';
 		redboot_type_detect(node);
 
 		req_flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /

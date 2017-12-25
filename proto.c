@@ -632,9 +632,14 @@ out:
 int telnet_send_cmd(struct node *node, const char *cmd)
 {
 	char *packet_buff;
+	size_t buflen = PACKET_BUFF_LEN;
 
 	packet_buff = node->tcp_state.packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
-	strcpy(packet_buff, cmd);
+	buflen -= ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
+
+	strncpy(packet_buff, cmd, buflen);
+	packet_buff[buflen - 1] = '\0';
+
 	return tcp_send_data(node, (int)strlen(cmd));
 }
 

@@ -104,7 +104,8 @@ static struct router_info *router_image_router_add(struct router_image *router_i
 
 	memset(list, 0, sizeof(struct list));
 	memset(router_info, 0, sizeof(struct router_info));
-	strcpy(router_info->router_name, router_desc);
+	strncpy(router_info->router_name, router_desc, sizeof(router_info->router_name));
+	router_info->router_name[sizeof(router_info->router_name) - 1] = '\0';
 	router_info->file_size = 0;
 	list->data = router_info;
 	list->next = NULL;
@@ -186,7 +187,8 @@ static struct file_info *_router_image_add_file(struct router_image *router_imag
 
 	memset(list, 0, sizeof(struct list));
 	memset(file_info, 0, sizeof(struct file_info));
-	strcpy(file_info->file_name, file_name);
+	strncpy(file_info->file_name, file_name, sizeof(file_info->file_name));
+	file_info->file_name[sizeof(file_info->file_name) - 1] = '\0';
 	list->data = file_info;
 	list->next = NULL;
 	list_prepend(&router_image->file_list, list);
