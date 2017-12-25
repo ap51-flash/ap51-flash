@@ -733,6 +733,7 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 			     struct node *node)
 {
 	struct iphdr *iphdr;
+	size_t iphdr_len;
 	int length;
 
 	if (!len_check(packet_buff_len, sizeof(struct iphdr), "IPv4"))
@@ -742,7 +743,8 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 	if (iphdr->ihl < 5)
 		return;
 
-	if (!len_check(packet_buff_len, iphdr->ihl * 4, "IPv4 full"))
+	iphdr_len = iphdr->ihl * 4;
+	if (!len_check(packet_buff_len, iphdr_len, "IPv4 full"))
 		return;
 
 	switch (node->status) {
@@ -764,24 +766,24 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 	if (iphdr->daddr != node->our_ip_addr)
 		return;
 
-	length = packet_buff_len;
-	if (length > ntohs(iphdr->tot_len))
-		length = ntohs(iphdr->tot_len);
+	length = ntohs(iphdr->tot_len);
+	if (length > packet_buff_len)
+		length = packet_buff_len;
 
-	if (length < iphdr->ihl * 4)
+	if (length < (int)iphdr_len)
 		return;
 
 	switch (iphdr->protocol) {
 	case IPPROTO_UDP:
-		handle_udp_packet(packet_buff + (iphdr->ihl * 4),
-				  length - (iphdr->ihl * 4), node);
+		handle_udp_packet(packet_buff + iphdr_len, length - iphdr_len,
+				  node);
 		break;
 	case IPPROTO_TCP:
 		if (node->flash_mode != FLASH_MODE_REDBOOT)
 			break;
 
-		handle_tcp_packet(packet_buff + (iphdr->ihl * 4),
-				  length - (iphdr->ihl * 4), node);
+		handle_tcp_packet(packet_buff + iphdr_len, length - iphdr_len,
+				  node);
 		break;
 	}
 
