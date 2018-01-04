@@ -65,7 +65,7 @@ Tested
 
 * Zyxel
 
- - NBG6817
+  - NBG6817
 
 
 Other Devices
