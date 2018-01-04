@@ -232,10 +232,11 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	case NODE_STATUS_DETECTING:
 		ret = router_types_detect_main(node, packet_buff,
 					       packet_buff_len);
-		if (ret == 1)
-			node->status = NODE_STATUS_DETECTED;
-		else
+		if (ret != 1)
 			break;
+
+		node->status = NODE_STATUS_DETECTED;
+		/* fall through */
 	case NODE_STATUS_DETECTED:
 	case NODE_STATUS_FLASHING:
 		if (ntohs(arphdr->ea_hdr.ar_op) != ARPOP_REQUEST)
