@@ -24,14 +24,15 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "compat.h"
 #include "router_images.h"
-#include "types.h"
 
 static void rtrim(char *s)
 {

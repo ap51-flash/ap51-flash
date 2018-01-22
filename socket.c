@@ -30,7 +30,10 @@
 #include <unistd.h>
 
 #include "compat.h"
-#include "flash.h"
+
+#ifdef USE_PCAP
+#include "list.h"
+#endif
 
 #if defined(LINUX)
 #define BUFF_LEN 8192

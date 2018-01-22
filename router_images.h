@@ -24,9 +24,52 @@
 
 #include <stdbool.h>
 
-struct router_image;
-struct router_type;
+#include "ap51-flash.h"
+
 struct node;
+struct router_type;
+
+enum image_type {
+	IMAGE_TYPE_UNKNOWN,
+	IMAGE_TYPE_UBOOT,
+	IMAGE_TYPE_UBNT,
+	IMAGE_TYPE_CI,
+	IMAGE_TYPE_CE,
+	IMAGE_TYPE_ZYXEL,
+};
+
+struct router_image {
+	enum image_type type;
+	char desc[DESC_MAX_LENGTH];
+	int (*image_verify)(struct router_image *router_image, const char *buff,
+			    unsigned int buff_len, int size);
+	const char *path;
+	char *embedded_img;
+#if defined(LINUX)
+	char *embedded_img_pre_check;
+	unsigned int embedded_file_size;
+#elif defined(OSX)
+	char *embedded_img_pre_check;
+	unsigned long embedded_file_size;
+#elif defined(WIN32)
+	unsigned int embedded_img_res;
+#endif
+	unsigned int file_size;
+	struct list *file_list;
+	struct list *router_list;
+};
+
+struct router_info {
+	char router_name[DESC_MAX_LENGTH];
+	unsigned int file_size;
+};
+
+struct file_info {
+	char file_name[FILE_NAME_MAX_LENGTH];
+	unsigned int file_offset;
+	unsigned int file_size;
+	unsigned int file_fsize;
+};
 
 struct router_info *router_image_router_get(struct router_image *router_image,
 					    const char *router_desc);

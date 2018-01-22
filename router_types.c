@@ -28,7 +28,6 @@
 #include "router_redboot.h"
 #include "router_tftp_client.h"
 #include "router_tftp_server.h"
-#include "types.h"
 
 #if defined(CLEAR_SCREEN)
 #if defined(LINUX) || defined(WIN32)

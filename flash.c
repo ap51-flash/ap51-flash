@@ -27,11 +27,11 @@
 #include <string.h>
 
 #include "compat.h"
+#include "list.h"
 #include "proto.h"
 #include "router_tftp_client.h"
 #include "router_types.h"
 #include "socket.h"
-#include "types.h"
 
 static int running = 1;
 static struct list *node_list;

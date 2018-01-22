@@ -27,9 +27,10 @@
 #include <time.h>
 
 #include "compat.h"
+#include "flash.h"
 #include "proto.h"
 #include "router_images.h"
-#include "types.h"
+#include "router_types.h"
 
 static const unsigned int mr500_ip = 3232260872UL; /* 192.168.99.8 */
 static const unsigned int om2p_ip = 3232261128UL; /* 192.168.100.8 */

@@ -26,6 +26,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "ap51-flash.h"
 #include "compat.h"
 #include "flash.h"
 #include "router_images.h"
@@ -33,7 +34,6 @@
 #include "router_tftp_client.h"
 #include "router_types.h"
 #include "socket.h"
-#include "types.h"
 
 #define TFTP_SRC_PORT 13337
 #define REDBOOT_TELNET_SPORT 13337

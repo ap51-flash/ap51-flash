@@ -27,6 +27,36 @@
 
 struct node;
 
+enum tcp_status {
+	TCP_STATUS_SYN_SENT,
+	TCP_STATUS_ESTABLISHED,
+	TCP_STATUS_TELNET_READY,
+};
+
+struct tcp_state {
+	char *packet_buff;
+	enum tcp_status status;
+	unsigned int his_seq;
+	unsigned int his_ack_seq;
+	unsigned int his_last_len;
+	unsigned int my_seq;
+	unsigned int my_ack_seq;
+};
+
+struct image_state {
+	int fd;
+	unsigned int bytes_sent;
+	unsigned int file_size;
+	unsigned int total_bytes_sent;
+	unsigned int flash_size;
+	unsigned int offset;
+	unsigned short last_packet_size;
+	unsigned short block_acked;
+	unsigned short block_sent;
+	/* flags */
+	unsigned char count_globally:1;
+};
+
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
 		 unsigned int src_ip, unsigned int dst_ip);
 int tftp_init_upload(struct node *node);

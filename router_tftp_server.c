@@ -24,9 +24,10 @@
 #include <stdint.h>
 
 #include "compat.h"
+#include "flash.h"
 #include "proto.h"
 #include "router_images.h"
-#include "types.h"
+#include "router_types.h"
 
 static const unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
 static const unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */

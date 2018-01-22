@@ -19,21 +19,11 @@
  * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
-#ifndef __AP51_FLASH_ROUTER_REDBOOT_H__
-#define __AP51_FLASH_ROUTER_REDBOOT_H__
+#ifndef __AP51_FLASH_AP51_FLASH_H__
+#define __AP51_FLASH_AP51_FLASH_H__
 
-struct node;
+#define DESC_MAX_LENGTH	30
+#define FILE_NAME_MAX_LENGTH 33
+#define FLASH_PAGE_SIZE 0x10000
 
-struct redboot_type {
-	unsigned long flash_size;
-	unsigned long freememlo;
-	unsigned long flash_addr;
-	unsigned long kernel_load_addr;
-	int (*detect)(struct node *node);
-};
-
-extern const struct router_type redboot;
-
-void redboot_main(struct node *node, const char *telnet_msg);
-
-#endif /* __AP51_FLASH_ROUTER_REDBOOT_H__ */
+#endif /* __AP51_FLASH_AP51_FLASH_H__ */

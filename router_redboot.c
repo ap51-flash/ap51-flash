@@ -27,10 +27,12 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "ap51-flash.h"
 #include "compat.h"
+#include "flash.h"
 #include "proto.h"
 #include "router_images.h"
-#include "types.h"
+#include "router_types.h"
 
 enum redboot_state {
 	REDBOOT_STATE_INIT,

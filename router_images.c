@@ -25,16 +25,21 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include "ap51-flash.h"
 #include "ap51-flash-res.h"
 #include "compat.h"
 #include "flash.h"
 #include "fwcfg.h"
-#include "types.h"
+#include "list.h"
+#include "proto.h"
+#include "router_types.h"
 
 static const char fwupgradecfg[] = "fwupgrade.cfg";
 static const char fwupgradecfgsig[] = "fwupgrade.cfg.sig";
