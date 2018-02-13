@@ -95,5 +95,6 @@ const struct router_type ubnt = {
 	.detect_main = ubnt_detect_main,
 	.detect_post = ubnt_detect_post,
 	.image = &img_ubnt,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.priv_size = sizeof(struct ubnt_priv),
 };

@@ -73,6 +73,13 @@ int router_types_init(void)
 		}
 
 		router_types_priv_size += (*router_type)->priv_size;
+
+		if (is_zero_ether_addr((*router_type)->mac_mask)) {
+			fprintf(stderr,
+				"Error - can't have router definition without mac address mask set: %s\n",
+				(*router_type)->desc);
+			goto out;
+		}
 	}
 
 	ret = 0;

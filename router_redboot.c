@@ -383,5 +383,6 @@ const struct router_type redboot = {
 	.detect_main = redboot_detect_main,
 	.detect_post = redboot_detect_post,
 	.image = &img_ci,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.priv_size = sizeof(struct redboot_priv),
 };

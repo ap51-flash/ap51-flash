@@ -22,7 +22,9 @@
 #ifndef __AP51_FLASH_FLASH_H__
 #define __AP51_FLASH_FLASH_H__
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "proto.h"
 
@@ -65,5 +67,32 @@ extern int num_nodes_flashed;
 struct node *node_list_get(const uint8_t *mac_addr);
 void our_mac_set(struct node *node);
 int flash_start(const char *iface);
+
+static inline bool is_zero_ether_addr(const uint8_t *mac)
+{
+	return !(mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5]);
+}
+
+static inline void ether_addr_copy_mask(uint8_t *dst, const uint8_t *src,
+					const uint8_t *mask)
+{
+	size_t i;
+
+	for (i = 0; i < 6; i++)
+		dst[i] = src[i] & mask[i];
+}
+
+static inline bool ether_addr_equal_mask(const uint8_t *mac1,
+					 const uint8_t *mac2,
+					 const uint8_t *mask)
+{
+	uint8_t masked1[6];
+	uint8_t masked2[6];
+
+	ether_addr_copy_mask(masked1, mac1, mask);
+	ether_addr_copy_mask(masked2, mac2, mask);
+
+	return memcmp(masked1, masked2, sizeof(masked1)) == 0;
+}
 
 #endif /* __AP51_FLASH_FLASH_H__ */

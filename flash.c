@@ -51,27 +51,43 @@ static int node_list_init(void)
 	return 0;
 }
 
+static struct node *node_list_find(const uint8_t *mac_addr)
+{
+	struct list *list;
+	struct node *node;
+	const uint8_t *mask;
+	const uint8_t mask_all[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	slist_for_each (list, node_list) {
+		node = (struct node *)list->data;
+
+		if (node->router_type)
+			mask = node->router_type->mac_mask;
+		else
+			mask  = mask_all;
+
+		if (!ether_addr_equal_mask(node->his_mac_addr, mac_addr, mask))
+			continue;
+
+		return node;
+	}
+
+	return NULL;
+}
+
 struct node *node_list_get(const uint8_t *mac_addr)
 {
 	struct list *list;
-	struct node *node = NULL, *node_tmp;
+	struct node *node;
 
-	slist_for_each (list, node_list) {
-		node_tmp = (struct node *)list->data;
-
-		if (memcmp(node_tmp->his_mac_addr, mac_addr, ETH_ALEN) != 0)
-			continue;
-
-		node = node_tmp;
-		break;
-	}
-
+	node = node_list_find(mac_addr);
 	if (node)
 		goto out;
 
 	node = malloc(sizeof(struct node) + router_types_priv_size);
 	if (!node)
 		goto out;
+
 
 	list = malloc(sizeof(struct list));
 	if (!list)

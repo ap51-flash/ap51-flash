@@ -48,6 +48,7 @@ struct router_type {
 			    int packet_buff_len);
 	struct router_image *image;
 	char *image_desc;
+	uint8_t mac_mask[6];
 	int priv_size;
 };
 

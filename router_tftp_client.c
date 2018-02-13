@@ -156,6 +156,7 @@ const struct router_type mr500 = {
 	.detect_main = mr500_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_uboot,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf8},
 	.priv_size = sizeof(struct mr500_priv),
 };
 
@@ -202,6 +203,7 @@ const struct router_type mr600 = {
 	.detect_main = mr600_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -248,6 +250,7 @@ const struct router_type mr900 = {
 	.detect_main = mr900_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -297,6 +300,7 @@ const struct router_type mr1750 = {
 	.detect_main = mr1750_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -378,6 +382,7 @@ const struct router_type om2p = {
 	.detect_main = om2p_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf8},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -427,6 +432,7 @@ const struct router_type a40 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "A60",
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -475,6 +481,7 @@ const struct router_type a60 = {
 	.detect_main = a60_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -524,6 +531,7 @@ const struct router_type a42 = {
 	.detect_main = a42_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -573,6 +581,7 @@ const struct router_type a62 = {
 	.detect_main = a62_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -622,6 +631,7 @@ const struct router_type om5p = {
 	.detect_main = om5p_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf8},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -672,6 +682,7 @@ const struct router_type om5pan = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "OM5P",
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -722,6 +733,7 @@ const struct router_type om5pac = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "OM5PAC",
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -772,6 +784,7 @@ const struct router_type p60 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "P60",
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf8},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -822,6 +835,8 @@ const struct router_type d200 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "D200",
+	/* TODO confirm the used mac addresses */
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -872,6 +887,8 @@ const struct router_type g200 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "G200",
+	/* TODO confirm the used mac addresses */
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.priv_size = sizeof(struct om2p_priv),
 };
 
@@ -922,5 +939,6 @@ const struct router_type zyxel = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_zyxel,
 	.image_desc = "Zyxel",
+	.mac_mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	.priv_size = sizeof(struct om2p_priv),
 };
