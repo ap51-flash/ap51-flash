@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "compat.h"
 #include "list.h"
@@ -130,6 +131,7 @@ static void node_list_free(void)
 static void node_list_maintain(void)
 {
 	struct list *list, *list_tmp;
+	struct timespec now;
 	struct node *node;
 	int ret;
 
@@ -168,6 +170,13 @@ static void node_list_maintain(void)
 		case NODE_STATUS_FINISHED:
 			if (node->flash_mode != FLASH_MODE_TFTP_CLIENT)
 				break;
+
+			clock_gettime(CLOCK_MONOTONIC, &now);
+			printf("%s:%u [%02x:%02x:%02x:%02x:%02x:%02x] %lu.%09lu\n", __func__, __LINE__,
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
+				now.tv_sec, now.tv_nsec);
 
 			ret = tftp_client_flash_completed(node);
 			if (ret == 0)

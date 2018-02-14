@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "ap51-flash.h"
 #include "compat.h"
@@ -192,6 +193,7 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
 	struct ether_arp *arphdr;
+	struct timespec now;
 	int ret;
 
 	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
@@ -248,6 +250,13 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		printf("%s:%u [%02x:%02x:%02x:%02x:%02x:%02x] %lu.%09lu\n", __func__, __LINE__,
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
+			now.tv_sec, now.tv_nsec);
+
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
 			node->his_mac_addr[0], node->his_mac_addr[1],
 			node->his_mac_addr[2], node->his_mac_addr[3],
@@ -507,6 +516,7 @@ static void handle_bootp_packet(const char *packet_buff __attribute__((unused)),
 				struct node *node)
 {
 	int ret;
+	struct timespec now;
 
 	switch (node->status) {
 	case NODE_STATUS_UNKNOWN:
@@ -519,6 +529,13 @@ static void handle_bootp_packet(const char *packet_buff __attribute__((unused)),
 		/* ignored */
 		break;
 	case NODE_STATUS_FINISHED:
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		printf("%s:%u [%02x:%02x:%02x:%02x:%02x:%02x] %lu.%09lu\n", __func__, __LINE__,
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
+			now.tv_sec, now.tv_nsec);
+
 		if (node->flash_mode == FLASH_MODE_TFTP_CLIENT) {
 			ret = tftp_client_flash_completed(node);
 			if (ret == 0)
