@@ -53,6 +53,7 @@ enum tcp_packet_type {
 			 sizeof(struct tcphdr))
 
 static char *out_packet_buff;
+static char *out_packet_buff_align;
 static struct ether_header *out_ethhdr;
 static struct ether_arp *out_arphdr;
 static struct iphdr *out_iphdr;
@@ -848,9 +849,11 @@ int proto_init(void)
 {
 	int ret = -1;
 
-	out_packet_buff = malloc(PACKET_BUFF_LEN);
-	if (!out_packet_buff)
+	out_packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
+	if (!out_packet_buff_align)
 		goto out;
+
+	out_packet_buff = &out_packet_buff_align[NET_IP_ALIGN];
 
 	out_ethhdr = (struct ether_header *)out_packet_buff;
 	out_arphdr = (struct ether_arp *)(out_packet_buff + ETH_HLEN);
@@ -865,5 +868,5 @@ out:
 
 void proto_free(void)
 {
-	free(out_packet_buff);
+	free(out_packet_buff_align);
 }

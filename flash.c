@@ -41,7 +41,6 @@ static uint8_t our_mac[] = {0x00, 0xba, 0xbe, 0xca, 0xff, 0x00};
 int num_nodes_flashed = 0;
 #endif
 
-#define NET_IP_ALIGN 2
 #define PACKET_BUFF_LEN 2000
 #define READ_SLEEP_SEC 0
 #define READ_SLEEP_USEC 250000

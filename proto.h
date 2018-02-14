@@ -27,6 +27,8 @@
 
 struct node;
 
+#define NET_IP_ALIGN 2
+
 enum tcp_status {
 	TCP_STATUS_SYN_SENT,
 	TCP_STATUS_ESTABLISHED,
