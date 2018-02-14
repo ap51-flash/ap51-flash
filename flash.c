@@ -41,6 +41,7 @@ static uint8_t our_mac[] = {0x00, 0xba, 0xbe, 0xca, 0xff, 0x00};
 int num_nodes_flashed = 0;
 #endif
 
+#define NET_IP_ALIGN 2
 #define PACKET_BUFF_LEN 2000
 #define READ_SLEEP_SEC 0
 #define READ_SLEEP_USEC 250000
@@ -204,6 +205,7 @@ static void sig_handler(int signal)
 
 int flash_start(const char *iface)
 {
+	char *packet_buff_align;
 	char *packet_buff;
 	int ret, sleep_sec, sleep_usec;
 
@@ -215,9 +217,11 @@ int flash_start(const char *iface)
 	if (ret < 0)
 		goto sock_close;
 
-	packet_buff = malloc(PACKET_BUFF_LEN);
-	if (!packet_buff)
+	packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
+	if (!packet_buff_align)
 		goto list_free;
+
+	packet_buff = &packet_buff_align[NET_IP_ALIGN];
 
 	ret = proto_init();
 	if (ret < 0)
@@ -258,7 +262,7 @@ reset_sleep:
 proto_free:
 	proto_free();
 pack_free:
-	free(packet_buff);
+	free(packet_buff_align);
 list_free:
 	node_list_free();
 sock_close:
