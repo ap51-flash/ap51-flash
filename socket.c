@@ -527,7 +527,7 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
 	if (ret <= 0)
 		goto out;
 
-	read_len = read(raw_sock, packet_buff, packet_buff_len);
+	read_len = read(raw_sock, packet_buff, packet_buff_len - 1);
 
 	if (read_len < 0) {
 		if ((errno != EWOULDBLOCK) && (errno != EINTR))
@@ -536,9 +536,7 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
 	}
 
 	ret = (int)read_len;
-
-	if (read_len > 0)
-		packet_buff[read_len] = '\0';
+	packet_buff[read_len] = '\0';
 
 out:
 	return ret;
