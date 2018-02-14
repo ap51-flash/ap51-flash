@@ -264,8 +264,8 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	}
 }
 
-static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
-			      struct node *node)
+static void handle_tftp_packet(const char *packet_buff, int packet_buff_len,
+			       struct node *node)
 {
 	struct udphdr *udphdr;
 	struct file_info *file_info;
@@ -500,6 +500,80 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 
 out:
 	return;
+}
+
+static void handle_bootp_packet(const char *packet_buff __attribute__((unused)),
+				int packet_buff_len __attribute__((unused)),
+				struct node *node)
+{
+	int ret;
+
+	switch (node->status) {
+	case NODE_STATUS_UNKNOWN:
+	case NODE_STATUS_RESET_SENT:
+	case NODE_STATUS_DETECTING:
+	case NODE_STATUS_DETECTED:
+	case NODE_STATUS_FLASHING:
+	case NODE_STATUS_REBOOTED:
+	case NODE_STATUS_NO_FLASH:
+		/* ignored */
+		break;
+	case NODE_STATUS_FINISHED:
+		if (node->flash_mode == FLASH_MODE_TFTP_CLIENT) {
+			ret = tftp_client_flash_completed(node);
+			if (ret == 0)
+				break;
+
+			node->status = NODE_STATUS_REBOOTED;
+
+			/* MR500 devices all have the same mac address during flash .. :( */
+			if (node->router_type == &mr500) {
+				node->status = NODE_STATUS_UNKNOWN;
+				node->flash_mode = FLASH_MODE_UKNOWN;
+				memset((void *)&node->image_state, 0,
+				sizeof(struct image_state));
+				node->image_state.fd = -1;
+			}
+		} else {
+			node->status = NODE_STATUS_REBOOTED;
+		}
+
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
+			node->his_mac_addr[0], node->his_mac_addr[1],
+			node->his_mac_addr[2], node->his_mac_addr[3],
+			node->his_mac_addr[4], node->his_mac_addr[5],
+			node->router_type->desc);
+#if defined(CLEAR_SCREEN)
+		num_nodes_flashed++;
+#endif
+		break;
+	}
+}
+
+static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
+			      struct node *node, bool is_bcast)
+{
+	struct udphdr *udphdr;
+
+	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
+		return;
+
+	udphdr = (struct udphdr *)packet_buff;
+
+	if (udphdr->source == htons(IPPORT_TFTP) ||
+	    udphdr->dest == htons(IPPORT_TFTP)) {
+		/* multicast tftp is not supported */
+		if (is_bcast)
+			return;
+
+		handle_tftp_packet(packet_buff, packet_buff_len, node);
+	} else if (udphdr->dest == htons(IPPORT_BOOTP)) {
+		/* only wait for DHCP discover and similar packets */
+		if (!is_bcast)
+			return;
+
+		handle_bootp_packet(packet_buff, packet_buff_len, node);
+	}
 }
 
 static void tcp_init_state(struct node *node)
@@ -745,7 +819,7 @@ out:
 }
 
 static void handle_ip_packet(char *packet_buff, int packet_buff_len,
-			     struct node *node)
+			     struct node *node, bool is_bcast)
 {
 	struct iphdr *iphdr;
 	size_t iphdr_len;
@@ -769,16 +843,20 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 		break;
 	case NODE_STATUS_UNKNOWN:
 	case NODE_STATUS_DETECTING:
-	case NODE_STATUS_FINISHED:
 	case NODE_STATUS_NO_FLASH:
 	default:
 		return;
+	case NODE_STATUS_FINISHED:
+		/* wait for bootp to finish flashing */
+		if (is_bcast)
+			break;
+		return;
 	}
 
-	if (iphdr->saddr != node->his_ip_addr)
+	if (iphdr->saddr != node->his_ip_addr && !is_bcast)
 		return;
 
-	if (iphdr->daddr != node->our_ip_addr)
+	if (iphdr->daddr != node->our_ip_addr && !is_bcast)
 		return;
 
 	length = ntohs(iphdr->tot_len);
@@ -791,9 +869,12 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 	switch (iphdr->protocol) {
 	case IPPROTO_UDP:
 		handle_udp_packet(packet_buff + iphdr_len, length - iphdr_len,
-				  node);
+				  node, is_bcast);
 		break;
 	case IPPROTO_TCP:
+		if (is_bcast)
+			break;
+
 		if (node->flash_mode != FLASH_MODE_REDBOOT)
 			break;
 
@@ -810,6 +891,7 @@ void handle_eth_packet(char *packet_buff, int packet_buff_len)
 	struct ether_header *eth_hdr;
 	struct node *node;
 	uint8_t bcast_addr[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	bool is_bcast;
 
 	if (!len_check(packet_buff_len, ETH_HLEN, "ethernet"))
 		return;
@@ -828,16 +910,14 @@ void handle_eth_packet(char *packet_buff, int packet_buff_len)
 				  node);
 		break;
 	case ETH_P_IP:
-		if (memcmp(eth_hdr->ether_dhost, bcast_addr, ETH_ALEN) == 0)
-			return;
+		is_bcast = memcmp(eth_hdr->ether_dhost, bcast_addr, ETH_ALEN) == 0;
 
 		node = node_list_get(eth_hdr->ether_shost);
 		if (!node)
 			return;
 
 		handle_ip_packet(packet_buff + ETH_HLEN,
-				 packet_buff_len - ETH_HLEN,
-				 node);
+				 packet_buff_len - ETH_HLEN, node, is_bcast);
 		break;
 	default:
 		/* silently drop packet */
