@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 struct node;
 
@@ -67,6 +68,20 @@ int telnet_send_cmd(struct node *node, const char *cmd);
 void handle_eth_packet(char *packet_buff, int packet_buff_len);
 int proto_init(void);
 void proto_free(void);
+
+static inline void store_ip_addr(void *dst, uint32_t ip)
+{
+	memcpy(dst, &ip, sizeof(ip));
+}
+
+static inline uint32_t load_ip_addr(void *src)
+{
+	uint32_t ip;
+
+	memcpy(&ip, src, sizeof(ip));
+
+	return ip;
+}
 
 #if defined(DEBUG)
 static inline int len_check(int buff_len, int req_len, char *desc)

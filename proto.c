@@ -103,8 +103,8 @@ static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac,
 
 	out_arphdr->ea_hdr.ar_op = htons(arp_type);
 	memcpy(out_arphdr->arp_sha, src_mac, ETH_ALEN);
-	*((unsigned int *)out_arphdr->arp_spa) = src_ip;
-	*((unsigned int *)out_arphdr->arp_tpa) = dst_ip;
+	store_ip_addr(out_arphdr->arp_spa, src_ip);
+	store_ip_addr(out_arphdr->arp_tpa, dst_ip);
 }
 
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,

@@ -57,7 +57,7 @@ static int ubnt_detect_main(void *priv, const char *packet_buff,
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REPLY))
 		goto out;
 
-	if (*((unsigned int *)arphdr->arp_spa) != htonl(ubnt_ip))
+	if (load_ip_addr(arphdr->arp_spa) != htonl(ubnt_ip))
 		goto out;
 
 	if (ubnt_priv->arp_count < 20) {
@@ -82,8 +82,8 @@ static void ubnt_detect_post(struct node *node, const char *packet_buff,
 	arphdr = (struct ether_arp *)packet_buff;
 
 	node->flash_mode = FLASH_MODE_TFTP_SERVER;
-	node->his_ip_addr = *((unsigned int *)(arphdr->arp_spa));
-	node->our_ip_addr = *((unsigned int *)(arphdr->arp_tpa));
+	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);
+	node->our_ip_addr = load_ip_addr(arphdr->arp_tpa);
 
 out:
 	return;

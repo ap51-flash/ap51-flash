@@ -331,14 +331,14 @@ static int redboot_detect_main(void *priv, const char *packet_buff,
 		goto out;
 
 	/* we are waiting for gratuitous ARP requests */
-	if (*((unsigned int *)arphdr->arp_spa) != *((unsigned int *)arphdr->arp_tpa))
+	if (load_ip_addr(arphdr->arp_spa) != load_ip_addr(arphdr->arp_tpa))
 		goto out;
 
 	/**
 	 * use gratuitous ARP requests from ubnt devices with care
 	 * the ubnt pico can be in redboot or tftp server mode
 	 */
-	if (*((unsigned int *)arphdr->arp_spa) == htonl(ubnt_ip)) {
+	if (load_ip_addr(arphdr->arp_spa) == htonl(ubnt_ip)) {
 		if (redboot_priv->arp_count < 5) {
 			redboot_priv->arp_count++;
 			goto out;
@@ -370,8 +370,8 @@ static void redboot_detect_post(struct node *node, const char *packet_buff,
 		arphdr->arp_tpa[3] = 20;
 
 	node->flash_mode = FLASH_MODE_REDBOOT;
-	node->his_ip_addr = *((unsigned int *)(arphdr->arp_spa));
-	node->our_ip_addr = *((unsigned int *)(arphdr->arp_tpa));
+	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);
+	node->our_ip_addr = load_ip_addr(arphdr->arp_tpa);
 
 out:
 	return;

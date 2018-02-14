@@ -55,8 +55,8 @@ static void tftp_client_detect_post(struct node *node, const char *packet_buff,
 	arphdr = (struct ether_arp *)packet_buff;
 
 	node->flash_mode = FLASH_MODE_TFTP_CLIENT;
-	node->his_ip_addr = *((unsigned int *)(arphdr->arp_spa));
-	node->our_ip_addr = *((unsigned int *)(arphdr->arp_tpa));
+	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);
+	node->our_ip_addr = load_ip_addr(arphdr->arp_tpa);
 
 out:
 	return;
