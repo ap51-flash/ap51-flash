@@ -26,6 +26,7 @@ extern const struct router_type  pa300;
 extern const struct router_type  pa1200;
 extern const struct router_type  pa2200;
 extern const struct router_type  zyxel;
+extern const struct router_type  glinet;
 
 void tftp_client_flash_time_set(struct node *node);
 int tftp_client_flash_completed(struct node *node);

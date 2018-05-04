@@ -28,6 +28,10 @@ Tested
 
   - DIR-300 (after installing a reflash-enabled redboot)
 
+* GL-iNet
+
+  - GL-AR750
+
 * Engenius
 
   - EOC-1650

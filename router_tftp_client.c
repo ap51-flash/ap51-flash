@@ -19,6 +19,7 @@
 static const unsigned int mr500_ip = 3232260872UL; /* 192.168.99.8 */
 static const unsigned int om2p_ip = 3232261128UL; /* 192.168.100.8 */
 static const unsigned int zyxel_ip = 3232235875UL; /* 192.168.1.99 */
+static const unsigned int glinet_ip = 3232235778UL; /* 192.168.1.2 */
 
 struct mr500_priv {
 	time_t start_flash;
@@ -192,6 +193,55 @@ const struct router_type mr600 = {
 	.detect_main = mr600_detect_main,
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int glinet_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(glinet_ip))
+		goto out;
+
+	if (arphdr->arp_sha[0] != 0x00)
+		goto out;
+
+	if (arphdr->arp_sha[1] != 0x03)
+		goto out;
+
+	if (arphdr->arp_sha[2] != 0x7f)
+		goto out;
+
+	if (arphdr->arp_sha[3] != 0x09)
+		goto out;
+
+	if (arphdr->arp_sha[4] != 0x0b)
+		goto out;
+
+	if (arphdr->arp_sha[5] != 0xad)
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+const struct router_type glinet = {
+	.desc = "glinet (unknown device)",
+	.detect_pre = NULL,
+	.detect_main = glinet_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_uboot,
 	.priv_size = sizeof(struct om2p_priv),
 };
 
