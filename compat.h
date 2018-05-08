@@ -28,6 +28,7 @@
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netpacket/packet.h>
@@ -102,6 +103,10 @@ struct ether_arp {
 #define IPPORT_TFTP	69
 #endif
 
+#ifndef IPPORT_ICMP
+#define IPPORT_ICMP	1
+#endif
+
 #if USE_PCAP
 
 #define ETH_P_IP	0x0800
@@ -128,6 +133,7 @@ struct ether_arp {
 #define iphdr iphdr_linux
 #define udphdr udphdr_linux
 #define tcphdr tcphdr_linux
+#define icmphdr icmphdr_linux
 
 struct iphdr_linux {
     uint8_t ihl:4;
@@ -168,6 +174,24 @@ struct tcphdr_linux {
     uint16_t window;
     uint16_t check;
     uint16_t urg_ptr;
+};
+
+struct icmphdr_linux
+{
+	uint8_t type;		/* message type */
+	uint8_t code;		/* type sub-code */
+	uint16_t checksum;
+	union {
+		struct {
+			uint16_t	id;
+			uint16_t	sequence;
+		} echo; /* echo datagram */
+		uint32_t gateway; /* gateway address */
+		struct {
+			uint16_t __unused;
+			uint16_t mtu;
+		} frag; /* path mtu discovery */
+	} un;
 };
 
 #endif

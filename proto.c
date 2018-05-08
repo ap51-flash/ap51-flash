@@ -59,6 +59,7 @@ static struct ether_arp *out_arphdr;
 static struct iphdr *out_iphdr;
 static struct udphdr *out_udphdr;
 static char *out_tftp_data;
+static struct icmphdr *out_icmphdr;
 
 
 static unsigned short chksum(unsigned short sum, const unsigned char *data,
@@ -744,6 +745,64 @@ out:
 	return;
 }
 
+static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
+			      struct node *node)
+{
+	struct icmphdr *icmphdr;
+	size_t len;
+
+	if (!len_check(packet_buff_len, sizeof(struct icmphdr), "ICMP"))
+		goto out;
+
+	icmphdr = (struct icmphdr *)packet_buff;
+
+	/* not echo request */
+	if (icmphdr->type != 8)
+		goto out;
+
+	if (icmphdr->code != 0)
+		goto out;
+
+	len = 0;
+	memcpy(out_ethhdr->ether_dhost, node->his_mac_addr, ETH_ALEN);
+	memcpy(out_ethhdr->ether_shost, node->our_mac_addr, ETH_ALEN);
+	out_ethhdr->ether_type = htons(ETH_P_IP);
+
+	len += sizeof(*out_ethhdr);
+
+	out_iphdr->version = 4;
+	out_iphdr->ihl = 5;
+	out_iphdr->tos = 0;
+	out_iphdr->id = 0;
+	out_iphdr->frag_off = 0;
+	out_iphdr->ttl = 50;
+	out_iphdr->protocol = IPPROTO_ICMP;
+	out_iphdr->saddr = node->our_ip_addr;
+	out_iphdr->daddr = node->his_ip_addr;
+
+	out_iphdr->tot_len = htons(sizeof(*out_iphdr) + sizeof(*out_icmphdr));
+	out_iphdr->check = 0;
+	out_iphdr->check = ~(htons(chksum(0, (void *)out_iphdr,
+					  sizeof(*out_iphdr))));
+
+	len += sizeof(*out_iphdr);
+
+	out_icmphdr->type = 0;
+	out_icmphdr->code = 0;
+	out_icmphdr->un.echo.id = icmphdr->un.echo.id;
+	out_icmphdr->un.echo.sequence = icmphdr->un.echo.sequence;
+
+	out_icmphdr->checksum = 0;
+	out_icmphdr->checksum = ~(htons(chksum(0, (void *)out_icmphdr,
+					       sizeof(*out_icmphdr))));
+
+	len += sizeof(*out_icmphdr);
+
+	socket_write(out_packet_buff, len);
+out:
+	return;
+}
+
 static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 			     struct node *node)
 {
@@ -799,6 +858,10 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 
 		handle_tcp_packet(packet_buff + iphdr_len, length - iphdr_len,
 				  node);
+		break;
+	case IPPROTO_ICMP:
+		handle_icmp_packet(packet_buff + iphdr_len, length - iphdr_len,
+				   node);
 		break;
 	}
 
@@ -860,6 +923,7 @@ int proto_init(void)
 	out_iphdr = (struct iphdr *)(out_packet_buff + ETH_HLEN);
 	out_udphdr = (struct udphdr *)(out_packet_buff + ETH_HLEN + sizeof(struct iphdr));
 	out_tftp_data = (void *)(out_packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr));
+	out_icmphdr = (struct icmphdr *)(out_packet_buff + ETH_HLEN + sizeof(struct iphdr));
 	ret = 0;
 
 out:
