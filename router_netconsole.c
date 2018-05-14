@@ -29,6 +29,12 @@
 #include "router_images.h"
 #include "router_types.h"
 
+static const unsigned int ap121f_ip = 3232235777UL; /* 192.168.1.1 */
+static const unsigned int my_ip = 3232235778UL;  /* 192.168.1.2 */
+
+static const uint8_t zero_mac[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static const uint8_t ap121f_mac[] = { 0x00, 0x03, 0x7f, 0x09, 0x0b, 0xad };
+
 enum netconsole_state {
 	NETCONSOLE_STATE_WAITING,
 	NETCONSOLE_STATE_STARTED,
@@ -38,6 +44,65 @@ enum netconsole_state {
 
 struct netconsole_priv {
 	enum netconsole_state state;
+};
+
+static int ap121f_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_spa) != htonl(ap121f_ip))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(my_ip))
+		goto out;
+
+	if (memcmp(arphdr->arp_sha, ap121f_mac, ETH_ALEN))
+		goto out;
+
+	if (memcmp(arphdr->arp_tha, zero_mac, ETH_ALEN))
+		goto out;
+
+	ret = 1;
+
+out:
+	return ret;
+}
+
+static void netconsole_detect_post(struct node *node, const char *packet_buff,
+				   int packet_buff_len)
+{
+	struct netconsole_priv *priv = node->router_priv;
+	struct ether_arp *arphdr;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+
+	node->flash_mode = FLASH_MODE_NETCONSOLE;
+	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);
+	node->our_ip_addr = load_ip_addr(arphdr->arp_tpa);
+	priv->state = NETCONSOLE_STATE_WAITING;
+
+out:
+	return;
+}
+
+const struct router_type ap121f = {
+	.desc = "Alfa AP121F",
+	.detect_main = ap121f_detect_main,
+	.detect_post = netconsole_detect_post,
+	.image = &img_uboot,
+	.priv_size = sizeof(struct netconsole_priv),
 };
 
 void handle_netconsole_packet(const char *packet_buff, int packet_buff_len,

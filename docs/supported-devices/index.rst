@@ -16,6 +16,10 @@ quite common amongst a variety of devices.
 Tested
 ======
 
+* Alfa
+
+  - AP121F
+
 * Dlink
 
   - DIR-300 (after installing a reflash-enabled redboot)

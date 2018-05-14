@@ -294,6 +294,10 @@ static int uboot_verify(struct router_image *router_image, const char *buff,
 	if (ret)
 		return 0;
 
+	ret = router_image_add_file(router_image, "firmware.bin", size, size, 0);
+	if (ret)
+		return 0;
+
 	router_image->file_size = size;
 	return 1;
 }

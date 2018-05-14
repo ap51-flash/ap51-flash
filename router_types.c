@@ -57,6 +57,7 @@ static const struct router_type *router_types[] = {
 	&redboot,
 	&ubnt,
 	&zyxel,
+	&ap121f,
 	NULL,
 };
 

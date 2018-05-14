@@ -26,6 +26,8 @@
 
 struct node;
 
+extern const struct router_type ap121f;
+
 void handle_netconsole_packet(const char *packet_buff, int packet_buff_len,
 			      struct node *node);
 
