@@ -135,6 +135,7 @@ static void node_list_maintain(void)
 				telnet_handle_connection(node);
 				break;
 			case FLASH_MODE_TFTP_CLIENT:
+			case FLASH_MODE_NETCONSOLE:
 				/* ignored; handled in handle_udp_packet */
 				break;
 			case FLASH_MODE_UKNOWN:

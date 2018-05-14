@@ -31,6 +31,7 @@ enum flash_mode {
 	FLASH_MODE_REDBOOT,
 	FLASH_MODE_TFTP_SERVER,
 	FLASH_MODE_TFTP_CLIENT,
+	FLASH_MODE_NETCONSOLE,
 };
 
 enum node_status {

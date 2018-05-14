@@ -32,6 +32,7 @@
 #include "router_images.h"
 #include "router_redboot.h"
 #include "router_tftp_client.h"
+#include "router_netconsole.h"
 #include "router_types.h"
 #include "socket.h"
 
@@ -189,6 +190,28 @@ int tftp_init_upload(struct node *node)
 				     htons(IPPORT_TFTP), data_len);
 }
 
+int netconsole_reset(struct node *node)
+{
+	int data_len;
+
+	/* finished - send reset command to reboot the router */
+	data_len = sprintf(out_tftp_data, "reset\n");
+
+	return tftp_packet_send_data(node, htons(IPPORT_NETCONSOLE),
+				     htons(IPPORT_NETCONSOLE), data_len);
+}
+
+int netconsole_init_upload(struct node *node)
+{
+	int data_len;
+
+	/* TFTP start command */
+	data_len = sprintf(out_tftp_data, "run fw_upg\n");
+
+	return tftp_packet_send_data(node, htons(IPPORT_NETCONSOLE),
+				     htons(IPPORT_NETCONSOLE), data_len);
+}
+
 static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
@@ -244,20 +267,23 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 		if (ntohs(arphdr->ea_hdr.ar_op) != ARPOP_REQUEST)
 			break;
 
-		arp_rep_send(node->our_mac_addr, node->his_mac_addr,
-			     node->our_ip_addr, node->his_ip_addr);
+		arp_rep_send(node->our_mac_addr, arphdr->arp_sha,
+			     load_ip_addr(arphdr->arp_tpa),
+			     load_ip_addr(arphdr->arp_spa));
 		break;
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
-			node->his_mac_addr[0], node->his_mac_addr[1],
-			node->his_mac_addr[2], node->his_mac_addr[3],
-			node->his_mac_addr[4], node->his_mac_addr[5],
-			node->router_type->desc);
-		node->status = NODE_STATUS_REBOOTED;
+		if (node->flash_mode != FLASH_MODE_NETCONSOLE) {
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
+				node->router_type->desc);
+			node->status = NODE_STATUS_REBOOTED;
 #if defined(CLEAR_SCREEN)
-		num_nodes_flashed++;
+			num_nodes_flashed++;
 #endif
+		}
 		break;
 	case NODE_STATUS_REBOOTED:
 	case NODE_STATUS_NO_FLASH:
@@ -281,6 +307,14 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	udphdr = (struct udphdr *)packet_buff;
 
 	switch (node->flash_mode) {
+	case FLASH_MODE_NETCONSOLE:
+		if (udphdr->dest == htons(IPPORT_NETCONSOLE)) {
+			size_t len = sizeof(*udphdr);
+			handle_netconsole_packet(packet_buff + len,
+						 packet_buff_len - len, node);
+			return;
+		}
+		/* fall through */
 	case FLASH_MODE_REDBOOT:
 	case FLASH_MODE_TFTP_CLIENT:
 		if (udphdr->dest != htons(IPPORT_TFTP))
@@ -314,6 +348,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			break;
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
+		case FLASH_MODE_NETCONSOLE:
 			file_info = router_image_get_file(node->router_type,
 							  file_name);
 			if (!file_info) {
@@ -422,6 +457,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					switch (node->flash_mode) {
 					case FLASH_MODE_TFTP_SERVER:
 					case FLASH_MODE_TFTP_CLIENT:
+					case FLASH_MODE_NETCONSOLE:
 						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: image successfully transmitted - writing image to flash ...\n",
 							node->his_mac_addr[0],
 							node->his_mac_addr[1],
@@ -826,9 +862,14 @@ static void handle_ip_packet(char *packet_buff, int packet_buff_len,
 	case NODE_STATUS_FLASHING:
 	case NODE_STATUS_RESET_SENT:
 		break;
+	case NODE_STATUS_FINISHED:
+		/* in netconsole mode a 'reset' command is still required to
+		 * reboot the router
+		 */
+		if (node->flash_mode == FLASH_MODE_NETCONSOLE)
+			break;
 	case NODE_STATUS_UNKNOWN:
 	case NODE_STATUS_DETECTING:
-	case NODE_STATUS_FINISHED:
 	case NODE_STATUS_NO_FLASH:
 	default:
 		return;
