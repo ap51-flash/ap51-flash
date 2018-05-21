@@ -64,42 +64,20 @@ void handle_netconsole_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	case NETCONSOLE_STATE_STARTED:
 		/* check if we received the completion message */
-		if (packet_buff_len >= (int)strlen(DONE_STR) &&
-		    strncmp(packet_buff, DONE_STR, strlen(DONE_STR)) == 0) {
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Waiting for console.\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc);
-
-			priv->state = NETCONSOLE_STATE_DONE;
-			break;
-		}
-		/* fall through */
-	case NETCONSOLE_STATE_DONE:
-		if (packet_buff_len < (int)strlen(PROMPT_STR))
+		if (packet_buff_len < (int)strlen(DONE_STR))
 			return;
 
-		if (strncmp(packet_buff, PROMPT_STR, strlen(PROMPT_STR)) != 0)
+		if (strncmp(packet_buff, DONE_STR, strlen(DONE_STR)) != 0)
 			return;
 
-		if (priv->state == NETCONSOLE_STATE_STARTED) {
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: WARNING reflash - finished but no completion message was received.\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc);
-		}
-
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: rebooting.\n",
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Rebooting\n",
 			node->his_mac_addr[0], node->his_mac_addr[1],
 			node->his_mac_addr[2], node->his_mac_addr[3],
 			node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
 
-		netconsole_reset(node);
+		priv->state = NODE_STATUS_REBOOTED;
 
-		node->status = NODE_STATUS_REBOOTED;
 #if defined(CLEAR_SCREEN)
 		num_nodes_flashed++;
 #endif

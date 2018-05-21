@@ -190,23 +190,12 @@ int tftp_init_upload(struct node *node)
 				     htons(IPPORT_TFTP), data_len);
 }
 
-int netconsole_reset(struct node *node)
-{
-	int data_len;
-
-	/* finished - send reset command to reboot the router */
-	data_len = sprintf(out_tftp_data, "reset\n");
-
-	return tftp_packet_send_data(node, htons(IPPORT_NETCONSOLE),
-				     htons(IPPORT_NETCONSOLE), data_len);
-}
-
 int netconsole_init_upload(struct node *node)
 {
 	int data_len;
 
-	/* TFTP start command */
-	data_len = sprintf(out_tftp_data, "run fw_upg\n");
+	/* TFTP start command and reset (for subsequential reboot) */
+	data_len = sprintf(out_tftp_data, "run fw_upg; reset\n");
 
 	return tftp_packet_send_data(node, htons(IPPORT_NETCONSOLE),
 				     htons(IPPORT_NETCONSOLE), data_len);
