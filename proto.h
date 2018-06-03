@@ -63,7 +63,6 @@ struct image_state {
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
 		 unsigned int src_ip, unsigned int dst_ip);
 int tftp_init_upload(struct node *node);
-int netconsole_reset(struct node *node);
 int netconsole_init_upload(struct node *node);
 void telnet_handle_connection(struct node *node);
 int telnet_send_cmd(struct node *node, const char *cmd);
