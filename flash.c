@@ -164,15 +164,6 @@ static void node_list_maintain(void)
 				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc);
 			node->status = NODE_STATUS_REBOOTED;
-
-			/* MR500 devices all have the same mac address during flash .. :( */
-			if (node->router_type == &mr500) {
-				node->status = NODE_STATUS_UNKNOWN;
-				node->flash_mode = FLASH_MODE_UKNOWN;
-				memset((void *)&node->image_state, 0,
-				       sizeof(struct image_state));
-				node->image_state.fd = -1;
-			}
 #if defined(CLEAR_SCREEN)
 			num_nodes_flashed++;
 #endif
