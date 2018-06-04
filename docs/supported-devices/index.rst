@@ -16,7 +16,7 @@ quite common amongst a variety of devices.
 Tested
 ======
 
-* Alfa
+* Alfa Network
 
   - AP121F
 

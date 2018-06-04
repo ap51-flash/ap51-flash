@@ -98,7 +98,7 @@ out:
 }
 
 const struct router_type ap121f = {
-	.desc = "Alfa AP121F",
+	.desc = "Alfa Network AP121F",
 	.detect_main = ap121f_detect_main,
 	.detect_post = netconsole_detect_post,
 	.image = &img_uboot,
