@@ -30,7 +30,7 @@
 #include "socket.h"
 
 #ifndef SOURCE_VERSION
-#define SOURCE_VERSION "2018.0"
+#define SOURCE_VERSION "2018.0+"
 #endif
 
 static void usage(const char *prgname)
