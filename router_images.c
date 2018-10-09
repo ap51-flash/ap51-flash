@@ -512,14 +512,39 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 static int zyxel_verify(struct router_image *router_image, const char *buff,
                        unsigned int buff_len, int size)
 {
+	/* zyxel header:
+	 *   4 bytes:  checksum of the rootfs image
+	 *   4 bytes:  length of the contained rootfs image file (big endian)
+	 *  32 bytes:  Firmware Version string (NUL terminated, 0xff padded)
+	 *   4 bytes:  checksum over the header partition (big endian - see below)
+	 *  64 bytes:  Model (e.g. "NBG6617", NUL termiated, 0xff padded)
+	 *   4 bytes:  checksum of the kernel partition
+	 *   4 bytes:  length of the contained kernel image file (big endian)
+	 *      rest:  0xff padding (To erase block size)
+	 */
+	struct zyxel_header {
+		uint32_t rootfs_chksum;
+		uint32_t rootfs_size;
+		char firmware_version[32];
+		uint32_t header_chksum;
+		char model[64];
+		uint32_t kernel_chksum;
+		uint32_t kernel_size;
+	};
+
+	struct zyxel_header *zyxel_header;
+	unsigned kernel_size, rootfs_size;
+	unsigned zyxel_hdr_size = 64 * 1024;
 	int ret;
 
-	if (buff_len < 12)
+	if (buff_len < sizeof(*zyxel_header))
 		return 0;
-	/* zyxel undocumented header */
-	if ((buff[0] != 0x0) || (buff[1] != 0x0) ||
-	    (buff[8] != 0x56) || (buff[9] != 0x31) ||
-	    (buff[10] != 0x2e) || (buff[11] != 0x30))
+
+	zyxel_header = (struct zyxel_header *)buff;
+	kernel_size = ntohl(zyxel_header->kernel_size);
+	rootfs_size = ntohl(zyxel_header->rootfs_size);
+
+	if ((unsigned)size != zyxel_hdr_size + kernel_size + rootfs_size)
 		return 0;
 
 	ret = router_image_add_file(router_image, "ras.bin", size, size, 0);
