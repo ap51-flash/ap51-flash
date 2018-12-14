@@ -61,6 +61,7 @@ Tested
 
 * Plasma Cloud
 
+  - PA1200
   - PA2200
 
 * Ubiquiti

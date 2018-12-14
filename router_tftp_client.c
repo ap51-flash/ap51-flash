@@ -68,6 +68,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &p60) ||
 		   (node->router_type == &d200) ||
 		   (node->router_type == &g200) ||
+		   (node->router_type == &pa1200) ||
 		   (node->router_type == &pa2200) ||
 		   (node->router_type == &zyxel)) {
 
@@ -99,6 +100,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &p60) ||
 		   (node->router_type == &d200) ||
 		   (node->router_type == &g200) ||
+		   (node->router_type == &pa1200) ||
 		   (node->router_type == &pa2200) ||
 		   (node->router_type == &zyxel)) {
 
@@ -858,6 +860,51 @@ const struct router_type g200 = {
 	.detect_post = tftp_client_detect_post,
 	.image = &img_ce,
 	.image_desc = "G200",
+	.priv_size = sizeof(struct om2p_priv),
+};
+
+static int pa1200_detect_main(void (*priv)__attribute__((unused)),
+			      const char *packet_buff, int packet_buff_len)
+{
+	struct ether_arp *arphdr;
+	int ret = 0;
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		goto out;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
+		goto out;
+
+	if ((arphdr->arp_tha[0] == 'R') &&
+	    (arphdr->arp_tha[1] == 'K') &&
+	    (arphdr->arp_tha[2] == '1') &&
+	    (arphdr->arp_tha[3] == '2') &&
+	    (arphdr->arp_tha[4] == '0') &&
+	    (arphdr->arp_tha[5] == '0'))
+		return 1;
+
+	if ((arphdr->arp_tha[0] == 'P') &&
+	    (arphdr->arp_tha[1] == 'A') &&
+	    (arphdr->arp_tha[2] == '1') &&
+	    (arphdr->arp_tha[3] == '2') &&
+	    (arphdr->arp_tha[4] == '0') &&
+	    (arphdr->arp_tha[5] == '0'))
+		return 1;
+
+out:
+	return ret;
+}
+
+const struct router_type pa1200 = {
+	.desc = "PA1200",
+	.detect_pre = NULL,
+	.detect_main = pa1200_detect_main,
+	.detect_post = tftp_client_detect_post,
+	.image = &img_ce,
 	.priv_size = sizeof(struct om2p_priv),
 };
 

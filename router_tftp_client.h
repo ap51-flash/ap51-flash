@@ -22,6 +22,7 @@ extern const struct router_type  om5p;
 extern const struct router_type  om5pac;
 extern const struct router_type  om5pan;
 extern const struct router_type  p60;
+extern const struct router_type  pa1200;
 extern const struct router_type  pa2200;
 extern const struct router_type  zyxel;
 
