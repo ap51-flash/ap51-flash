@@ -59,6 +59,10 @@ Tested
   - OM5P-AN
   - OM5P-AC (v1, v2)
 
+* Plasma Cloud
+
+  - PA2200
+
 * Ubiquiti
 
   - Bullet2 & HP
