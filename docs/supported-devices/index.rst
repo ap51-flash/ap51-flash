@@ -61,6 +61,7 @@ Tested
 
 * Plasma Cloud
 
+  - PA300
   - PA1200
   - PA2200
 
