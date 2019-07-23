@@ -2,7 +2,7 @@
 # License-Filename: LICENSES/preferred/GPL-3.0
 
 sudo: required
-dist: trusty
+dist: xenial
 language: cpp
 compiler:
   - gcc
@@ -35,8 +35,8 @@ matrix:
       addons:
         apt:
           sources:
-          - sourceline: 'deb http://pkg.mxe.cc/repos/apt/debian jessie main'
-            key_url: 'http://pkg.mxe.cc/repos/apt/conf/mxeapt.gpg'
+          - sourceline: 'deb http://pkg.mxe.cc/repos/apt/ xenial main'
+            key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC6BF758A33A3A276'
           packages:
           - curl
           - unzip
