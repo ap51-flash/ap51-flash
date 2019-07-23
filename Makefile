@@ -92,9 +92,25 @@ ifeq ($(PLATFORM),LINUX)
   BINARY_SUFFIX =
 else ifeq ($(PLATFORM),WIN32)
   BINARY_SUFFIX = .exe
-  CPPFLAGS += -D_CONSOLE -D_MBCS -IWpdPack/Include/
-  LDFLAGS += -LWpdPack/Lib/
-  LDLIBS += -lwpcap
+  CPPFLAGS += -D_CONSOLE -D_MBCS
+
+  ifeq ($(origin PKG_CONFIG), undefined)
+    PKG_CONFIG = $(CROSS)pkg-config
+    ifeq ($(shell which $(PKG_CONFIG) 2>/dev/null),)
+      $(error $(PKG_CONFIG) not found)
+    endif
+  endif
+
+  ifeq ($(origin WINPCAP_CFLAGS) $(origin WINPCAP_LDLIBS), undefined undefined)
+    WINPCAP_NAME ?= winpcap
+    ifeq ($(shell $(PKG_CONFIG) --modversion $(WINPCAP_NAME) 2>/dev/null),)
+      $(error No $(WINPCAP_NAME) development libraries found!)
+    endif
+    WINPCAP_CFLAGS += $(shell $(PKG_CONFIG) --cflags $(WINPCAP_NAME))
+    WINPCAP_LDLIBS +=  $(shell $(PKG_CONFIG) --libs $(WINPCAP_NAME))
+  endif
+  CFLAGS += $(WINPCAP_CFLAGS)
+  LDLIBS += $(WINPCAP_LDLIBS)
 else ifeq ($(PLATFORM),OSX)
   BINARY_SUFFIX = -osx
   LDLIBS += -lpcap
