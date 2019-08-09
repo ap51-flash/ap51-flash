@@ -1,4 +1,4 @@
-.. SPDX-License-Identifier: GPL-2.0
+.. SPDX-License-Identifier: GPL-3.0-only
 
 2018.0 (2018-06-19)
 ===================
