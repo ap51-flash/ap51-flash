@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0+
-# License-Filename: LICENSES/preferred/GPL-3.0
 
 include $(TOPDIR)/rules.mk
 

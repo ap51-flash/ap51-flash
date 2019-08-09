@@ -1,7 +1,6 @@
 # Makefile for Sphinx documentation
 #
 # SPDX-License-Identifier: GPL-3.0+
-# License-Filename: LICENSES/preferred/GPL-3.0
 
 # You can set these variables from the command line.
 SPHINXOPTS    =

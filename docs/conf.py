@@ -13,7 +13,6 @@
 # serve to show the default.
 #
 # SPDX-License-Identifier: GPL-3.0+
-# License-Filename: LICENSES/preferred/GPL-3.0
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the

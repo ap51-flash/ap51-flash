@@ -16,7 +16,6 @@
  * 02110-1301, USA
  *
  * SPDX-License-Identifier: GPL-3.0+
- * License-Filename: LICENSES/preferred/GPL-3.0
  */
 
 #ifndef __AP51_FLASH_ROUTER_NETCONSOLE_H__
