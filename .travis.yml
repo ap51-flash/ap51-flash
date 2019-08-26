@@ -75,3 +75,15 @@ matrix:
       - make clean V=s && CPPFLAGS="-DDEBUG" make V=s ap51-flash-osx
       - make clean V=s && make V=s EMBED_CI="test.img" ap51-flash-osx
       - make clean V=s && CFLAGS="-flto -O2" make V=s ap51-flash-osx
+    # reuse test
+    - os: linux
+      language: minimal
+      services:
+      - docker
+      env:
+      - REUSE_TEST=1
+      before_install:
+      - docker pull fsfe/reuse:latest
+      - docker run --name reuse -v ${TRAVIS_BUILD_DIR}:/repo fsfe/reuse /bin/sh -c "cd /repo; reuse lint"
+      script:
+      - true
