@@ -1,0 +1,35 @@
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.\" SPDX-FileCopyrightText: 2019, Sven Eckelmann <sven@narfation.org>
+.\"                                      Hey, EMACS: -*- nroff -*-
+.TH "AP51-FLASH" "8" "August 26, 2019" "Linux" "Over-the-ethernet programmer for routers and APs"
+.\" Please adjust this date whenever revising the manpage.
+.\" --------------------------------------------------------------------------
+.\" Process this file with
+.\" groff -man man/ap51-flash.8 -Tutf8
+.\" Retrieve format warnings with
+.\" LC_ALL=en_US.UTF-8 MANROFFSEQ='' MANWIDTH=80  man --warnings -E UTF-8 -l -Tutf8 -Z man/ap51-flash.8 >/dev/null
+.\" --------------------------------------------------------------------------
+.ad l
+.SH NAME
+ap51\-flash \- Over-the-ethernet programmer for various routers and APs
+.SH SYNOPSIS
+.B ap51\-flash \fIinterface\fP \fIimage\fP
+.br
+.B ap51\-flash -v
+.br
+.SH DESCRIPTION
+ap51-flash  offers a convenient mechanism for flashing images to various
+accesspoints and routers. Supported devices often only needs to be booted up
+while ap51-flash is running and the device is connected via ethernet to the
+system which runs ap51-flash.
+.SH OPTIONS
+.PP
+\fB\-v\fR
+.RS 4
+print ap51\-flash version and exit
+.RE
+.SH SEE ALSO
+.BR flashrom (8)
+.SH AUTHOR
+This manual page was written by Sven Eckelmann <sven@narfation.org>. It is
+licensed under the terms of the GNU GPL (version 3 or later).
