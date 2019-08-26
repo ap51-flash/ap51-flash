@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
- * SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
+ * SPDX-FileCopyrightText: 2009-2019, Marek Lindner <mareklindner@neomailbox.ch>
  */
 
 #ifndef __AP51_FLASH_ROUTER_REDBOOT_H__
