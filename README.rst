@@ -1,4 +1,5 @@
-.. SPDX-License-Identifier: GPL-3.0-only
+.. SPDX-License-Identifier: CC0-1.0
+.. SPDX-FileCopyrightText: 2017-2019, Sven Eckelmann <sven@narfation.org>
 
 ==========
 ap51-flash
