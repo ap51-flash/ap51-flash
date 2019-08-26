@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+/* SPDX-FileCopyrightText: 2015-2019, Sven Eckelmann <sven@narfation.org>
  */
 
 #include "fwcfg.h"
