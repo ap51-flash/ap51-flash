@@ -4,6 +4,7 @@
 
 #include "commandline.h"
 
+#include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,15 +34,42 @@ static void usage(const char *prgname)
 
 int main(int argc, char* argv[])
 {
+	bool print_help = false;
+	bool print_version = false;
+	int c;
 	char *iface = NULL;
 	int ret = -1;
 	bool load_embedded = true;
 	const char *progname = "ap51-flash";
+	static struct option long_options[] = {
+		{"help",	no_argument,	0,	'h'},
+		{"version",	no_argument,	0,	'v'},
+		{}
+	};
 
-	if (argc >= 1)
-		progname = argv[0];
+	while ((c = getopt_long(argc, argv, "hv", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			print_help = true;
+			ret = 0;
+			break;
+		case 'v':
+			print_version = true;
+			ret = 0;
+			break;
+		case '?':
+			print_help = true;
+			break;
+		}
+	}
 
-	if ((argc == 2) && (strcmp("-v", argv[1]) == 0)) {
+	progname = argv[0];
+	if (print_help) {
+		usage(progname);
+		goto out;
+	}
+
+	if (print_version) {
 #if defined(EMBEDDED_DESC)
 		printf("ap51-flash (%s) [embedded: %s]\n", SOURCE_VERSION,
 		       EMBEDDED_DESC);
