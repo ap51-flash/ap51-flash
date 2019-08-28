@@ -4,9 +4,13 @@
 
 #include "router_types.h"
 
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 
+#include "compat.h"
 #include "flash.h"
+#include "list.h"
 #include "router_images.h"
 #include "router_redboot.h"
 #include "router_tftp_client.h"
@@ -20,6 +24,7 @@
 #endif
 
 int router_types_priv_size = 0;
+static struct mac_whitelist_entry *mac_whitelist_head;
 
 static const struct router_type *router_types[] = {
 	&a40,
@@ -43,6 +48,54 @@ static const struct router_type *router_types[] = {
 	&ap121f,
 	NULL,
 };
+
+static int read_mac(uint8_t mac[ETH_ALEN], const char *macstr)
+{
+	int ret;
+
+	ret = sscanf(macstr, "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX",
+		     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+	if (ret != 6)
+		ret = sscanf(macstr, "%02hhX-%02hhX-%02hhX-%02hhX-%02hhX-%02hhX",
+			     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+
+	return (ret == 6);
+}
+
+int mac_whitelist_add(const char *macstr)
+{
+	uint8_t mac[ETH_ALEN];
+	struct mac_whitelist_entry *new_entry;
+
+	if (!read_mac(mac, macstr)) {
+		fprintf(stderr, "Error - could not add MAC address to whitelist: %s\n", macstr);
+		return -EINVAL;
+	}
+
+	new_entry = malloc(sizeof(*new_entry));
+	if (!new_entry) {
+		fprintf(stderr, "Error - could not allocate memory for new MAC whitelist entry\n");
+		return -ENOMEM;
+	}
+
+	memcpy(new_entry->mac, mac, ETH_ALEN);
+	new_entry->next = mac_whitelist_head;
+	mac_whitelist_head = new_entry;
+
+	return 0;
+}
+
+static bool mac_whitelist_find(const uint8_t *mac)
+{
+	struct mac_whitelist_entry *current;
+
+	slist_for_each (current, mac_whitelist_head) {
+		if (memcmp(mac, current->mac, ETH_ALEN) == 0)
+			return true;
+	}
+
+	return false;
+}
 
 int router_types_init(void)
 {
@@ -98,6 +151,19 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 		/* we detected a router that we have no image for */
 		if ((*router_type)->image->file_size < 1) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' that we have no image for\n",
+				node->his_mac_addr[0], node->his_mac_addr[1],
+				node->his_mac_addr[2], node->his_mac_addr[3],
+				node->his_mac_addr[4], node->his_mac_addr[5],
+				(*router_type)->desc);
+
+			node->status = NODE_STATUS_NO_FLASH;
+			ret = 0;
+			break;
+		}
+
+		/* we detected a router whose MAC is not whitelisted */
+		if (mac_whitelist_head != NULL && !mac_whitelist_find(node->his_mac_addr)) {
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' but MAC does not match MAC filter\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],

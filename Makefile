@@ -75,7 +75,7 @@ ifeq ($(PLATFORM),LINUX)
   BINARY_SUFFIX =
 else ifeq ($(PLATFORM),WIN32)
   BINARY_SUFFIX = .exe
-  CPPFLAGS += -D_CONSOLE -D_MBCS
+  CPPFLAGS += -D_CONSOLE -D_MBCS -D__USE_MINGW_ANSI_STDIO=1
 
   ifeq ($(origin PKG_CONFIG), undefined)
     PKG_CONFIG = $(CROSS)pkg-config

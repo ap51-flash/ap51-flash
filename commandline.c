@@ -11,6 +11,7 @@
 
 #include "flash.h"
 #include "router_images.h"
+#include "router_types.h"
 #include "socket.h"
 
 #ifndef SOURCE_VERSION
@@ -20,10 +21,11 @@
 static void usage(const char *prgname)
 {
 	fprintf(stderr, "Usage:\n");
-
-	fprintf(stderr, "%s interface image\tflash router with given image\n",
+	fprintf(stderr, "%s interface image\t\t\tflash router with given image\n",
 		prgname);
-	fprintf(stderr, "%s -v\t\t\tprints version information\n", prgname);
+	fprintf(stderr, "%s [-m <MAC>...] interface image\tflash router at given MAC address(es)\n", prgname);
+	fprintf(stderr, "%s -h\t\t\t\t\tshow usage/help\n", prgname);
+	fprintf(stderr, "%s -v\t\t\t\t\tprints version information\n", prgname);
 
 	fprintf(stderr, "\nOne or multiple images of the following type can be specified:\n");
 	router_images_print_desc();
@@ -42,12 +44,13 @@ int main(int argc, char* argv[])
 	bool load_embedded = true;
 	const char *progname = "ap51-flash";
 	static struct option long_options[] = {
-		{"help",	no_argument,	0,	'h'},
-		{"version",	no_argument,	0,	'v'},
+		{"help",	no_argument,		0,	'h'},
+		{"version",	no_argument,		0,	'v'},
+		{"mac",		required_argument,	0,	'm'},
 		{}
 	};
 
-	while ((c = getopt_long(argc, argv, "hv", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvm:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			print_help = true;
@@ -57,6 +60,10 @@ int main(int argc, char* argv[])
 			print_version = true;
 			ret = 0;
 			break;
+		case 'm':
+			if (mac_whitelist_add(optarg) == 0)
+				break;
+			/* fall-through */
 		case '?':
 			print_help = true;
 			break;
@@ -76,8 +83,11 @@ int main(int argc, char* argv[])
 #else
 		printf("ap51-flash (%s)\n", SOURCE_VERSION);
 #endif
-		return 0;
+		goto out;
 	}
+
+	argc -= optind;
+	argv += optind;
 
 	if (argc < 2) {
 		fprintf(stderr, "Error - no interface specified\n");
@@ -85,14 +95,14 @@ int main(int argc, char* argv[])
 		goto out;
 	}
 
-	if (strlen(argv[1]) < 3)
-		iface = socket_find_iface_by_index(argv[1]);
+	if (strlen(argv[0]) < 3)
+		iface = socket_find_iface_by_index(argv[0]);
 
 	if (!iface)
-		iface = argv[1];
+		iface = argv[0];
 
-	argc -= 2;
-	argv += 2;
+	argc -= 1;
+	argv += 1;
 
 	router_images_init();
 
