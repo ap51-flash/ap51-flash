@@ -38,8 +38,6 @@ matrix:
           - sourceline: 'deb http://pkg.mxe.cc/repos/apt/ xenial main'
             key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC6BF758A33A3A276'
           packages:
-          - curl
-          - unzip
           - mxe-i686-w64-mingw32.static-gcc
           - mxe-i686-w64-mingw32.static-winpcap
       before_script:
