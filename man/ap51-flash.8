@@ -29,13 +29,13 @@ ap51\-flash \- firmware flasher for ethernet connected routers and access points
 .ad
 .SH DESCRIPTION
 \fBap51\-flash\fP listens on traffic of a network \fIinterface\fP, detects
-potential, remotely flashable devices and checks the traffic for known
-identification markers. These markers are send out automatically by supported
-devices during the initial boot process of the embedded boot loader.
+remote devices and checks the traffic for known identification markers. These
+markers are send out automatically by supported devices during the initial boot
+process of the embedded boot loader.
 
 .PP
 On success, it will search the list of provided \fIimage\fPs for a matching
-firmware. A device specific communication procedure is initiate to begin the
+firmware. A device specific communication procedure is initiated to begin the
 flashing process. The firmware data is extracted from the selected \fIimage\fP
 and transferred to the device in TFTP server or client mode.
 
