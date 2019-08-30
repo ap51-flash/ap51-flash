@@ -1,6 +1,19 @@
 .. SPDX-License-Identifier: CC0-1.0
 .. SPDX-FileCopyrightText: 2017-2019, Sven Eckelmann <sven@narfation.org>
 
+
+2019.0 (2019-08-30)
+===================
+
+* improved Zyxel firmware detection
+* introduced optional MAC address filtering
+* added support for:
+
+  - Plasma Cloud PA300
+  - Plasma Cloud PA1200
+  - Plasma Cloud PA2200
+
+
 2018.0 (2018-06-19)
 ===================
 
