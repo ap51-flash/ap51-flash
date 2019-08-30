@@ -108,7 +108,7 @@ int router_types_init(void)
 	for (router_type = router_types; *router_type; ++router_type) {
 		if (!(*router_type)->image) {
 			fprintf(stderr,
-				"Error - can't have router defintion without image attribute set: %s\n",
+				"Error - can't have router definition without image attribute set: %s\n",
 				(*router_type)->desc);
 			goto out;
 		}
