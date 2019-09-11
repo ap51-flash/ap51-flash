@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc < 2) {
+	if (argc < 1) {
 		fprintf(stderr, "Error - no interface specified\n");
 		usage(progname);
 		goto out;
