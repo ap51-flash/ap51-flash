@@ -2,6 +2,12 @@
 .. SPDX-FileCopyrightText: 2017-2019, Sven Eckelmann <sven@narfation.org>
 
 
+2019.0.1 (2019-09-14)
+=====================
+
+* Fix support for flashing of embedded images
+
+
 2019.0 (2019-08-30)
 ===================
 
