@@ -278,7 +278,7 @@ out:
 		i++;
 		fprintf(stderr, "\n%i: %s\n", i, dev->name);
 
-		if (!dev->description) {
+		if (!dev->description || strlen(dev->description) == 0) {
 			fprintf(stderr, "\t(No description available)\n");
 			continue;
 		}
