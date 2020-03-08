@@ -131,7 +131,6 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 	struct nlmsghdr *resp = NULL;
 	struct ifinfomsg *ifinfomsg;
 	enum listdump_action action;
-	unsigned int if_count = 0;
 	unsigned int len = 0;
 	struct nlmsghdr *nh;
 	struct rtattr *rta;
@@ -170,8 +169,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 
 			rta_data[rta_payload - 1] = '\0';
 
-			if_count++;
-			action = dump(rta_data, if_count, NULL, arg);
+			action = dump(rta_data, ifinfomsg->ifi_index, NULL, arg);
 		}
 
 		if (action == LISTDUMP_STOP)
