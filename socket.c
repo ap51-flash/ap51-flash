@@ -193,6 +193,9 @@ out:
 
 	i = 0;
 	slist_for_each (dev, alldevs) {
+		if (dev->flags & PCAP_IF_LOOPBACK)
+			continue;
+
 		i++;
 
 		if (if_num != i)
@@ -279,6 +282,9 @@ out:
 
 	i = 0;
 	slist_for_each (dev, alldevs) {
+		if (dev->flags & PCAP_IF_LOOPBACK)
+			continue;
+
 		i++;
 		fprintf(stderr, "\n%i: %s\n", i, dev->name);
 
