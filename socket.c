@@ -158,10 +158,10 @@ char *socket_find_iface_by_index(const char *iface_number)
 			if (rta_payload <= 0)
 				continue;
 
-			rta_data[rta_payload - 1] = '\0';
-
 			if (rta->rta_type != IFLA_IFNAME)
 				continue;
+
+			rta_data[rta_payload - 1] = '\0';
 
 			if (if_count == (unsigned int)if_num) {
 				iface = strdup(rta_data);
@@ -248,10 +248,10 @@ void socket_print_all_ifaces(void)
 			if (rta_payload <= 0)
 				continue;
 
-			rta_data[rta_payload - 1] = '\0';
-
 			if (rta->rta_type != IFLA_IFNAME)
 				continue;
+
+			rta_data[rta_payload - 1] = '\0';
 
 			fprintf(stderr, "%i: %s\n", if_count, rta_data);
 			fprintf(stderr, "\t(No description available)\n");
