@@ -74,58 +74,6 @@ free_resp:
 	return -1;
 }
 
-static int socket_get_all_ifaces(struct nlmsghdr **nh, unsigned int *len)
-{
-	struct {
-		struct nlmsghdr nh;
-		struct ifinfomsg ifinfomsg;
-	} req;
-	struct sockaddr_nl nl;
-	int ret = -1, sock;
-
-	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-	if (sock < 0) {
-		fprintf(stderr, "Error - can't create netlink socket: %s\n",
-			strerror(errno));
-		return sock;
-	}
-
-	memset(&nl, 0, sizeof(nl));
-        nl.nl_family = AF_NETLINK;
-        ret = bind(sock, (struct sockaddr *)&nl, sizeof(nl));
-
-	if (ret < 0) {
-		fprintf(stderr, "Error - can't bind netlink socket: %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
-	memset(&req, 0, sizeof(req));
-	req.nh.nlmsg_len = NLMSG_LENGTH(sizeof(req.ifinfomsg));
-	req.nh.nlmsg_type = RTM_GETLINK;
-	req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
-	req.ifinfomsg.ifi_family = AF_UNSPEC;
-
-	ret = send(sock, &req, sizeof(req), 0);
-	if (ret < 0) {
-		fprintf(stderr, "Error - unable to send netlink request: %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
-	ret = socket_rtnl_recvmsg(sock, nh, len);
-	if (ret < 0)
-		goto close_sock;
-
-	close(sock);
-	return 0;
-
-close_sock:
-	close(sock);
-
-	return ret;
-}
-
 static char *sock_rta_find_name(struct ifinfomsg *ifinfomsg, size_t attr_len)
 {
 	struct rtattr *rta = IFLA_RTA(ifinfomsg);
@@ -148,31 +96,25 @@ static char *sock_rta_find_name(struct ifinfomsg *ifinfomsg, size_t attr_len)
 	return NULL;
 }
 
-static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
+static void socket_rtnl_parse(struct nlmsghdr *resp, unsigned int len,
+			      enum listdump_action (*dump)(const char *name,
 							   unsigned int index,
 							   const char *description,
 							   void *arg),
 			      void *arg)
 {
-	struct nlmsghdr *resp = NULL;
 	struct ifinfomsg *ifinfomsg;
 	enum listdump_action action;
 	struct nlmsgerr *nlme;
-	unsigned int len = 0;
 	struct nlmsghdr *nh;
 	size_t attr_len;
 	char *name;
-	int ret;
-
-	ret = socket_get_all_ifaces(&resp, &len);
-	if (ret < 0)
-		return ret;
 
 	if (resp->nlmsg_type == NLMSG_ERROR) {
 		nlme = NLMSG_DATA(resp);
 		fprintf(stderr, "Error - netlink complained: %i\n",
 			nlme->error);
-		goto free_resp;
+		return;
 	}
 
 	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
@@ -196,10 +138,68 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 		if (action == LISTDUMP_STOP)
 			break;
 	}
+}
 
-free_resp:
+static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
+							   unsigned int index,
+							   const char *description,
+							   void *arg),
+			      void *arg)
+{
+	struct {
+		struct nlmsghdr nh;
+		struct ifinfomsg ifinfomsg;
+	} req;
+	struct sockaddr_nl nl;
+	struct nlmsghdr *resp;
+	int ret = -1, sock;
+	unsigned int len;
+
+	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	if (sock < 0) {
+		fprintf(stderr, "Error - can't create netlink socket: %s\n",
+			strerror(errno));
+		return sock;
+	}
+
+	memset(&nl, 0, sizeof(nl));
+        nl.nl_family = AF_NETLINK;
+
+        ret = bind(sock, (struct sockaddr *)&nl, sizeof(nl));
+	if (ret < 0) {
+		fprintf(stderr, "Error - can't bind netlink socket: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	memset(&req, 0, sizeof(req));
+	req.nh.nlmsg_len = NLMSG_LENGTH(sizeof(req.ifinfomsg));
+	req.nh.nlmsg_type = RTM_GETLINK;
+	req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ROOT;
+	req.ifinfomsg.ifi_family = AF_UNSPEC;
+
+	ret = send(sock, &req, sizeof(req), 0);
+	if (ret < 0) {
+		fprintf(stderr, "Error - unable to send netlink request: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	ret = socket_rtnl_recvmsg(sock, &resp, &len);
+	if (ret < 0)
+		goto close_sock;
+
+	socket_rtnl_parse(resp, len, dump, arg);
+
 	free(resp);
+
+	close(sock);
 	return 0;
+
+close_sock:
+	close(sock);
+
+	return ret;
 }
 
 #elif USE_PCAP
