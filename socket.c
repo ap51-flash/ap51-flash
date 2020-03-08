@@ -80,9 +80,12 @@ peek_retry:
 	if (!*nh)
 		goto close_sock;
 
+recv_retry:
 	rlen = recv(sock, *nh, rlen, 0);
-
 	if (rlen < 0) {
+		if (errno == EINTR)
+			goto recv_retry;
+
 		fprintf(stderr,
 			"Error - unable to receive netlink request: %s\n",
 			strerror(errno));
