@@ -19,16 +19,10 @@
 #endif
 
 #if defined(LINUX)
-#define BUFF_LEN 8192
-
-struct resp {
-	struct nlmsghdr nh;
-	unsigned char payload[BUFF_LEN];
-};
 
 static int raw_sock = -1;
 
-static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
+static int socket_get_all_ifaces(struct nlmsghdr **nh, unsigned int *len)
 {
 	struct {
 		struct nlmsghdr nh;
@@ -36,8 +30,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 	} req;
 	struct sockaddr_nl nl;
 	struct nlmsgerr *nlme;
-	struct nlmsghdr *nh;
 	int ret = -1, sock;
+	ssize_t rlen;
 
 	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
 
@@ -70,24 +64,35 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 		goto close_sock;
 	}
 
-	*resp = malloc(sizeof(struct nlmsghdr) + BUFF_LEN);
-	if (!*resp)
+peek_retry:
+	rlen = recv(sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
+	if (rlen < 0) {
+		if (errno == EINTR)
+			goto peek_retry;
+
+		fprintf(stderr,
+			"Error - unable to retrieve netlink response: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	*nh = malloc(rlen);
+	if (!*nh)
 		goto close_sock;
 
-	ret = recv(sock, *resp, sizeof(struct nlmsghdr) + BUFF_LEN, 0);
+	rlen = recv(sock, *nh, rlen, 0);
 
-	if (ret < 0) {
+	if (rlen < 0) {
 		fprintf(stderr,
 			"Error - unable to receive netlink request: %s\n",
 			strerror(errno));
 		goto free_resp;
 	}
 
-	*len = ret;
-	nh = &(*resp)->nh;
+	*len = rlen;
 
-	if (nh->nlmsg_type == NLMSG_ERROR) {
-		nlme = NLMSG_DATA(nh);
+	if ((*nh)->nlmsg_type == NLMSG_ERROR) {
+		nlme = NLMSG_DATA(*nh);
 		fprintf(stderr, "Error - netlink complained: %i\n",
 			nlme->error);
 		goto free_resp;
@@ -97,8 +102,8 @@ static int socket_get_all_ifaces(struct resp **resp, unsigned int *len)
 	goto close_sock;
 
 free_resp:
-	free(*resp);
-	*resp = NULL;
+	free(*nh);
+	*nh = NULL;
 	ret = -1;
 close_sock:
 	close(sock);
@@ -113,9 +118,9 @@ char *socket_find_iface_by_index(const char *iface_number)
 {
 #if defined(LINUX)
 	struct ifinfomsg *ifinfomsg;
+	struct nlmsghdr *resp = NULL;
 	struct nlmsghdr *nh;
 	struct rtattr *rta;
-	struct resp *resp = NULL;
 	unsigned int len = 0, if_count = 1;
 	int ret, if_num;
 	size_t attr_len;
@@ -129,9 +134,7 @@ char *socket_find_iface_by_index(const char *iface_number)
 	if (ret < 0)
 		goto out;
 
-	nh = &resp->nh;
-
-	for (;NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
+	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
 			break;
 
@@ -210,9 +213,9 @@ void socket_print_all_ifaces(void)
 {
 #if defined(LINUX)
 	struct ifinfomsg *ifinfomsg;
+	struct nlmsghdr *resp = NULL;
 	struct nlmsghdr *nh;
 	struct rtattr *rta;
-	struct resp *resp = NULL;
 	unsigned int len = 0, if_count = 1;
 	int ret;
 	size_t attr_len;
@@ -221,9 +224,7 @@ void socket_print_all_ifaces(void)
 	if (ret < 0)
 		goto out;
 
-	nh = &resp->nh;
-
-	for (;NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
+	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
 			break;
 
