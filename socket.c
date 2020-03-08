@@ -215,6 +215,37 @@ out:
 #endif
 }
 
+static void print_description_sanitized(const char *description)
+{
+	unsigned char last_char;
+	unsigned char *ptr;
+	unsigned char c;
+
+	if (!description || strlen(description) == 0) {
+		fprintf(stderr, "\t(No description available)\n");
+		return;
+	}
+
+	fprintf(stderr, "\t(Description: ");
+
+	ptr = (unsigned char *)description;
+	last_char = 0;
+
+	while (' ' <= *ptr) {
+		c = *ptr;
+		ptr++;
+
+		/* skip multiple spaces */
+		if (last_char == ' ' && last_char == c)
+			continue;
+
+		fprintf(stderr, "%c", c);
+		last_char = c;
+	}
+
+	fprintf(stderr, ")\n");
+}
+
 void socket_print_all_ifaces(void)
 {
 #if defined(LINUX)
@@ -257,7 +288,7 @@ void socket_print_all_ifaces(void)
 			rta_data[rta_payload - 1] = '\0';
 
 			fprintf(stderr, "%i: %s\n", if_count, rta_data);
-			fprintf(stderr, "\t(No description available)\n");
+			print_description_sanitized(NULL);
 			if_count++;
 		}
 	}
@@ -268,7 +299,6 @@ out:
 	return;
 #elif USE_PCAP
 	pcap_if_t *alldevs = NULL, *dev;
-	unsigned char *ptr, c;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	int ret, i;
 
@@ -287,22 +317,7 @@ out:
 
 		i++;
 		fprintf(stderr, "\n%i: %s\n", i, dev->name);
-
-		if (!dev->description || strlen(dev->description) == 0) {
-			fprintf(stderr, "\t(No description available)\n");
-			continue;
-		}
-
-		ptr = (unsigned char *)dev->description;
-		c = 0;
-		fprintf(stderr, "\t(Description: ");
-		while (' ' <= *ptr) {
-			if (c != ' ' || c != *ptr)
-				fprintf(stderr, "%c", *ptr);
-			c = *ptr++;
-		}
-
-		fprintf(stderr, ")\n");
+		print_description_sanitized(dev->description);
 	}
 
 	if (alldevs)
