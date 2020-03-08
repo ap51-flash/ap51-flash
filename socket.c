@@ -145,6 +145,9 @@ char *socket_find_iface_by_index(const char *iface_number)
 		rta = IFLA_RTA(ifinfomsg);
 		attr_len = IFLA_PAYLOAD(nh);
 
+		if (ifinfomsg->ifi_type != ARPHRD_ETHER)
+			continue;
+
 		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
 			char *rta_data = RTA_DATA(rta);
 			size_t rta_payload = RTA_PAYLOAD(rta);
@@ -155,9 +158,6 @@ char *socket_find_iface_by_index(const char *iface_number)
 			rta_data[rta_payload - 1] = '\0';
 
 			if (rta->rta_type != IFLA_IFNAME)
-				continue;
-
-			if (strncmp(rta_data, "lo", rta_payload) == 0)
 				continue;
 
 			if (if_count == (unsigned int)if_num) {
@@ -235,6 +235,9 @@ void socket_print_all_ifaces(void)
 		rta = IFLA_RTA(ifinfomsg);
 		attr_len = IFLA_PAYLOAD(nh);
 
+		if (ifinfomsg->ifi_type != ARPHRD_ETHER)
+			continue;
+
 		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
 			char *rta_data = RTA_DATA(rta);
 			size_t rta_payload = RTA_PAYLOAD(rta);
@@ -245,9 +248,6 @@ void socket_print_all_ifaces(void)
 			rta_data[rta_payload - 1] = '\0';
 
 			if (rta->rta_type != IFLA_IFNAME)
-				continue;
-
-			if (strncmp(rta_data, "lo", rta_payload) == 0)
 				continue;
 
 			fprintf(stderr, "%i: %s\n", if_count, rta_data);
