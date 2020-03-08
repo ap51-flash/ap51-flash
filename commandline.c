@@ -95,9 +95,7 @@ int main(int argc, char* argv[])
 		goto out;
 	}
 
-	if (strlen(argv[0]) < 3)
-		iface = socket_find_iface_by_index(argv[0]);
-
+	iface = socket_find_iface_by_index(argv[0]);
 	if (!iface)
 		iface = argv[0];
 

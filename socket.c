@@ -254,9 +254,13 @@ char *socket_find_iface_by_index(const char *iface_number)
 	struct socket_find_iface_by_index_arg find_arg = {
 		.name = NULL,
 	};
+	char *endptr;
 	long if_num;
 
-	if_num = strtol(iface_number, NULL, 10);
+	if_num = strtol(iface_number, &endptr, 10);
+	if (!endptr || iface_number == endptr || *endptr != '\0')
+		return NULL;
+
 	if (if_num < 1)
 		return NULL;
 
