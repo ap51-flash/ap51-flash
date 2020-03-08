@@ -18,6 +18,14 @@
 #include "list.h"
 #endif
 
+enum listdump_action {
+	/** @LISTDUMP_OK: continue processing */
+	LISTDUMP_OK,
+
+	/** @LISTDUMP_STOP: stop processing */
+	LISTDUMP_STOP,
+};
+
 #if defined(LINUX)
 
 static int raw_sock = -1;
@@ -113,29 +121,26 @@ close_sock:
 out:
 	return ret;
 }
-#elif USE_PCAP
-pcap_t *pcap_fp = NULL;
-#endif
 
-char *socket_find_iface_by_index(const char *iface_number)
+static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
+							   unsigned int index,
+							   const char *description,
+							   void *arg),
+			      void *arg)
 {
-#if defined(LINUX)
-	struct ifinfomsg *ifinfomsg;
 	struct nlmsghdr *resp = NULL;
+	struct ifinfomsg *ifinfomsg;
+	enum listdump_action action;
+	unsigned int if_count = 0;
+	unsigned int len = 0;
 	struct nlmsghdr *nh;
 	struct rtattr *rta;
-	unsigned int len = 0, if_count = 1;
-	int ret, if_num;
 	size_t attr_len;
-	char *iface = NULL;
-
-	if_num = strtol(iface_number, NULL, 10);
-	if (if_num < 1)
-		goto out;
+	int ret;
 
 	ret = socket_get_all_ifaces(&resp, &len);
 	if (ret < 0)
-		goto out;
+		return ret;
 
 	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
@@ -151,6 +156,8 @@ char *socket_find_iface_by_index(const char *iface_number)
 		if (ifinfomsg->ifi_type != ARPHRD_ETHER)
 			continue;
 
+		action = LISTDUMP_OK;
+
 		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
 			char *rta_data = RTA_DATA(rta);
 			size_t rta_payload = RTA_PAYLOAD(rta);
@@ -163,56 +170,100 @@ char *socket_find_iface_by_index(const char *iface_number)
 
 			rta_data[rta_payload - 1] = '\0';
 
-			if (if_count == (unsigned int)if_num) {
-				iface = strdup(rta_data);
-				goto free_resp;
-			}
-
 			if_count++;
+			action = dump(rta_data, if_count, NULL, arg);
 		}
+
+		if (action == LISTDUMP_STOP)
+			break;
 	}
 
-free_resp:
-	free(resp);
-out:
-	return iface;
-#elif USE_PCAP
-	pcap_if_t *alldevs = NULL, *dev;
-	char errbuf[PCAP_ERRBUF_SIZE];
-	char *iface = NULL;
-	long if_num;
-	int ret, i;
 
-	if_num = strtol(iface_number, NULL, 10);
-	if (if_num < 1)
-		goto out;
+	free(resp);
+	return 0;
+}
+
+#elif USE_PCAP
+
+pcap_t *pcap_fp = NULL;
+
+static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
+							   unsigned int index,
+							   const char *description,
+							   void *arg),
+			      void *arg)
+{
+	char errbuf[PCAP_ERRBUF_SIZE];
+	enum listdump_action action;
+	unsigned int if_count = 0;
+	pcap_if_t *alldevs = NULL;
+	pcap_if_t *dev;
+	int ret;
 
 	ret = pcap_findalldevs(&alldevs, errbuf);
-	if (ret < 0)
-		goto out;
+	if (ret < 0) {
+		fprintf(stderr,
+			"Error - unable to retrieve interface list: %s\n",
+			errbuf);
+		return ret;
+	}
 
-	i = 0;
 	slist_for_each (dev, alldevs) {
 		if (dev->flags & PCAP_IF_LOOPBACK)
 			continue;
 
-		i++;
+		if_count++;
 
-		if (if_num != i)
-			continue;
-
-		iface = strdup(dev->name);
-		break;
+		action = dump(dev->name, if_count, dev->description, arg);
+		if (action == LISTDUMP_STOP)
+			break;
 	}
 
 	if (alldevs)
 		pcap_freealldevs(alldevs);
-out:
-	return iface;
+
+	return 0;
+}
+
 #else
-#error socket_find_dev_by_index() is not supported on your OS
-	return NULL;
+#error socket_dump_ifaces() is not supported on your OS
 #endif
+
+struct socket_find_iface_by_index_arg {
+	unsigned int index;
+	char *name;
+};
+
+static enum listdump_action compare_interface(const char *name,
+					      unsigned int index,
+					      const char *description __attribute__((unused)),
+					      void *arg)
+{
+	struct socket_find_iface_by_index_arg *find_arg = arg;
+
+	if (index != find_arg->index)
+		return LISTDUMP_OK;
+
+	find_arg->name = strdup(name);
+
+	return LISTDUMP_STOP;
+}
+
+char *socket_find_iface_by_index(const char *iface_number)
+{
+	struct socket_find_iface_by_index_arg find_arg = {
+		.name = NULL,
+	};
+	long if_num;
+
+	if_num = strtol(iface_number, NULL, 10);
+	if (if_num < 1)
+		return NULL;
+
+	find_arg.index = if_num;
+	socket_dump_ifaces(compare_interface, &find_arg);
+
+	return find_arg.name;
 }
 
 static void print_description_sanitized(const char *description)
@@ -246,87 +297,20 @@ static void print_description_sanitized(const char *description)
 	fprintf(stderr, ")\n");
 }
 
+static enum listdump_action print_interface(const char *name,
+					    unsigned int index,
+					    const char *description,
+					    void *arg __attribute__((unused)))
+{
+	fprintf(stderr, "\n%i: %s\n", index, name);
+	print_description_sanitized(description);
+
+	return LISTDUMP_OK;
+}
+
 void socket_print_all_ifaces(void)
 {
-#if defined(LINUX)
-	struct ifinfomsg *ifinfomsg;
-	struct nlmsghdr *resp = NULL;
-	struct nlmsghdr *nh;
-	struct rtattr *rta;
-	unsigned int len = 0, if_count = 1;
-	int ret;
-	size_t attr_len;
-
-	ret = socket_get_all_ifaces(&resp, &len);
-	if (ret < 0)
-		goto out;
-
-	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
-		if (nh->nlmsg_type == NLMSG_DONE)
-			break;
-
-		if (nh->nlmsg_type != RTM_NEWLINK)
-			continue;
-
-		ifinfomsg = NLMSG_DATA(nh);
-		rta = IFLA_RTA(ifinfomsg);
-		attr_len = IFLA_PAYLOAD(nh);
-
-		if (ifinfomsg->ifi_type != ARPHRD_ETHER)
-			continue;
-
-		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
-			char *rta_data = RTA_DATA(rta);
-			size_t rta_payload = RTA_PAYLOAD(rta);
-
-			if (rta_payload <= 0)
-				continue;
-
-			if (rta->rta_type != IFLA_IFNAME)
-				continue;
-
-			rta_data[rta_payload - 1] = '\0';
-
-			fprintf(stderr, "%i: %s\n", if_count, rta_data);
-			print_description_sanitized(NULL);
-			if_count++;
-		}
-	}
-
-
-	free(resp);
-out:
-	return;
-#elif USE_PCAP
-	pcap_if_t *alldevs = NULL, *dev;
-	char errbuf[PCAP_ERRBUF_SIZE];
-	int ret, i;
-
-	ret = pcap_findalldevs(&alldevs, errbuf);
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - unable to retrieve interface list: %s\n",
-			errbuf);
-		goto out;
-	}
-
-	i = 0;
-	slist_for_each (dev, alldevs) {
-		if (dev->flags & PCAP_IF_LOOPBACK)
-			continue;
-
-		i++;
-		fprintf(stderr, "\n%i: %s\n", i, dev->name);
-		print_description_sanitized(dev->description);
-	}
-
-	if (alldevs)
-		pcap_freealldevs(alldevs);
-out:
-	return;
-#else
-#error socket_print_all_devices() is not supported on your OS
-#endif
+	socket_dump_ifaces(print_interface, NULL);
 }
 
 int socket_open(const char *iface)
