@@ -122,6 +122,28 @@ out:
 	return ret;
 }
 
+static char *sock_rta_find_name(struct ifinfomsg *ifinfomsg, size_t attr_len)
+{
+	struct rtattr *rta = IFLA_RTA(ifinfomsg);
+
+	/* search the name */
+	for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
+		char *rta_data = RTA_DATA(rta);
+		size_t rta_payload = RTA_PAYLOAD(rta);
+
+		if (rta_payload <= 0)
+			continue;
+
+		if (rta->rta_type != IFLA_IFNAME)
+			continue;
+
+		rta_data[rta_payload - 1] = '\0';
+		return rta_data;
+	}
+
+	return NULL;
+}
+
 static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 							   unsigned int index,
 							   const char *description,
@@ -133,8 +155,8 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 	enum listdump_action action;
 	unsigned int len = 0;
 	struct nlmsghdr *nh;
-	struct rtattr *rta;
 	size_t attr_len;
+	char *name;
 	int ret;
 
 	ret = socket_get_all_ifaces(&resp, &len);
@@ -149,29 +171,16 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 			continue;
 
 		ifinfomsg = NLMSG_DATA(nh);
-		rta = IFLA_RTA(ifinfomsg);
 		attr_len = IFLA_PAYLOAD(nh);
 
 		if (ifinfomsg->ifi_type != ARPHRD_ETHER)
 			continue;
 
-		action = LISTDUMP_OK;
+		name = sock_rta_find_name(ifinfomsg, attr_len);
+		if (!name)
+			continue;
 
-		for (; RTA_OK(rta, attr_len); rta = RTA_NEXT(rta, attr_len)) {
-			char *rta_data = RTA_DATA(rta);
-			size_t rta_payload = RTA_PAYLOAD(rta);
-
-			if (rta_payload <= 0)
-				continue;
-
-			if (rta->rta_type != IFLA_IFNAME)
-				continue;
-
-			rta_data[rta_payload - 1] = '\0';
-
-			action = dump(rta_data, ifinfomsg->ifi_index, NULL, arg);
-		}
-
+		action = dump(name, ifinfomsg->ifi_index, NULL, arg);
 		if (action == LISTDUMP_STOP)
 			break;
 	}
