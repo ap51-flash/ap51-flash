@@ -96,12 +96,13 @@ static char *sock_rta_find_name(struct ifinfomsg *ifinfomsg, size_t attr_len)
 	return NULL;
 }
 
-static void socket_rtnl_parse(struct nlmsghdr *resp, unsigned int len,
-			      enum listdump_action (*dump)(const char *name,
-							   unsigned int index,
-							   const char *description,
-							   void *arg),
-			      void *arg)
+static enum listdump_action socket_rtnl_parse(struct nlmsghdr *resp,
+					      unsigned int len,
+					      enum listdump_action (*dump)(const char *name,
+									   unsigned int index,
+									   const char *description,
+									   void *arg),
+					      void *arg)
 {
 	struct ifinfomsg *ifinfomsg;
 	enum listdump_action action;
@@ -114,12 +115,12 @@ static void socket_rtnl_parse(struct nlmsghdr *resp, unsigned int len,
 		nlme = NLMSG_DATA(resp);
 		fprintf(stderr, "Error - netlink complained: %i\n",
 			nlme->error);
-		return;
+		return LISTDUMP_STOP;
 	}
 
 	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
-			break;
+			return LISTDUMP_STOP;
 
 		if (nh->nlmsg_type != RTM_NEWLINK)
 			continue;
@@ -136,8 +137,10 @@ static void socket_rtnl_parse(struct nlmsghdr *resp, unsigned int len,
 
 		action = dump(name, ifinfomsg->ifi_index, NULL, arg);
 		if (action == LISTDUMP_STOP)
-			break;
+			return action;
 	}
+
+	return LISTDUMP_OK;
 }
 
 static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
@@ -150,6 +153,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 		struct nlmsghdr nh;
 		struct ifinfomsg ifinfomsg;
 	} req;
+	enum listdump_action action;
 	struct sockaddr_nl nl;
 	struct nlmsghdr *resp;
 	int ret = -1, sock;
@@ -185,13 +189,17 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 		goto close_sock;
 	}
 
-	ret = socket_rtnl_recvmsg(sock, &resp, &len);
-	if (ret < 0)
-		goto close_sock;
+	while (1) {
+		ret = socket_rtnl_recvmsg(sock, &resp, &len);
+		if (ret < 0)
+			goto close_sock;
 
-	socket_rtnl_parse(resp, len, dump, arg);
+		action = socket_rtnl_parse(resp, len, dump, arg);
+		free(resp);
 
-	free(resp);
+		if (action == LISTDUMP_STOP)
+			break;
+	}
 
 	close(sock);
 	return 0;
