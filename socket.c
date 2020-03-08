@@ -30,6 +30,50 @@ enum listdump_action {
 
 static int raw_sock = -1;
 
+static int socket_rtnl_recvmsg(int sock, struct nlmsghdr **nh,
+			       unsigned int *len)
+{
+	ssize_t rlen;
+
+peek_retry:
+	rlen = recv(sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
+	if (rlen < 0) {
+		if (errno == EINTR)
+			goto peek_retry;
+
+		fprintf(stderr,
+			"Error - unable to retrieve netlink response: %s\n",
+			strerror(errno));
+		return rlen;
+	}
+
+	*nh = malloc(rlen);
+	if (!*nh)
+		return -ENOMEM;
+
+recv_retry:
+	rlen = recv(sock, *nh, rlen, 0);
+	if (rlen < 0) {
+		if (errno == EINTR)
+			goto recv_retry;
+
+		fprintf(stderr,
+			"Error - unable to receive netlink request: %s\n",
+			strerror(errno));
+		goto free_resp;
+	}
+
+	*len = rlen;
+
+	return 0;
+
+free_resp:
+	free(*nh);
+	*nh = NULL;
+
+	return -1;
+}
+
 static int socket_get_all_ifaces(struct nlmsghdr **nh, unsigned int *len)
 {
 	struct {
@@ -37,16 +81,13 @@ static int socket_get_all_ifaces(struct nlmsghdr **nh, unsigned int *len)
 		struct ifinfomsg ifinfomsg;
 	} req;
 	struct sockaddr_nl nl;
-	struct nlmsgerr *nlme;
 	int ret = -1, sock;
-	ssize_t rlen;
 
 	sock = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-
 	if (sock < 0) {
 		fprintf(stderr, "Error - can't create netlink socket: %s\n",
 			strerror(errno));
-		goto out;
+		return sock;
 	}
 
 	memset(&nl, 0, sizeof(nl));
@@ -72,53 +113,16 @@ static int socket_get_all_ifaces(struct nlmsghdr **nh, unsigned int *len)
 		goto close_sock;
 	}
 
-peek_retry:
-	rlen = recv(sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
-	if (rlen < 0) {
-		if (errno == EINTR)
-			goto peek_retry;
-
-		fprintf(stderr,
-			"Error - unable to retrieve netlink response: %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
-	*nh = malloc(rlen);
-	if (!*nh)
+	ret = socket_rtnl_recvmsg(sock, nh, len);
+	if (ret < 0)
 		goto close_sock;
 
-recv_retry:
-	rlen = recv(sock, *nh, rlen, 0);
-	if (rlen < 0) {
-		if (errno == EINTR)
-			goto recv_retry;
+	close(sock);
+	return 0;
 
-		fprintf(stderr,
-			"Error - unable to receive netlink request: %s\n",
-			strerror(errno));
-		goto free_resp;
-	}
-
-	*len = rlen;
-
-	if ((*nh)->nlmsg_type == NLMSG_ERROR) {
-		nlme = NLMSG_DATA(*nh);
-		fprintf(stderr, "Error - netlink complained: %i\n",
-			nlme->error);
-		goto free_resp;
-	}
-
-	ret = 0;
-	goto close_sock;
-
-free_resp:
-	free(*nh);
-	*nh = NULL;
-	ret = -1;
 close_sock:
 	close(sock);
-out:
+
 	return ret;
 }
 
@@ -153,6 +157,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 	struct nlmsghdr *resp = NULL;
 	struct ifinfomsg *ifinfomsg;
 	enum listdump_action action;
+	struct nlmsgerr *nlme;
 	unsigned int len = 0;
 	struct nlmsghdr *nh;
 	size_t attr_len;
@@ -162,6 +167,13 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 	ret = socket_get_all_ifaces(&resp, &len);
 	if (ret < 0)
 		return ret;
+
+	if (resp->nlmsg_type == NLMSG_ERROR) {
+		nlme = NLMSG_DATA(resp);
+		fprintf(stderr, "Error - netlink complained: %i\n",
+			nlme->error);
+		goto free_resp;
+	}
 
 	for (nh = resp; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
 		if (nh->nlmsg_type == NLMSG_DONE)
@@ -185,7 +197,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 			break;
 	}
 
-
+free_resp:
 	free(resp);
 	return 0;
 }
