@@ -46,7 +46,6 @@
 #define USE_PCAP 1
 
 #include <pcap.h>
-#include <Win32-Extensions.h>
 
 #define ntohs(x) __swab16(x)
 #define htons(x) __swab16(x)
