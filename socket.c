@@ -34,6 +34,7 @@ static int socket_rtnl_recvmsg(int sock, struct nlmsghdr **nh,
 			       unsigned int *len)
 {
 	ssize_t rlen;
+	ssize_t ret;
 
 peek_retry:
 	rlen = recv(sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
@@ -52,8 +53,8 @@ peek_retry:
 		return -ENOMEM;
 
 recv_retry:
-	rlen = recv(sock, *nh, rlen, 0);
-	if (rlen < 0) {
+	ret = recv(sock, *nh, rlen, 0);
+	if (ret < 0) {
 		if (errno == EINTR)
 			goto recv_retry;
 
@@ -63,7 +64,7 @@ recv_retry:
 		goto free_resp;
 	}
 
-	*len = rlen;
+	*len = ret;
 
 	return 0;
 
