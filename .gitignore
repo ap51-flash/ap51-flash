@@ -5,7 +5,11 @@
 *.o
 
 /ap51-flash
-/ap51-flash.exe
+/ap51-flash*.exe
 /ap51-flash-osx
 /ap51-flash-res
 /docs/_build/
+
+/npcap-sdk/
+/WpdPack/
+/test.img
