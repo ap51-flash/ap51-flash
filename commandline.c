@@ -34,6 +34,45 @@ static void usage(const char *prgname)
 	socket_print_all_ifaces();
 }
 
+#if defined(WIN32) && defined(NPCAP)
+
+#include <tchar.h>
+#include <delayimp.h>
+
+static FARPROC WINAPI npcap_load_delayed_failure_hook(unsigned dliNotify,
+						      PDelayLoadInfo pdli)
+{
+    if (dliNotify == dliFailLoadLib)
+        fprintf(stderr, "Unable to load Npcap library: %s\n", pdli->szDll);
+    else if (dliNotify == dliFailGetProc)
+        fprintf(stderr, "Unable to load find procedure %s in %s\n",
+		pdli->dlp.szProcName, pdli->szDll);
+
+    return FALSE;
+}
+
+static int npcap_load_delayed(void)
+{
+	_TCHAR npcap_dir[512];
+	UINT len;
+
+	len = GetSystemDirectory(npcap_dir, 480);
+	if (!len) {
+		fprintf(stderr, "Error in GetSystemDirectory: %lx", GetLastError());
+		return -1;
+	}
+
+	_tcscat_s(npcap_dir, 512, _T("\\Npcap"));
+	if (SetDllDirectory(npcap_dir) == 0) {
+		fprintf(stderr, "Error in SetDllDirectory: %lx", GetLastError());
+		return -1;
+	}
+
+	 __pfnDliFailureHook2 = npcap_load_delayed_failure_hook;
+	return 0;
+}
+#endif
+
 int main(int argc, char* argv[])
 {
 	bool print_help = false;
@@ -49,6 +88,10 @@ int main(int argc, char* argv[])
 		{"mac",		required_argument,	0,	'm'},
 		{}
 	};
+
+#if defined(WIN32) && defined(NPCAP)
+	npcap_load_delayed();
+#endif
 
 	while ((c = getopt_long(argc, argv, "hvm:", long_options, NULL)) != -1) {
 		switch (c) {
