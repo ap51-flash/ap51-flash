@@ -191,6 +191,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 	}
 
 	while (1) {
+		resp = NULL;
 		ret = socket_rtnl_recvmsg(sock, &resp, &len);
 		if (ret < 0)
 			goto close_sock;
