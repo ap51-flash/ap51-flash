@@ -24,6 +24,10 @@ Tested
 
   - AP121F
 
+* Datto
+
+  - AP840
+
 * Dlink
 
   - DIR-300 (after installing a reflash-enabled redboot)

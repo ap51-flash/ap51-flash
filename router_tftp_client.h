@@ -25,6 +25,7 @@ extern const struct router_tftp_client a40;
 extern const struct router_tftp_client a42;
 extern const struct router_tftp_client a60;
 extern const struct router_tftp_client a62;
+extern const struct router_tftp_client ap840;
 extern const struct router_tftp_client d200;
 extern const struct router_tftp_client g200;
 extern const struct router_tftp_client mr1750;
