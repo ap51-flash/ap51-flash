@@ -27,6 +27,7 @@ Tested
 * Datto
 
   - AP840
+  - AP840E
 
 * Dlink
 
