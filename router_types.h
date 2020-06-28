@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "ap51-flash.h"
+#include "list.h"
 #include "compat.h"
 
 struct node;
@@ -36,8 +37,8 @@ struct router_type {
 };
 
 struct mac_whitelist_entry {
+	struct list_head list;
 	uint8_t mac[ETH_ALEN];
-	struct mac_whitelist_entry *next;
 };
 
 int router_types_init(void);

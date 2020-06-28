@@ -237,7 +237,7 @@ static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 		return ret;
 	}
 
-	slist_for_each (dev, alldevs) {
+	for (dev = alldevs; dev; dev = dev->next) {
 		if (dev->flags & PCAP_IF_LOOPBACK)
 			continue;
 

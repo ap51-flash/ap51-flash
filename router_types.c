@@ -24,7 +24,7 @@
 #endif
 
 int router_types_priv_size = 0;
-static struct mac_whitelist_entry *mac_whitelist_head;
+static DECLARE_LIST_HEAD(mac_whitelist);
 
 static const struct router_type *router_types[] = {
 	&a40,
@@ -82,8 +82,7 @@ int mac_whitelist_add(const char *macstr)
 	}
 
 	memcpy(new_entry->mac, mac, ETH_ALEN);
-	new_entry->next = mac_whitelist_head;
-	mac_whitelist_head = new_entry;
+	list_add(&new_entry->list, &mac_whitelist);
 
 	return 0;
 }
@@ -92,7 +91,7 @@ static bool mac_whitelist_find(const uint8_t *mac)
 {
 	struct mac_whitelist_entry *current;
 
-	slist_for_each (current, mac_whitelist_head) {
+	list_for_each_entry(current, &mac_whitelist, list) {
 		if (memcmp(mac, current->mac, ETH_ALEN) == 0)
 			return true;
 	}
@@ -165,7 +164,7 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 		}
 
 		/* we detected a router whose MAC is not whitelisted */
-		if (mac_whitelist_head != NULL && !mac_whitelist_find(node->his_mac_addr)) {
+		if (!list_empty(&mac_whitelist) && !mac_whitelist_find(node->his_mac_addr)) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' but MAC does not match MAC filter\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],

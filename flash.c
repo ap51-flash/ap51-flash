@@ -17,7 +17,7 @@
 #include "socket.h"
 
 static int running = 1;
-static struct list *node_list;
+static DECLARE_LIST_HEAD(node_list);
 static uint8_t our_mac[] = {0x00, 0xba, 0xbe, 0xca, 0xff, 0x00};
 
 #if defined(CLEAR_SCREEN)
@@ -28,81 +28,45 @@ int num_nodes_flashed = 0;
 #define READ_SLEEP_SEC 0
 #define READ_SLEEP_USEC 250000
 
-static int node_list_init(void)
-{
-	node_list = NULL;
-	return 0;
-}
-
 struct node *node_list_get(const uint8_t *mac_addr)
 {
-	struct list *list;
-	struct node *node = NULL, *node_tmp;
+	struct node *node;
 
-	slist_for_each (list, node_list) {
-		node_tmp = (struct node *)list->data;
-
-		if (memcmp(node_tmp->his_mac_addr, mac_addr, ETH_ALEN) != 0)
+	list_for_each_entry(node, &node_list, list) {
+		if (memcmp(node->his_mac_addr, mac_addr, ETH_ALEN) != 0)
 			continue;
 
-		node = node_tmp;
-		break;
+		return node;
 	}
-
-	if (node)
-		goto out;
 
 	node = malloc(sizeof(struct node) + router_types_priv_size);
 	if (!node)
-		goto out;
+		return NULL;
 
-	list = malloc(sizeof(struct list));
-	if (!list)
-		goto free_node;
-
-	memset(list, 0, sizeof(struct list));
 	memset(node, 0, sizeof(struct node) + router_types_priv_size);
 	memcpy(node->his_mac_addr, mac_addr, ETH_ALEN);
 	node->image_state.fd = -1;
-	list->data = node;
-	list->next = NULL;
-	list_prepend(&node_list, list);
-	goto out;
+	list_add(&node->list, &node_list);
 
-free_node:
-	free(node);
-	node = NULL;
-out:
 	return node;
-}
-
-static void _node_list_free(struct list *list)
-{
-	struct node *node = (struct node *)list->data;
-
-	free(node);
-	free(list);
 }
 
 static void node_list_free(void)
 {
-	struct list *list, *list_tmp;
+	struct node *node, *node_s;
 
-	slist_for_each_safe (list, list_tmp, node_list)
-		_node_list_free(list);
-
-	node_list = NULL;
+	list_for_each_entry_safe(node, node_s, &node_list, list) {
+		list_del(&node->list);
+		free(node);
+	}
 }
 
 static void node_list_maintain(void)
 {
-	struct list *list, *list_tmp;
-	struct node *node;
+	struct node *node, *node_s;
 	int ret;
 
-	slist_for_each_safe (list, list_tmp, node_list) {
-		node = (struct node *)list->data;
-
+	list_for_each_entry_safe(node, node_s, &node_list, list) {
 		switch (node->status) {
 		case NODE_STATUS_UNKNOWN:
 		case NODE_STATUS_RESET_SENT:
@@ -187,10 +151,6 @@ int flash_start(const char *iface)
 	if (ret < 0)
 		goto out;
 
-	ret = node_list_init();
-	if (ret < 0)
-		goto sock_close;
-
 	packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
 	if (!packet_buff_align)
 		goto list_free;
@@ -239,7 +199,6 @@ pack_free:
 	free(packet_buff_align);
 list_free:
 	node_list_free();
-sock_close:
 	socket_close(iface);
 out:
 	return ret;

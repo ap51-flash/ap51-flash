@@ -63,74 +63,53 @@ extern unsigned long _binary_img_zyxel_size;
 struct router_info *router_image_router_get(struct router_image *router_image,
 					    const char *router_desc)
 {
-	struct list *list;
-	struct router_info *router_info = NULL, *router_info_tmp;
+	struct router_info *router_info;
 
-	slist_for_each (list, router_image->router_list) {
-		router_info_tmp = (struct router_info *)list->data;
-
-		if (strcasecmp(router_info_tmp->router_name, router_desc) != 0)
+	list_for_each_entry(router_info, &router_image->router_list, list) {
+		if (strcasecmp(router_info->router_name, router_desc) != 0)
 			continue;
 
-		router_info = router_info_tmp;
-		break;
+		return router_info;
 	}
 
-	return router_info;
+	return NULL;
 }
 
 static struct router_info *router_image_router_add(struct router_image *router_image,
 						   const char *router_desc)
 {
-	struct list *list;
 	struct router_info *router_info;
 
 	router_info = router_image_router_get(router_image, router_desc);
 	if (router_info)
-		goto out;
+		return router_info;
 
 	router_info = malloc(sizeof(struct router_info));
 	if (!router_info)
-		goto out;
+		return NULL;
 
-	list = malloc(sizeof(struct list));
-	if (!list)
-		goto free_router;
-
-	memset(list, 0, sizeof(struct list));
 	memset(router_info, 0, sizeof(struct router_info));
 	strncpy(router_info->router_name, router_desc, sizeof(router_info->router_name));
 	router_info->router_name[sizeof(router_info->router_name) - 1] = '\0';
 	router_info->file_size = 0;
-	list->data = router_info;
-	list->next = NULL;
-	list_prepend(&router_image->router_list, list);
-	goto out;
+	list_add(&router_info->list, &router_image->router_list);
 
-free_router:
-	free(router_info);
-	router_info = NULL;
-out:
 	return router_info;
 }
 
-static struct file_info *_router_image_get_file(struct list *file_list,
+static struct file_info *_router_image_get_file(struct list_head *file_list,
 						const char *file_name)
 {
-	struct list *list;
-	struct file_info *file_info = NULL, *file_info_tmp;
+	struct file_info *file_info;
 
-	slist_for_each (list, file_list) {
-		file_info_tmp = (struct file_info *)list->data;
-
-		if (strcasecmp(file_info_tmp->file_name, file_name) != 0)
+	list_for_each_entry(file_info, file_list, list) {
+		if (strcasecmp(file_info->file_name, file_name) != 0)
 			continue;
 
-		file_info = file_info_tmp;
-		break;
+		return file_info;
 	}
 
-	return file_info;
+	return NULL;
 }
 
 struct file_info *router_image_get_file(struct router_type *router_type,
@@ -143,7 +122,7 @@ struct file_info *router_image_get_file(struct router_type *router_type,
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s",
 			 file_name,
 			 router_type->image_desc ? router_type->image_desc : router_type->desc);
-		file_info = _router_image_get_file(router_type->image->file_list,
+		file_info = _router_image_get_file(&router_type->image->file_list,
 						   file_name_buff);
 	}
 
@@ -151,12 +130,12 @@ struct file_info *router_image_get_file(struct router_type *router_type,
 		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH - 1, "%s-%s.sig",
 			 fwupgradecfg,
 			 router_type->image_desc ? router_type->image_desc : router_type->desc);
-		file_info = _router_image_get_file(router_type->image->file_list,
+		file_info = _router_image_get_file(&router_type->image->file_list,
 						   file_name_buff);
 	}
 
 	if (!file_info)
-		file_info = _router_image_get_file(router_type->image->file_list,
+		file_info = _router_image_get_file(&router_type->image->file_list,
 						   file_name);
 
 	return file_info;
@@ -165,34 +144,21 @@ struct file_info *router_image_get_file(struct router_type *router_type,
 static struct file_info *_router_image_add_file(struct router_image *router_image,
 						const char *file_name)
 {
-	struct list *list;
 	struct file_info *file_info;
 
-	file_info = _router_image_get_file(router_image->file_list, file_name);
+	file_info = _router_image_get_file(&router_image->file_list, file_name);
 	if (file_info)
-		goto out;
+		return file_info;
 
 	file_info = malloc(sizeof(struct file_info));
 	if (!file_info)
-		goto out;
+		return NULL;
 
-	list = malloc(sizeof(struct list));
-	if (!list)
-		goto free_node;
-
-	memset(list, 0, sizeof(struct list));
 	memset(file_info, 0, sizeof(struct file_info));
 	strncpy(file_info->file_name, file_name, sizeof(file_info->file_name));
 	file_info->file_name[sizeof(file_info->file_name) - 1] = '\0';
-	list->data = file_info;
-	list->next = NULL;
-	list_prepend(&router_image->file_list, list);
-	goto out;
+	list_add(&file_info->list, &router_image->file_list);
 
-free_node:
-	free(file_info);
-	file_info = NULL;
-out:
 	return file_info;
 }
 
@@ -234,7 +200,7 @@ struct file_info *router_image_get_file_info(struct router_image *router_image,
 {
 	struct file_info *file_info;
 
-	file_info = _router_image_get_file(router_image->file_list, file_name);
+	file_info = _router_image_get_file(&router_image->file_list, file_name);
 	if (!file_info)
 		return NULL;
 
@@ -244,20 +210,17 @@ struct file_info *router_image_get_file_info(struct router_image *router_image,
 static void router_image_set_size(struct router_image *router_image,
 				  const char *router_desc, unsigned int size)
 {
-	struct list *list;
-	struct router_info *router_info_tmp;
+	struct router_info *router_info;
 
-	slist_for_each (list, router_image->router_list) {
-		router_info_tmp = (struct router_info *)list->data;
-
+	list_for_each_entry(router_info, &router_image->router_list, list) {
 		if (router_desc &&
-		    strcasecmp(router_info_tmp->router_name, router_desc) != 0)
+		    strcasecmp(router_info->router_name, router_desc) != 0)
 			continue;
 
-		if (!router_desc && router_info_tmp->file_size)
+		if (!router_desc && router_info->file_size)
 			continue;
 
-		router_info_tmp->file_size = size;
+		router_info->file_size = size;
 	}
 }
 
@@ -350,17 +313,13 @@ static int strendswith(const char *str, const char *end)
 
 static void ce_calculate_router_file_size(struct router_image *router_image)
 {
-	struct list *file_list = router_image->file_list;
-	struct list *list;
-	struct file_info *file_info_tmp;
+	struct file_info *file_info;
 	const char *router_desc;
 	const char *file_name;
 	unsigned int size;
 
-	slist_for_each (list, file_list) {
-		file_info_tmp = (struct file_info *)list->data;
-
-		file_name = file_info_tmp->file_name;
+	list_for_each_entry(file_info, &router_image->file_list, list) {
+		file_name = file_info->file_name;
 		if (strncmp(file_name, fwupgradecfg, strlen(fwupgradecfg)) != 0)
 			continue;
 
@@ -371,7 +330,7 @@ static void ce_calculate_router_file_size(struct router_image *router_image)
 		if (file_name[strlen(fwupgradecfg)] == '-')
 			router_desc = &file_name[strlen(fwupgradecfg) + 1];
 
-		size = fwupgrade_cfg_read_sizes(router_image, file_info_tmp);
+		size = fwupgrade_cfg_read_sizes(router_image, file_info);
 		if (!size)
 			continue;
 
@@ -617,8 +576,10 @@ void router_images_init(void)
 {
 	struct router_image **router_image;
 
-	for (router_image = router_images; *router_image; ++router_image)
-		(*router_image)->file_list = NULL;
+	for (router_image = router_images; *router_image; ++router_image) {
+		INIT_LIST_HEAD(&(*router_image)->file_list);
+		INIT_LIST_HEAD(&(*router_image)->router_list);
+	}
 }
 
 void router_images_init_embedded(void)

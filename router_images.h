@@ -8,6 +8,7 @@
 #include <stdbool.h>
 
 #include "ap51-flash.h"
+#include "list.h"
 
 struct node;
 struct router_type;
@@ -22,6 +23,7 @@ enum image_type {
 };
 
 struct router_image {
+	struct list_head list;
 	enum image_type type;
 	char desc[DESC_MAX_LENGTH];
 	int (*image_verify)(struct router_image *router_image, const char *buff,
@@ -38,16 +40,18 @@ struct router_image {
 	unsigned int embedded_img_res;
 #endif
 	unsigned int file_size;
-	struct list *file_list;
-	struct list *router_list;
+	struct list_head file_list;
+	struct list_head router_list;
 };
 
 struct router_info {
+	struct list_head list;
 	char router_name[DESC_MAX_LENGTH];
 	unsigned int file_size;
 };
 
 struct file_info {
+	struct list_head list;
 	char file_name[FILE_NAME_MAX_LENGTH];
 	unsigned int file_offset;
 	unsigned int file_size;
