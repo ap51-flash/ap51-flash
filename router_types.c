@@ -24,7 +24,7 @@
 #endif
 
 int router_types_priv_size = 0;
-static DECLARE_LIST_HEAD(mac_whitelist);
+static DECLARE_LIST_HEAD(mac_allowlist);
 
 static const struct router_type *router_types[] = {
 	&a40,
@@ -65,33 +65,33 @@ static int read_mac(uint8_t mac[ETH_ALEN], const char *macstr)
 	return (ret == 6);
 }
 
-int mac_whitelist_add(const char *macstr)
+int mac_allowlist_add(const char *macstr)
 {
 	uint8_t mac[ETH_ALEN];
-	struct mac_whitelist_entry *new_entry;
+	struct mac_allowlist_entry *new_entry;
 
 	if (!read_mac(mac, macstr)) {
-		fprintf(stderr, "Error - could not add MAC address to whitelist: %s\n", macstr);
+		fprintf(stderr, "Error - could not add MAC address to allowlist: %s\n", macstr);
 		return -EINVAL;
 	}
 
 	new_entry = malloc(sizeof(*new_entry));
 	if (!new_entry) {
-		fprintf(stderr, "Error - could not allocate memory for new MAC whitelist entry\n");
+		fprintf(stderr, "Error - could not allocate memory for new MAC allowlist entry\n");
 		return -ENOMEM;
 	}
 
 	memcpy(new_entry->mac, mac, ETH_ALEN);
-	list_add(&new_entry->list, &mac_whitelist);
+	list_add(&new_entry->list, &mac_allowlist);
 
 	return 0;
 }
 
-static bool mac_whitelist_find(const uint8_t *mac)
+static bool mac_allowlist_find(const uint8_t *mac)
 {
-	struct mac_whitelist_entry *current;
+	struct mac_allowlist_entry *current;
 
-	list_for_each_entry(current, &mac_whitelist, list) {
+	list_for_each_entry(current, &mac_allowlist, list) {
 		if (memcmp(mac, current->mac, ETH_ALEN) == 0)
 			return true;
 	}
@@ -163,8 +163,8 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 			break;
 		}
 
-		/* we detected a router whose MAC is not whitelisted */
-		if (!list_empty(&mac_whitelist) && !mac_whitelist_find(node->his_mac_addr)) {
+		/* we detected a router whose MAC is not allowlisted */
+		if (!list_empty(&mac_allowlist) && !mac_allowlist_find(node->his_mac_addr)) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: is of type '%s' but MAC does not match MAC filter\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],

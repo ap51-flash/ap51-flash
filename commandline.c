@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
 			ret = 0;
 			break;
 		case 'm':
-			if (mac_whitelist_add(optarg) == 0)
+			if (mac_allowlist_add(optarg) == 0)
 				break;
 			/* fall-through */
 		case '?':
