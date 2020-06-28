@@ -299,7 +299,8 @@ redboot_failure:
 	return;
 }
 
-static int redboot_detect_main(void *priv, const char *packet_buff,
+static int redboot_detect_main(const struct router_type *router_type __attribute__((unused)),
+			       void *priv, const char *packet_buff,
 			       int packet_buff_len)
 {
 	struct ether_arp *arphdr;

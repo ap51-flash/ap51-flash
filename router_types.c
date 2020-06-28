@@ -27,28 +27,28 @@ int router_types_priv_size = 0;
 static DECLARE_LIST_HEAD(mac_allowlist);
 
 static const struct router_type *router_types[] = {
-	&a40,
-	&a42,
-	&a60,
-	&a62,
-	&d200,
-	&g200,
-	&mr1750,
-	&mr500,
-	&mr600,
-	&mr900,
-	&om2p,
-	&om5p,
-	&om5pac,
-	&om5pan,
-	&p60,
+	&a40.router_type,
+	&a42.router_type,
+	&a60.router_type,
+	&a62.router_type,
+	&d200.router_type,
+	&g200.router_type,
+	&mr1750.router_type,
+	&mr500.router_type,
+	&mr600.router_type,
+	&mr900.router_type,
+	&om2p.router_type,
+	&om5p.router_type,
+	&om5pac.router_type,
+	&om5pan.router_type,
+	&p60.router_type,
 	&redboot,
 	&ubnt,
-	&zyxel,
+	&zyxel.router_type,
 	&ap121f,
-	&pa300,
-	&pa1200,
-	&pa2200,
+	&pa300.router_type,
+	&pa1200.router_type,
+	&pa2200.router_type,
 	NULL,
 };
 
@@ -145,7 +145,8 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 		if (!(*router_type)->detect_main)
 			goto next;
 
-		ret = (*router_type)->detect_main(priv, packet_buff,
+		ret = (*router_type)->detect_main(*router_type,
+						  priv, packet_buff,
 						  packet_buff_len);
 		if (ret != 1)
 			goto next;

@@ -27,7 +27,8 @@ struct node;
 struct router_type {
 	char desc[DESC_MAX_LENGTH];
 	void (*detect_pre)(const uint8_t *our_mac);
-	int (*detect_main)(void *priv, const char *packet_buff,
+	int (*detect_main)(const struct router_type *router_type,
+			   void *priv, const char *packet_buff,
 			   int packet_buff_len);
 	void (*detect_post)(struct node *node, const char *packet_buff,
 			    int packet_buff_len);

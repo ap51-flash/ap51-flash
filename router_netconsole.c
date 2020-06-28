@@ -29,7 +29,8 @@ struct netconsole_priv {
 	enum netconsole_state state;
 };
 
-static int ap121f_detect_main(void (*priv)__attribute__((unused)),
+static int ap121f_detect_main(const struct router_type *router_type __attribute__((unused)),
+			      void (*priv)__attribute__((unused)),
 			      const char *packet_buff, int packet_buff_len)
 {
 	struct ether_arp *arphdr;

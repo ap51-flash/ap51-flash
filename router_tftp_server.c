@@ -26,7 +26,8 @@ static void ubnt_detect_pre(const uint8_t *our_mac)
 	arp_req_send(our_mac, bcast_mac, htonl(my_ip), htonl(ubnt_ip));
 }
 
-static int ubnt_detect_main(void *priv, const char *packet_buff,
+static int ubnt_detect_main(const struct router_type *router_type __attribute__((unused)),
+			    void *priv, const char *packet_buff,
 			    int packet_buff_len)
 {
 	struct ether_arp *arphdr;

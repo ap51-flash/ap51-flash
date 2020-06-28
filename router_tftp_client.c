@@ -16,9 +16,13 @@
 #include "router_images.h"
 #include "router_types.h"
 
-static const unsigned int mr500_ip = 3232260872UL; /* 192.168.99.8 */
-static const unsigned int om2p_ip = 3232261128UL; /* 192.168.100.8 */
-static const unsigned int zyxel_ip = 3232235875UL; /* 192.168.1.99 */
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+#endif
+
+#define MR500_IP 3232260872UL /* 192.168.99.8 */
+#define OM2P_IP 3232261128UL /* 192.168.100.8 */
+#define ZYXEL_IP 3232235875UL /* 192.168.1.99 */
 
 struct mr500_priv {
 	time_t start_flash;
@@ -27,6 +31,57 @@ struct mr500_priv {
 struct om2p_priv {
 	time_t start_flash;
 };
+
+static int tftp_client_detect_main(const struct router_type *router_type,
+				   void (*priv)__attribute__((unused)),
+				   const char *packet_buff, int packet_buff_len)
+{
+	const struct mac_accept_entry *mac_accept_entry;
+	struct router_tftp_client *tftp_client;
+	struct ether_arp *arphdr;
+	uint8_t arp_u8;
+	uint8_t mac_u8;
+	bool mismatch;
+	size_t i;
+	size_t j;
+
+	tftp_client = container_of(router_type, struct router_tftp_client,
+				   router_type);
+
+	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+		return 0;
+
+	arphdr = (struct ether_arp *)packet_buff;
+	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
+		return 0;
+
+	if (*((unsigned int *)arphdr->arp_tpa) != htonl(tftp_client->ip))
+		return 0;
+
+	if (tftp_client->mac_accept_entries_num == 0)
+		return 1;
+
+	for (i = 0; i < tftp_client->mac_accept_entries_num; i++) {
+		mac_accept_entry = &tftp_client->mac_accept_entries[i];
+
+		mismatch = false;
+
+		for (j = 0; j < 6; j++) {
+			arp_u8 = arphdr->arp_tha[j] & mac_accept_entry->mask[j];
+			mac_u8 = mac_accept_entry->mac[j] & mac_accept_entry->mask[j];
+
+			if (arp_u8 != mac_u8) {
+				mismatch = true;
+				break;
+			}
+		}
+
+		if (!mismatch)
+			return 1;
+	}
+
+	return 0;
+}
 
 static void tftp_client_detect_post(struct node *node, const char *packet_buff,
 				    int packet_buff_len)
@@ -51,27 +106,27 @@ void tftp_client_flash_time_set(struct node *node)
 	struct mr500_priv *mr500_priv;
 	struct om2p_priv *om2p_priv;
 
-	if (node->router_type == &mr500) {
+	if (node->router_type == &mr500.router_type) {
 		mr500_priv = node->router_priv;
 		mr500_priv->start_flash = time(NULL);
-	} else if ((node->router_type == &mr600) ||
-		   (node->router_type == &mr900) ||
-		   (node->router_type == &mr1750) ||
-		   (node->router_type == &a40) ||
-		   (node->router_type == &a42) ||
-		   (node->router_type == &a60) ||
-		   (node->router_type == &a62) ||
-		   (node->router_type == &om2p) ||
-		   (node->router_type == &om5p) ||
-		   (node->router_type == &om5pac) ||
-		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p60) ||
-		   (node->router_type == &d200) ||
-		   (node->router_type == &g200) ||
-		   (node->router_type == &pa300) ||
-		   (node->router_type == &pa1200) ||
-		   (node->router_type == &pa2200) ||
-		   (node->router_type == &zyxel)) {
+	} else if ((node->router_type == &mr600.router_type) ||
+		   (node->router_type == &mr900.router_type) ||
+		   (node->router_type == &mr1750.router_type) ||
+		   (node->router_type == &a40.router_type) ||
+		   (node->router_type == &a42.router_type) ||
+		   (node->router_type == &a60.router_type) ||
+		   (node->router_type == &a62.router_type) ||
+		   (node->router_type == &om2p.router_type) ||
+		   (node->router_type == &om5p.router_type) ||
+		   (node->router_type == &om5pac.router_type) ||
+		   (node->router_type == &om5pan.router_type) ||
+		   (node->router_type == &p60.router_type) ||
+		   (node->router_type == &d200.router_type) ||
+		   (node->router_type == &g200.router_type) ||
+		   (node->router_type == &pa300.router_type) ||
+		   (node->router_type == &pa1200.router_type) ||
+		   (node->router_type == &pa2200.router_type) ||
+		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
 		om2p_priv->start_flash = time(NULL);
@@ -84,27 +139,27 @@ int tftp_client_flash_completed(struct node *node)
 	struct om2p_priv *om2p_priv;
 	time_t time2flash;
 
-	if (node->router_type == &mr500) {
+	if (node->router_type == &mr500.router_type) {
 		mr500_priv = node->router_priv;
 		time2flash = mr500_priv->start_flash + 45 + (node->image_state.total_bytes_sent / 65536);
-	} else if ((node->router_type == &mr600) ||
-		   (node->router_type == &mr900) ||
-		   (node->router_type == &mr1750) ||
-		   (node->router_type == &a40) ||
-		   (node->router_type == &a42) ||
-		   (node->router_type == &a60) ||
-		   (node->router_type == &a62) ||
-		   (node->router_type == &om2p) ||
-		   (node->router_type == &om5p) ||
-		   (node->router_type == &om5pac) ||
-		   (node->router_type == &om5pan) ||
-		   (node->router_type == &p60) ||
-		   (node->router_type == &d200) ||
-		   (node->router_type == &g200) ||
-		   (node->router_type == &pa300) ||
-		   (node->router_type == &pa1200) ||
-		   (node->router_type == &pa2200) ||
-		   (node->router_type == &zyxel)) {
+	} else if ((node->router_type == &mr600.router_type) ||
+		   (node->router_type == &mr900.router_type) ||
+		   (node->router_type == &mr1750.router_type) ||
+		   (node->router_type == &a40.router_type) ||
+		   (node->router_type == &a42.router_type) ||
+		   (node->router_type == &a60.router_type) ||
+		   (node->router_type == &a62.router_type) ||
+		   (node->router_type == &om2p.router_type) ||
+		   (node->router_type == &om5p.router_type) ||
+		   (node->router_type == &om5pac.router_type) ||
+		   (node->router_type == &om5pan.router_type) ||
+		   (node->router_type == &p60.router_type) ||
+		   (node->router_type == &d200.router_type) ||
+		   (node->router_type == &g200.router_type) ||
+		   (node->router_type == &pa300.router_type) ||
+		   (node->router_type == &pa1200.router_type) ||
+		   (node->router_type == &pa2200.router_type) ||
+		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
 		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
@@ -118,938 +173,411 @@ int tftp_client_flash_completed(struct node *node)
 	return 1;
 }
 
-static int mr500_detect_main(void (*priv)__attribute__((unused)),
-			     const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(mr500_ip))
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type mr500 = {
-	.desc = "MR500 router",
-	.detect_pre = NULL,
-	.detect_main = mr500_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_uboot,
-	.priv_size = sizeof(struct mr500_priv),
+const struct router_tftp_client mr500 = {
+	.router_type = {
+		.desc = "MR500 router",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_uboot,
+		.priv_size = sizeof(struct mr500_priv),
+	},
+	.ip = MR500_IP,
 };
 
-static int mr600_detect_main(void (*priv)__attribute__((unused)),
-			     const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'R')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '6')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type mr600 = {
-	.desc = "MR600",
-	.detect_pre = NULL,
-	.detect_main = mr600_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry mr600_mac_accept[] = {
+	{
+		.mac = {'M', 'R', '6', '0', '0', 0},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0x00},
+	},
 };
 
-static int mr900_detect_main(void (*priv)__attribute__((unused)),
-			     const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'R')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '9')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type mr900 = {
-	.desc = "MR900",
-	.detect_pre = NULL,
-	.detect_main = mr900_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client mr600 = {
+	.router_type = {
+		.desc = "MR600",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = mr600_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(mr600_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int mr1750_detect_main(void (*priv)__attribute__((unused)),
-			      const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'R')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '1')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '7')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '5')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type mr1750 = {
-	.desc = "MR1750",
-	.detect_pre = NULL,
-	.detect_main = mr1750_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry mr900_mac_accept[] = {
+	{
+		.mac = {'M', 'R', '9', '0', '0', 0},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0x00},
+	},
 };
 
-static bool om2p_orig_arp(const uint8_t arp_tha[ETH_ALEN])
-{
-	/* target mac address field has to be zero */
-	if (arp_tha[0] != '\0')
-		return false;
-
-	if (arp_tha[1] != '\0')
-		return false;
-
-	if (arp_tha[2] != '\0')
-		return false;
-
-	if (arp_tha[3] != '\0')
-		return false;
-
-	if (arp_tha[4] != '\0')
-		return false;
-
-	if (arp_tha[5] != '\0')
-		return false;
-
-	return true;
-}
-
-static bool om2p_v4_arp(const uint8_t arp_tha[ETH_ALEN])
-{
-	if (arp_tha[0] != 'O')
-		return false;
-
-	if (arp_tha[1] != 'M')
-		return false;
-
-	if (arp_tha[2] != '2')
-		return false;
-
-	if (arp_tha[3] != 'P')
-		return false;
-
-	if (arp_tha[4] != 'V')
-		return false;
-
-	if (arp_tha[5] != '4')
-		return false;
-
-	return true;
-}
-
-static int om2p_detect_main(void (*priv)__attribute__((unused)),
-			    const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (!om2p_orig_arp(arphdr->arp_tha) && !om2p_v4_arp(arphdr->arp_tha))
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type om2p = {
-	.desc = "OM2P",
-	.detect_pre = NULL,
-	.detect_main = om2p_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client mr900 = {
+	.router_type = {
+		.desc = "MR900",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = mr900_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(mr900_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int a40_detect_main(void (*priv)__attribute__((unused)),
-			   const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '4')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-const struct router_type a40 = {
-	.desc = "A40",
-	.detect_pre = NULL,
-	.detect_main = a40_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "A60",
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry mr1750_mac_accept[] = {
+	{
+		.mac = {'M', 'R', '1', '7', '5', '0'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int a60_detect_main(void (*priv)__attribute__((unused)),
-			   const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '6')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-const struct router_type a60 = {
-	.desc = "A60",
-	.detect_pre = NULL,
-	.detect_main = a60_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client mr1750 = {
+	.router_type = {
+		.desc = "MR1750",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = mr1750_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(mr1750_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int a42_detect_main(void (*priv)__attribute__((unused)),
-			   const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '4')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '2')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type a42 = {
-	.desc = "A42",
-	.detect_pre = NULL,
-	.detect_main = a42_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry om2p_mac_accept[] = {
+	{
+		.mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+	{
+		.mac = {'O', 'M', '2', 'P', 'V', '4'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int a62_detect_main(void (*priv)__attribute__((unused)),
-			   const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '6')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '2')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type a62 = {
-	.desc = "A62",
-	.detect_pre = NULL,
-	.detect_main = a62_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client om2p = {
+	.router_type = {
+		.desc = "OM2P",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = om2p_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(om2p_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int om5p_detect_main(void (*priv)__attribute__((unused)),
-			    const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'O')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '5')
-		goto out;
-
-	if (arphdr->arp_tha[3] != 'P')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type om5p = {
-	.desc = "OM5P",
-	.detect_pre = NULL,
-	.detect_main = om5p_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry a40_mac_accept[] = {
+	{
+		.mac = {'A', '4', '0', 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int om5pan_detect_main(void (*priv)__attribute__((unused)),
-			      const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'O')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '5')
-		goto out;
-
-	if (arphdr->arp_tha[3] != 'P')
-		goto out;
-
-	if (arphdr->arp_tha[4] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[5] != 'N')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type om5pan = {
-	.desc = "OM5P-AN",
-	.detect_pre = NULL,
-	.detect_main = om5pan_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "OM5P",
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client a40 = {
+	.router_type = {
+		.desc = "A40",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "A60",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = a40_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(a40_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int om5pac_detect_main(void (*priv)__attribute__((unused)),
-			      const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'O')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'M')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '5')
-		goto out;
-
-	if (arphdr->arp_tha[3] != 'P')
-		goto out;
-
-	if (arphdr->arp_tha[4] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[5] != 'C')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type om5pac = {
-	.desc = "OM5P-AC",
-	.detect_pre = NULL,
-	.detect_main = om5pac_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "OM5PAC",
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry a60_mac_accept[] = {
+	{
+		.mac = {'A', '4', '0', 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int p60_detect_main(void (*priv)__attribute__((unused)),
-			   const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'P')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '6')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type p60 = {
-	.desc = "P60",
-	.detect_pre = NULL,
-	.detect_main = p60_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "P60",
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client a60 = {
+	.router_type = {
+		.desc = "A60",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = a60_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(a60_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int d200_detect_main(void (*priv)__attribute__((unused)),
-			    const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'D')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '2')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type d200 = {
-	.desc = "D200",
-	.detect_pre = NULL,
-	.detect_main = d200_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "D200",
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry a42_mac_accept[] = {
+	{
+		.mac = {'A', '4', '2', 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int g200_detect_main(void (*priv)__attribute__((unused)),
-			    const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'G')
-		goto out;
-
-	if (arphdr->arp_tha[1] != '2')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type g200 = {
-	.desc = "G200",
-	.detect_pre = NULL,
-	.detect_main = g200_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.image_desc = "G200",
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client a42 = {
+	.router_type = {
+		.desc = "A42",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = a42_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(a42_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int pa300_detect_main(void (*priv)__attribute__((unused)),
-			     const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if (arphdr->arp_tha[0] != 'P')
-		goto out;
-
-	if (arphdr->arp_tha[1] != 'A')
-		goto out;
-
-	if (arphdr->arp_tha[2] != '3')
-		goto out;
-
-	if (arphdr->arp_tha[3] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[4] != '0')
-		goto out;
-
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
-
-	ret = 1;
-
-out:
-	return ret;
-}
-
-const struct router_type pa300 = {
-	.desc = "PA300",
-	.detect_pre = NULL,
-	.detect_main = pa300_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry a62_mac_accept[] = {
+	{
+		.mac = {'A', '6', '2', 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int pa1200_detect_main(void (*priv)__attribute__((unused)),
-			      const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if ((arphdr->arp_tha[0] == 'R') &&
-	    (arphdr->arp_tha[1] == 'K') &&
-	    (arphdr->arp_tha[2] == '1') &&
-	    (arphdr->arp_tha[3] == '2') &&
-	    (arphdr->arp_tha[4] == '0') &&
-	    (arphdr->arp_tha[5] == '0'))
-		return 1;
-
-	if ((arphdr->arp_tha[0] == 'P') &&
-	    (arphdr->arp_tha[1] == 'A') &&
-	    (arphdr->arp_tha[2] == '1') &&
-	    (arphdr->arp_tha[3] == '2') &&
-	    (arphdr->arp_tha[4] == '0') &&
-	    (arphdr->arp_tha[5] == '0'))
-		return 1;
-
-out:
-	return ret;
-}
-
-const struct router_type pa1200 = {
-	.desc = "PA1200",
-	.detect_pre = NULL,
-	.detect_main = pa1200_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client a62 = {
+	.router_type = {
+		.desc = "A62",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = a62_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(a62_mac_accept),
+	.ip = OM2P_IP,
 };
 
-static int pa2200_detect_main(void (*priv)__attribute__((unused)),
-			      const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
-
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
-
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
-
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(om2p_ip))
-		goto out;
-
-	if ((arphdr->arp_tha[0] == 'R') &&
-	    (arphdr->arp_tha[1] == 'K') &&
-	    (arphdr->arp_tha[2] == '2') &&
-	    (arphdr->arp_tha[3] == '1') &&
-	    (arphdr->arp_tha[4] == '0') &&
-	    (arphdr->arp_tha[5] == '0'))
-		return 1;
-
-	if ((arphdr->arp_tha[0] == 'P') &&
-	    (arphdr->arp_tha[1] == 'A') &&
-	    (arphdr->arp_tha[2] == '2') &&
-	    (arphdr->arp_tha[3] == '2') &&
-	    (arphdr->arp_tha[4] == '0') &&
-	    (arphdr->arp_tha[5] == '0'))
-		return 1;
-
-out:
-	return ret;
-}
-
-const struct router_type pa2200 = {
-	.desc = "PA2200",
-	.detect_pre = NULL,
-	.detect_main = pa2200_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_ce,
-	.priv_size = sizeof(struct om2p_priv),
+static const struct mac_accept_entry om5p_mac_accept[] = {
+	{
+		.mac = {'O', 'M', '5', 'P', 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
 };
 
-static int zyxel_detect_main(void (*priv)__attribute__((unused)),
-			     const char *packet_buff, int packet_buff_len)
-{
-	struct ether_arp *arphdr;
-	int ret = 0;
+const struct router_tftp_client om5p = {
+	.router_type = {
+		.desc = "OM5P",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = om5p_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(om5p_mac_accept),
+	.ip = OM2P_IP,
+};
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
-		goto out;
+static const struct mac_accept_entry om5pan_mac_accept[] = {
+	{
+		.mac = {'O', 'M', '5', 'P', 'A', 'N'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-	arphdr = (struct ether_arp *)packet_buff;
-	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
-		goto out;
+const struct router_tftp_client om5pan = {
+	.router_type = {
+		.desc = "OM5P-AN",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "OM5P",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = om5pan_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(om5pan_mac_accept),
+	.ip = OM2P_IP,
+};
 
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(zyxel_ip))
-		goto out;
+static const struct mac_accept_entry om5pac_mac_accept[] = {
+	{
+		.mac = {'O', 'M', '5', 'P', 'A', 'C'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-	if (arphdr->arp_tha[0] != '\0')
-		goto out;
+const struct router_tftp_client om5pac = {
+	.router_type = {
+		.desc = "OM5P-AC",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "OM5PAC",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = om5pac_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(om5pac_mac_accept),
+	.ip = OM2P_IP,
+};
 
-	if (arphdr->arp_tha[1] != '\0')
-		goto out;
+static const struct mac_accept_entry p60_mac_accept[] = {
+	{
+		.mac = {'P', '6', '0', 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-	if (arphdr->arp_tha[2] != '\0')
-		goto out;
+const struct router_tftp_client p60 = {
+	.router_type = {
+		.desc = "P60",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "P60",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = p60_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(p60_mac_accept),
+	.ip = OM2P_IP,
+};
 
-	if (arphdr->arp_tha[3] != '\0')
-		goto out;
+static const struct mac_accept_entry d200_mac_accept[] = {
+	{
+		.mac = {'D', '2', '0', '0', 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-	if (arphdr->arp_tha[4] != '\0')
-		goto out;
+const struct router_tftp_client d200 = {
+	.router_type = {
+		.desc = "D200",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "D200",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = d200_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(d200_mac_accept),
+	.ip = OM2P_IP,
+};
 
-	if (arphdr->arp_tha[5] != '\0')
-		goto out;
+static const struct mac_accept_entry g200_mac_accept[] = {
+	{
+		.mac = {'G', '2', '0', '0', 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-	ret = 1;
+const struct router_tftp_client g200 = {
+	.router_type = {
+		.desc = "G200",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.image_desc = "G200",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = g200_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(g200_mac_accept),
+	.ip = OM2P_IP,
+};
 
-out:
-	return ret;
-}
+static const struct mac_accept_entry pa300_mac_accept[] = {
+	{
+		.mac = {'P', 'A', '3', '0', '0', 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
 
-const struct router_type zyxel = {
-	.desc = "Zyxel",
-	.detect_pre = NULL,
-	.detect_main = zyxel_detect_main,
-	.detect_post = tftp_client_detect_post,
-	.image = &img_zyxel,
-	.image_desc = "Zyxel",
-	.priv_size = sizeof(struct om2p_priv),
+const struct router_tftp_client pa300 = {
+	.router_type = {
+		.desc = "PA300",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = pa300_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(pa300_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry pa1200_mac_accept[] = {
+	{
+		.mac = {'R', 'K', '1', '2', '0', '0'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+	{
+		.mac = {'P', 'A', '1', '2', '0', '0'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client pa1200 = {
+	.router_type = {
+		.desc = "PA1200",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = pa1200_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(pa1200_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry pa2200_mac_accept[] = {
+	{
+		.mac = {'R', 'K', '2', '1', '0', '0'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+	{
+		.mac = {'P', 'A', '2', '2', '0', '0'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client pa2200 = {
+	.router_type = {
+		.desc = "PA2200",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = pa2200_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(pa2200_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry zyxel_mac_accept[] = {
+	{
+		.mac = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client zyxel = {
+	.router_type = {
+		.desc = "Zyxel",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_zyxel,
+		.image_desc = "Zyxel",
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = zyxel_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(zyxel_mac_accept),
+	.ip = ZYXEL_IP,
 };
