@@ -45,6 +45,7 @@ static const struct router_type *router_types[] = {
 	&om5pan.router_type,
 	&p60.router_type,
 	&redboot,
+	&tw420.router_type,
 	&ubnt,
 	&zyxel.router_type,
 	&ap121f,

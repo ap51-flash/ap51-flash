@@ -28,6 +28,7 @@ Tested
 
   - AP840
   - AP840E
+  - TW420
 
 * Dlink
 

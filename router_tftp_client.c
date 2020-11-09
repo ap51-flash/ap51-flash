@@ -129,6 +129,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &pa1200.router_type) ||
 		   (node->router_type == &pa2200.router_type) ||
 		   (node->router_type == &pax1800.router_type) ||
+		   (node->router_type == &tw420.router_type) ||
 		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
@@ -165,6 +166,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &pa1200.router_type) ||
 		   (node->router_type == &pa2200.router_type) ||
 		   (node->router_type == &pax1800.router_type) ||
+		   (node->router_type == &tw420.router_type) ||
 		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
@@ -403,6 +405,27 @@ const struct router_tftp_client ap840e = {
 	},
 	.mac_accept_entries = ap840e_mac_accept,
 	.mac_accept_entries_num = ARRAY_SIZE(ap840e_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry tw420_mac_accept[] = {
+	{
+		.mac = {0xF8, 0xD9, 0xB8, 0x00, 0x04, 0x01},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client tw420 = {
+	.router_type = {
+		.desc = "TW420",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = tw420_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(tw420_mac_accept),
 	.ip = OM2P_IP,
 };
 
