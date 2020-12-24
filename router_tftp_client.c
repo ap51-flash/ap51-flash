@@ -297,7 +297,7 @@ const struct router_tftp_client a40 = {
 
 static const struct mac_accept_entry a60_mac_accept[] = {
 	{
-		.mac = {'A', '4', '0', 0x00, 0x00, 0x00},
+		.mac = {'A', '6', '0', 0x00, 0x00, 0x00},
 		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	},
 };
