@@ -51,6 +51,7 @@ static const struct router_type *router_types[] = {
 	&pa300.router_type,
 	&pa1200.router_type,
 	&pa2200.router_type,
+	&pax1800.router_type,
 	NULL,
 };
 

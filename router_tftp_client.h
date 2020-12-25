@@ -41,6 +41,7 @@ extern const struct router_tftp_client p60;
 extern const struct router_tftp_client pa300;
 extern const struct router_tftp_client pa1200;
 extern const struct router_tftp_client pa2200;
+extern const struct router_tftp_client pax1800;
 extern const struct router_tftp_client zyxel;
 
 void tftp_client_flash_time_set(struct node *node);
