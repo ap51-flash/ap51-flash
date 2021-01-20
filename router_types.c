@@ -31,6 +31,7 @@ static const struct router_type *router_types[] = {
 	&a42.router_type,
 	&a60.router_type,
 	&a62.router_type,
+	&ap440.router_type,
 	&ap840.router_type,
 	&ap840e.router_type,
 	&d200.router_type,

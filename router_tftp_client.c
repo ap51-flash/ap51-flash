@@ -116,6 +116,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &a42.router_type) ||
 		   (node->router_type == &a60.router_type) ||
 		   (node->router_type == &a62.router_type) ||
+		   (node->router_type == &ap440.router_type) ||
 		   (node->router_type == &ap840.router_type) ||
 		   (node->router_type == &ap840e.router_type) ||
 		   (node->router_type == &om2p.router_type) ||
@@ -153,6 +154,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &a42.router_type) ||
 		   (node->router_type == &a60.router_type) ||
 		   (node->router_type == &a62.router_type) ||
+		   (node->router_type == &ap440.router_type) ||
 		   (node->router_type == &ap840.router_type) ||
 		   (node->router_type == &ap840e.router_type) ||
 		   (node->router_type == &om2p.router_type) ||
@@ -384,6 +386,27 @@ const struct router_tftp_client ap840 = {
 	},
 	.mac_accept_entries = ap840_mac_accept,
 	.mac_accept_entries_num = ARRAY_SIZE(ap840_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry ap440_mac_accept[] = {
+	{
+		.mac = {0xF8, 0xD9, 0xB8, 0x00, 0x03, 0x01},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client ap440 = {
+	.router_type = {
+		.desc = "AP440",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = ap440_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(ap440_mac_accept),
 	.ip = OM2P_IP,
 };
 

@@ -26,6 +26,7 @@ Tested
 
 * Datto
 
+  - AP440
   - AP840
   - AP840E
   - TW420
