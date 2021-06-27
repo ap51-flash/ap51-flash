@@ -39,7 +39,7 @@ img_$(2).o: $(EMBED_$(1))
 	$(Q_CC)$(OBJCOPY) -B i386 -I binary $(EMBED_$(1)) -O $(OBJCP_OUT) \
 	--redefine-sym $$(EMBED_$(1)_SYM)_start=_binary_img_$(2)_start \
 	--redefine-sym $$(EMBED_$(1)_SYM)_end=_binary_img_$(2)_end \
-	--redefine-sym $$(EMBED_$(1)_SYM)_size=_binary_img_$(2)_size img_$(2).o
+	--strip-symbol $$(EMBED_$(1)_SYM)_size img_$(2).o
 else ifeq ($(PLATFORM),WIN32)
 $(AP51_RC):: $(EMBED_$(1))
 	$(Q_SILENT)[ -z "$(EMBED_$(1))" ] || echo 'IDR_$(1)_IMG RCDATA DISCARDABLE "$(EMBED_$(1))"' >> $(AP51_RC)

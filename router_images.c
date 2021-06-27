@@ -33,31 +33,26 @@ static const char fwupgradecfgsig[] = "fwupgrade.cfg.sig";
 #if defined(EMBED_UBOOT) && defined(LINUX)
 extern unsigned long _binary_img_uboot_start;
 extern unsigned long _binary_img_uboot_end;
-extern unsigned long _binary_img_uboot_size;
 #endif
 
 #if defined(EMBED_UBNT) && defined(LINUX)
 extern unsigned long _binary_img_ubnt_start;
 extern unsigned long _binary_img_ubnt_end;
-extern unsigned long _binary_img_ubnt_size;
 #endif
 
 #if defined(EMBED_CI) && defined(LINUX)
 extern unsigned long _binary_img_ci_start;
 extern unsigned long _binary_img_ci_end;
-extern unsigned long _binary_img_ci_size;
 #endif
 
 #if defined(EMBED_CE) && defined(LINUX)
 extern unsigned long _binary_img_ce_start;
 extern unsigned long _binary_img_ce_end;
-extern unsigned long _binary_img_ce_size;
 #endif
 
 #if defined(EMBED_ZYXEL) && defined(LINUX)
 extern unsigned long _binary_img_zyxel_start;
 extern unsigned long _binary_img_zyxel_end;
-extern unsigned long _binary_img_zyxel_size;
 #endif
 
 struct router_info *router_image_router_get(struct router_image *router_image,
@@ -601,7 +596,7 @@ void router_images_init_embedded(void)
 #if defined(EMBED_UBOOT)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_uboot_start;
-			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_uboot_size;
+			(*router_image)->embedded_file_size = (uintptr_t)&_binary_img_uboot_end - (uintptr_t)&_binary_img_uboot_start;
 #elif defined(OSX)
 			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_uboot", &(*router_image)->embedded_file_size);
 			if ((*router_image)->embedded_img_pre_check)
@@ -615,7 +610,7 @@ void router_images_init_embedded(void)
 #if defined(EMBED_UBNT)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ubnt_start;
-			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ubnt_size;
+			(*router_image)->embedded_file_size = (uintptr_t)&_binary_img_ubnt_end - (uintptr_t)&_binary_img_ubnt_start;
 #elif defined(OSX)
 			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ubnt", &(*router_image)->embedded_file_size);
 			if ((*router_image)->embedded_img_pre_check)
@@ -629,7 +624,7 @@ void router_images_init_embedded(void)
 #if defined(EMBED_CI)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ci_start;
-			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ci_size;
+			(*router_image)->embedded_file_size = (uintptr_t)&_binary_img_ci_end - (uintptr_t)&_binary_img_ci_start;
 #elif defined(OSX)
 			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ci", &(*router_image)->embedded_file_size);
 			if ((*router_image)->embedded_img_pre_check)
@@ -643,7 +638,7 @@ void router_images_init_embedded(void)
 #if defined(EMBED_CE)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_ce_start;
-			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_ce_size;
+			(*router_image)->embedded_file_size = (uintptr_t)&_binary_img_ce_end - (uintptr_t)&_binary_img_ce_start;
 #elif defined(OSX)
 			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ce", &(*router_image)->embedded_file_size);
 			if ((*router_image)->embedded_img_pre_check)
@@ -657,7 +652,7 @@ void router_images_init_embedded(void)
 #if defined(EMBED_ZYXEL)
 #if defined(LINUX)
 			(*router_image)->embedded_img_pre_check = (char *)&_binary_img_zyxel_start;
-			(*router_image)->embedded_file_size = (unsigned long)&_binary_img_zyxel_size;
+			(*router_image)->embedded_file_size = (uintptr_t)&_binary_img_zyxel_end - (uintptr_t)&_binary_img_zyxel_start;
 #elif defined(OSX)
 			(*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_zyxel", &(*router_image)->embedded_file_size);
 			if ((*router_image)->embedded_img_pre_check)
