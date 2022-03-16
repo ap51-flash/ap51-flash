@@ -12,5 +12,4 @@ ap51-flash
 
 
    supported-devices/index
-   flash-station/index
 
