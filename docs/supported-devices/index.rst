@@ -1,8 +1,8 @@
 .. SPDX-License-Identifier: GPL-3.0-or-later
-.. SPDX-FileCopyrightText: 2013, Saverio Proto <zioproto@gmail.com>
-.. SPDX-FileCopyrightText: 2013-2019, Marek Lindner <mareklindner@neomailbox.ch>
-.. SPDX-FileCopyrightText: 2018, Antonio Quartulli <a@unstable.cc>
-.. SPDX-FileCopyrightText: 2017-2019, Sven Eckelmann <sven@narfation.org>
+.. SPDX-FileCopyrightText: Saverio Proto <zioproto@gmail.com>
+.. SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
+.. SPDX-FileCopyrightText: Antonio Quartulli <a@unstable.cc>
+.. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 =================
 Supported devices

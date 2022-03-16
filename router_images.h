@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
- * SPDX-FileCopyrightText: 2009-2019, Marek Lindner <mareklindner@neomailbox.ch>
+ * SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
  */
 
 #ifndef __AP51_FLASH_ROUTER_IMAGES_H__

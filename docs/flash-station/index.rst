@@ -1,5 +1,5 @@
 .. SPDX-License-Identifier: GPL-3.0-or-later
-.. SPDX-FileCopyrightText: 2013, Linus Lüssing <linus.luessing@c0d3.blue>
+.. SPDX-FileCopyrightText: Linus Lüssing <linus.luessing@c0d3.blue>
 
 ==============================
 ap51-flash station for OpenWRT

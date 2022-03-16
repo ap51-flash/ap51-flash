@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: 2017-2019, Sven Eckelmann <sven@narfation.org>
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -11,7 +11,7 @@
 # -- Project information -----------------------------------------------------
 
 project = u'ap51-flash'
-copyright = u'2017-2019, ap51-flash Team'
+copyright = u'ap51-flash Team'
 author = u'ap51-flash Team'
 
 # The short X.Y version

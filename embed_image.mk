@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: 2009-2019, Marek Lindner <mareklindner@neomailbox.ch>
-# SPDX-FileCopyrightText: 2015-2019, Sven Eckelmann <sven@narfation.org>
+# SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 $(AP51_RC):: Makefile
 	$(Q_SILENT)echo '#include "ap51-flash-res.h"' > $(AP51_RC)

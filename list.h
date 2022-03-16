@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* Minimal Linux-like double-linked list helper functions
  *
- * SPDX-FileCopyrightText: 2012-2016, Sven Eckelmann <sven@narfation.org>
+ * SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
  */
 
 #ifndef __LINUX_LIKE_LIST_H__
