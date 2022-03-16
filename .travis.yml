@@ -96,9 +96,9 @@ matrix:
           - mxe-i686-w64-mingw32.static-gcc
           - mxe-i686-w64-mingw32.static-pkgconf
       before_script:
-      - curl https://nmap.org/npcap/dist/npcap-sdk-1.07.zip -o npcap-sdk-1.07.zip
-      - unzip npcap-sdk-1.07.zip -d npcap-sdk
-      - rm -f npcap-sdk-1.07.zip
+      - curl https://npcap.com/dist/npcap-sdk-1.12.zip -o npcap-sdk-1.12.zip
+      - unzip npcap-sdk-1.12.zip -d npcap-sdk
+      - rm -f npcap-sdk-1.12.zip
       - dd if=/dev/urandom of=test.img count=10000 bs=1024
       script:
       - make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
@@ -125,9 +125,9 @@ matrix:
           - mxe-i686-w64-mingw32.static-gcc
           - mxe-i686-w64-mingw32.static-pkgconf
       before_script:
-      - curl https://nmap.org/npcap/dist/npcap-sdk-1.07.zip -o npcap-sdk-1.07.zip
-      - unzip npcap-sdk-1.07.zip -d npcap-sdk
-      - rm -f npcap-sdk-1.07.zip
+      - curl https://nmap.org/npcap/dist/npcap-sdk-1.12.zip -o npcap-sdk-1.12.zip
+      - unzip npcap-sdk-1.12.zip -d npcap-sdk
+      - rm -f npcap-sdk-1.12.zip
       - mkdir -p npcap-sdk/Lib-delayed
       - |
         cat > npcap-sdk/Lib-delayed/wpcap.def <<EOF
@@ -163,9 +163,9 @@ matrix:
           - mingw-w64-tools
           - gcc-mingw-w64
       before_script:
-      - curl https://nmap.org/npcap/dist/npcap-sdk-1.07.zip -o npcap-sdk-1.07.zip
-      - unzip npcap-sdk-1.07.zip -d npcap-sdk
-      - rm -f npcap-sdk-1.07.zip
+      - curl https://nmap.org/npcap/dist/npcap-sdk-1.12.zip -o npcap-sdk-1.12.zip
+      - unzip npcap-sdk-1.12.zip -d npcap-sdk
+      - rm -f npcap-sdk-1.12.zip
       - mkdir -p npcap-sdk/Lib-delayed
       - |
         cat > npcap-sdk/Lib-delayed/wpcap.def <<EOF
