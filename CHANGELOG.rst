@@ -2,6 +2,22 @@
 .. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 
+2022.0 (2022-03-16)
+===================
+
+* Improve listing of ethernet devices under Linux
+* Add support for modern Npcap DLLs
+* Fix embedding of images with modern GCC versions
+* coding style cleanups and refactoring
+* added support for:
+
+  - Datto AP440
+  - Datto AP840
+  - Datto AP840E
+  - Datto TW420
+  - Plasma Cloud PAX1800
+
+
 2019.0.1 (2019-09-14)
 =====================
 
