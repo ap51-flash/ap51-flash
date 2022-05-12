@@ -130,6 +130,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &pa1200.router_type) ||
 		   (node->router_type == &pa2200.router_type) ||
 		   (node->router_type == &pax1800.router_type) ||
+		   (node->router_type == &pax1800v2.router_type) ||
 		   (node->router_type == &tw420.router_type) ||
 		   (node->router_type == &zyxel.router_type)) {
 
@@ -168,6 +169,7 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &pa1200.router_type) ||
 		   (node->router_type == &pa2200.router_type) ||
 		   (node->router_type == &pax1800.router_type) ||
+		   (node->router_type == &pax1800v2.router_type) ||
 		   (node->router_type == &tw420.router_type) ||
 		   (node->router_type == &zyxel.router_type)) {
 
@@ -672,6 +674,27 @@ const struct router_tftp_client pax1800 = {
 	},
 	.mac_accept_entries = pax1800_mac_accept,
 	.mac_accept_entries_num = ARRAY_SIZE(pax1800_mac_accept),
+	.ip = OM2P_IP,
+};
+
+static const struct mac_accept_entry pax1800v2_mac_accept[] = {
+	{
+		.mac = {'P', 'A', 'X', '1', '8', '2'},
+		.mask = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+	},
+};
+
+const struct router_tftp_client pax1800v2 = {
+	.router_type = {
+		.desc = "PAX1800v2",
+		.detect_pre = NULL,
+		.detect_main = tftp_client_detect_main,
+		.detect_post = tftp_client_detect_post,
+		.image = &img_ce,
+		.priv_size = sizeof(struct om2p_priv),
+	},
+	.mac_accept_entries = pax1800v2_mac_accept,
+	.mac_accept_entries_num = ARRAY_SIZE(pax1800v2_mac_accept),
 	.ip = OM2P_IP,
 };
 
