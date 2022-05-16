@@ -21,9 +21,9 @@
 static void usage(const char *prgname)
 {
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "%s interface image\t\t\tflash router with given image\n",
+	fprintf(stderr, "%s interface image\t\t\tflash device with given image\n",
 		prgname);
-	fprintf(stderr, "%s [-m <MAC>...] interface image\tflash router at given MAC address(es)\n", prgname);
+	fprintf(stderr, "%s [-m <MAC>...] interface image\tflash device at given MAC address(es)\n", prgname);
 	fprintf(stderr, "%s -h\t\t\t\t\tshow usage/help\n", prgname);
 	fprintf(stderr, "%s -v\t\t\t\t\tprints version information\n", prgname);
 

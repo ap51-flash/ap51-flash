@@ -119,7 +119,7 @@ void handle_netconsole_packet(const char *packet_buff, int packet_buff_len,
 		if (strncmp(packet_buff, DONE_STR, strlen(DONE_STR)) != 0)
 			return;
 
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Rebooting\n",
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: flash complete. Rebooting\n",
 			node->his_mac_addr[0], node->his_mac_addr[1],
 			node->his_mac_addr[2], node->his_mac_addr[3],
 			node->his_mac_addr[4], node->his_mac_addr[5],

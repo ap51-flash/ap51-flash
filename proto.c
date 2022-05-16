@@ -240,7 +240,7 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
 		if (node->flash_mode != FLASH_MODE_NETCONSOLE) {
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: flash complete. Device ready to unplug.\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: flash complete. Device ready to unplug.\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
@@ -318,7 +318,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			file_info = router_image_get_file(node->router_type,
 							  file_name);
 			if (!file_info) {
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp client asks for '%s' - file not found ...\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s' - file not found ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -336,7 +336,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				node->status = NODE_STATUS_FLASHING;
 			}
 
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp client asks for '%s', serving %s portion of: %s (%i blocks) ...\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s', serving %s portion of: %s (%i blocks) ...\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
@@ -373,7 +373,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
 
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: connection to tftp server established - uploading %i blocks ...\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %i blocks ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -388,7 +388,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			node->image_state.block_sent = 0;
 		} else if (block != node->image_state.block_sent) {
 			if (block < node->image_state.block_sent)
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp repeat block %d, last received ack: %d\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %d, last received ack: %d\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -398,7 +398,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->router_type->desc, block + 1,
 					node->image_state.block_acked);
 			else
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: tftp acks unsent block %d (last sent block: %d)\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp acks unsent block %d (last sent block: %d)\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -424,7 +424,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					case FLASH_MODE_TFTP_SERVER:
 					case FLASH_MODE_TFTP_CLIENT:
 					case FLASH_MODE_NETCONSOLE:
-						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: image successfully transmitted - writing image to flash ...\n",
+						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
 							node->his_mac_addr[0],
 							node->his_mac_addr[1],
 							node->his_mac_addr[2],
@@ -478,14 +478,14 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	/* TFTP error */
 	case 5:
 		if ((block == 2) && (htons(udphdr->len) - sizeof(struct udphdr) > 4))
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: received TFTP error: %s\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error: %s\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc,
 				(packet_buff + sizeof(struct udphdr) + 4));
 		else
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: received TFTP error code: %d\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code: %d\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
@@ -493,7 +493,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 
 		break;
 	default:
-		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s router: unexpected TFTP opcode: %d\n",
+		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: unexpected TFTP opcode: %d\n",
 			node->his_mac_addr[0], node->his_mac_addr[1],
 			node->his_mac_addr[2], node->his_mac_addr[3],
 			node->his_mac_addr[4], node->his_mac_addr[5],
