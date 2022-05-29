@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build MXE WinPCAP
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: add mxe deb repository
+        uses: myci-actions/add-deb-repo@10
+        with:
+          repo: deb http://pkg.mxe.cc/repos/apt/ focal main
+          repo-name: mxe
+          key-server: keyserver.ubuntu.com
+          keys: C6BF758A33A3A276
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y curl unzip mxe-i686-w64-mingw32.static-gcc mxe-i686-w64-mingw32.static-pkgconf
+      - uses: actions/checkout@v3
+      - name: Get WinPCAP
+        run: |
+          curl https://www.winpcap.org/install/bin/WpdPack_4_1_2.zip -o WpdPack_4_1_2.zip
+          unzip WpdPack_4_1_2.zip
+          rm -f WpdPack_4_1_2.zip
+      - name: Test
+        run: |
+          dd if=/dev/urandom of=test.img count=10000 bs=1024
+          export PATH="/usr/lib/mxe/usr/bin/:$PATH"
+          make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN -DDEBUG" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DDEBUG" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" EMBED_CI="test.img" ap51-flash.exe
+          make clean V=s && CFLAGS="-flto -O2" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe && mv ap51-flash.exe ap51-flash-i686-winpcap.exe
+        env:
+          MXE_CPU: i686
+          WINPCAP_LDLIBS: "-LWpdPack/Lib/ -lwpcap"
+          WINPCAP_CFLAGS: "-IWpdPack/Include/"
