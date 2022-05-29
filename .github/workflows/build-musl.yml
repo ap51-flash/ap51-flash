@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build musl
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git musl-tools
+      - uses: actions/checkout@v3
+      - name: Get kernel-headers
+        run: |
+          git clone --depth=1 https://github.com/sabotage-linux/kernel-headers -b v3.12.6-5 kernel-headers
+      - name: Test
+        run: |
+          make clean V=s && make V=s CC=musl-gcc && mv ap51-flash ap51-flash-x86_64-linux
+        env:
+          CPPFLAGS: "-Ikernel-headers/x86/include/"
+          CFLAGS: "-static -m64 -flto -O2"
+          DFLAGS: "-Wl,-m -Wl,elf_x86_64"
