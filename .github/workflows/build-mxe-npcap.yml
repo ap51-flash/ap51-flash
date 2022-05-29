@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build MXE Npcap mordern mode
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: add mxe deb repository
+        uses: myci-actions/add-deb-repo@10
+        with:
+          repo: deb http://pkg.mxe.cc/repos/apt/ focal main
+          repo-name: mxe
+          key-server: keyserver.ubuntu.com
+          keys: C6BF758A33A3A276
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y curl unzip mxe-i686-w64-mingw32.static-gcc mxe-i686-w64-mingw32.static-pkgconf
+      - uses: actions/checkout@v3
+      - name: Get WinPCAP
+        run: |
+          curl https://npcap.com/dist/npcap-sdk-1.12.zip -o npcap-sdk-1.12.zip
+          unzip npcap-sdk-1.12.zip -d npcap-sdk
+          rm -f npcap-sdk-1.12.zip
+          mkdir -p npcap-sdk/Lib-delayed
+          cat > npcap-sdk/Lib-delayed/wpcap.def <<EOF
+          LIBRARY "wpcap.dll"
+          EXPORTS
+          pcap_close
+          pcap_findalldevs
+          pcap_freealldevs
+          pcap_next
+          pcap_open_live
+          pcap_sendpacket
+          pcap_setmintocopy
+          EOF
+          /usr/lib/mxe/usr/bin/i686-w64-mingw32.static-dlltool --output-delaylib npcap-sdk/Lib-delayed/wpcap.lib --def npcap-sdk/Lib-delayed/wpcap.def
+      - name: Test
+        run: |
+          dd if=/dev/urandom of=test.img count=10000 bs=1024
+          export PATH="/usr/lib/mxe/usr/bin/:$PATH"
+          make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN -DDEBUG" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DDEBUG" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe
+          make clean V=s && make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" EMBED_CI="test.img" ap51-flash.exe
+          make clean V=s && CFLAGS="-flto -O2" make V=s CROSS="${MXE_CPU}-w64-mingw32.static-" ap51-flash.exe && mv ap51-flash.exe ap51-flash-i686-npcap.exe
+        env:
+          MXE_CPU: i686
+          WINPCAP_LDLIBS: "-Lnpcap-sdk/Lib-delayed/ -lwpcap"
+          WINPCAP_CFLAGS: "-Inpcap-sdk/Include/ -DNPCAP"
