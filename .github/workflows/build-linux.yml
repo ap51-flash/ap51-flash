@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build Linux
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    strategy:
+      matrix:
+        cc: ["gcc", "clang"]
+        cflags: ["",  "-DDEBUG", "-DCLEAR_SCREEN", "-DCLEAR_SCREEN -DDEBUG"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y binutils libc-bin
+      - uses: actions/checkout@v3
+      - name: Test
+        run: |
+          dd if=/dev/urandom of=test.img count=10000 bs=1024
+          make clean V=s && make CC="${{ matrix.cc }}" V=s
+          make clean V=s && make CC="${{ matrix.cc }}" EMBED_CI="test.img" V=s
+        env:
+          CFLAGS: ${{ matrix.cflags }}

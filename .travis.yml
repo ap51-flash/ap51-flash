@@ -13,17 +13,6 @@ addons:
     - libpcap-dev
     - binutils
     - libc-bin
-env:
-  matrix:
-   - CPPFLAGS=""
-   - CPPFLAGS="-DDEBUG"
-   - CPPFLAGS="-DCLEAR_SCREEN"
-   - CPPFLAGS="-DCLEAR_SCREEN -DDEBUG"
-before_script:
-- dd if=/dev/urandom of=test.img count=10000 bs=1024
-script:
- - make clean V=s && make CC="${CC}" V=s
- - make clean V=s && make CC="${CC}" EMBED_CI="test.img" V=s
 
 matrix:
   include:
