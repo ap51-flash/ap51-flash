@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Build MinGW-w64
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y curl unzip mingw-w64-tools gcc-mingw-w64
+      - uses: actions/checkout@v3
+      - name: Get WinPCAP
+        run: |
+          curl https://npcap.com/dist/npcap-sdk-1.12.zip -o npcap-sdk-1.12.zip
+          unzip npcap-sdk-1.12.zip -d npcap-sdk
+          rm -f npcap-sdk-1.12.zip
+          mkdir -p npcap-sdk/Lib-delayed
+          cat > npcap-sdk/Lib-delayed/wpcap.def <<EOF
+          LIBRARY "wpcap.dll"
+          EXPORTS
+          pcap_close
+          pcap_findalldevs
+          pcap_freealldevs
+          pcap_next
+          pcap_open_live
+          pcap_sendpacket
+          pcap_setmintocopy
+          EOF
+          i686-w64-mingw32-dlltool --output-delaylib npcap-sdk/Lib-delayed/wpcap.lib --def npcap-sdk/Lib-delayed/wpcap.def
+      - name: Test
+        run: |
+          dd if=/dev/urandom of=test.img count=10000 bs=1024
+          make clean V=s && make V=s CROSS="i686-w64-mingw32-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN" make V=s CROSS="i686-w64-mingw32-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DCLEAR_SCREEN -DDEBUG" make V=s CROSS="i686-w64-mingw32-" ap51-flash.exe
+          make clean V=s && CPPFLAGS="-DDEBUG" make V=s CROSS="i686-w64-mingw32-" ap51-flash.exe
+          make clean V=s && make V=s CROSS="i686-w64-mingw32-" EMBED_CI="test.img" ap51-flash.exe
+          make clean V=s && CFLAGS="-flto -O2" make V=s CROSS="i686-w64-mingw32-" ap51-flash.exe && mv ap51-flash.exe ap51-flash-i686-npcap.exe
+        env:
+          WINPCAP_LDLIBS: "-Lnpcap-sdk/Lib-delayed/ -lwpcap"
+          WINPCAP_CFLAGS: "-Inpcap-sdk/Include/ -DNPCAP"
