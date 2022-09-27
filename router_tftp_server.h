@@ -14,5 +14,6 @@ struct router_tftp_server {
 };
 
 extern const struct router_tftp_server ubnt;
+extern const struct router_tftp_server netgear;
 
 #endif /* __AP51_FLASH_ROUTER_TFTP_SERVER_H__ */

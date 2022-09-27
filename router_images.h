@@ -17,6 +17,7 @@ enum image_type {
 	IMAGE_TYPE_UNKNOWN,
 	IMAGE_TYPE_UBOOT,
 	IMAGE_TYPE_UBNT,
+	IMAGE_TYPE_NETGEAR,
 	IMAGE_TYPE_CI,
 	IMAGE_TYPE_CE,
 	IMAGE_TYPE_ZYXEL,
@@ -76,6 +77,7 @@ struct file_info *router_image_get_file_info(struct router_image *router_image,
 
 extern struct router_image img_uboot;
 extern struct router_image img_ubnt;
+extern struct router_image img_netgear;
 extern struct router_image img_ci;
 extern struct router_image img_ce;
 extern struct router_image img_zyxel;

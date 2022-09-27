@@ -259,6 +259,18 @@ static int ubnt_verify(struct router_image *router_image, const char *buff,
 	return 1;
 }
 
+static int netgear_verify(struct router_image *router_image, const char *buff,
+			  unsigned int buff_len, int size)
+{
+	if (buff_len < 4)
+		return 0;
+
+	/* TODO: netgear magic header check */
+
+	router_image->file_size = size;
+	return 1;
+}
+
 static int ci_verify(struct router_image *router_image, const char *buff,
 		     unsigned int buff_len, int size)
 {
@@ -540,6 +552,12 @@ struct router_image img_ubnt = {
 	.image_verify = ubnt_verify,
 };
 
+struct router_image img_netgear = {
+	.type = IMAGE_TYPE_NETGEAR,
+	.desc = "netgear image",
+	.image_verify = netgear_verify,
+};
+
 struct router_image img_ci = {
 	.type = IMAGE_TYPE_CI,
 	.desc = "combined image",
@@ -561,6 +579,7 @@ struct router_image img_zyxel = {
 static struct router_image *router_images[] = {
 	&img_uboot,
 	&img_ubnt,
+	&img_netgear,
 	&img_ci,
 	&img_ce,
 	&img_zyxel,
@@ -617,6 +636,19 @@ void router_images_init_embedded(void)
 				(*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
 #elif defined(WIN32)
 			(*router_image)->embedded_img_res = IDR_UBNT_IMG;
+#endif
+#endif
+		case IMAGE_TYPE_NETGEAR:
+#if defined(EMBED_UBNT)
+#if defined(LINUX)
+			// (*router_image)->embedded_img_pre_check = (char *)&_binary_img_ubnt_start;
+			// (*router_image)->embedded_file_size = (uintptr_t)&_binary_img_ubnt_end - (uintptr_t)&_binary_img_ubnt_start;
+#elif defined(OSX)
+			// (*router_image)->embedded_img_pre_check = getsectdata("__DATA", "_binary_img_ubnt", &(*router_image)->embedded_file_size);
+			// if ((*router_image)->embedded_img_pre_check)
+				// (*router_image)->embedded_img_pre_check += _dyld_get_image_vmaddr_slide(0);
+#elif defined(WIN32)
+			// (*router_image)->embedded_img_res = IDR_UBNT_IMG;
 #endif
 #endif
 			break;

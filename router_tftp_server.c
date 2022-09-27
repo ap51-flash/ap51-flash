@@ -11,6 +11,7 @@
 #include "proto.h"
 #include "router_images.h"
 
+#define NETGEAR_IP 3232235777UL /* 192.168.1.1 */
 #define UBNT_IP 3232235796UL /* 192.168.1.20 */
 
 static const unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */
@@ -94,4 +95,18 @@ const struct router_tftp_server ubnt = {
 	},
 	.ip = UBNT_IP,
 	.wait_arp_count = 20,
+};
+
+const struct router_tftp_server netgear = {
+	.router_type = {
+		.desc = "netgear",
+		.detect_pre = tftp_server_detect_pre,
+		.detect_main = tftp_server_detect_main,
+		.detect_post = tftp_server_detect_post,
+		.image = &img_netgear,
+		.image_desc = "netgear",
+		.priv_size = sizeof(struct tftp_server_priv),
+	},
+	.ip = NETGEAR_IP,
+	.wait_arp_count = 0,
 };
