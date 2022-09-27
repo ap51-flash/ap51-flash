@@ -10,29 +10,38 @@
 #include "flash.h"
 #include "proto.h"
 #include "router_images.h"
-#include "router_types.h"
 
-static const unsigned int ubnt_ip = 3232235796UL; /* 192.168.1.20 */
+#define UBNT_IP 3232235796UL /* 192.168.1.20 */
+
 static const unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */
 
-struct ubnt_priv {
+struct tftp_server_priv {
 	int arp_count;
 };
 
-static void ubnt_detect_pre(const uint8_t *our_mac)
+static void tftp_server_detect_pre(const struct router_type *router_type,
+				   const uint8_t *our_mac)
 {
 	uint8_t bcast_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	struct router_tftp_server *tftp_server;
 
-	arp_req_send(our_mac, bcast_mac, htonl(my_ip), htonl(ubnt_ip));
+	tftp_server = container_of(router_type, struct router_tftp_server,
+				   router_type);
+
+	arp_req_send(our_mac, bcast_mac, htonl(my_ip), htonl(tftp_server->ip));
 }
 
-static int ubnt_detect_main(const struct router_type *router_type __attribute__((unused)),
-			    void *priv, const char *packet_buff,
-			    int packet_buff_len)
+static int tftp_server_detect_main(const struct router_type *router_type,
+				   void *priv, const char *packet_buff,
+				   int packet_buff_len)
 {
+	struct tftp_server_priv *server_priv = priv;
+	struct router_tftp_server *tftp_server;
 	struct ether_arp *arphdr;
-	struct ubnt_priv *ubnt_priv = priv;
 	int ret = 0;
+
+	tftp_server = container_of(router_type, struct router_tftp_server,
+				   router_type);
 
 	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
 		goto out;
@@ -41,11 +50,11 @@ static int ubnt_detect_main(const struct router_type *router_type __attribute__(
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REPLY))
 		goto out;
 
-	if (load_ip_addr(arphdr->arp_spa) != htonl(ubnt_ip))
+	if (load_ip_addr(arphdr->arp_spa) != htonl(tftp_server->ip))
 		goto out;
 
-	if (ubnt_priv->arp_count < 20) {
-		ubnt_priv->arp_count++;
+	if (server_priv->arp_count < tftp_server->wait_arp_count) {
+		server_priv->arp_count++;
 		goto out;
 	}
 
@@ -55,8 +64,8 @@ out:
 	return ret;
 }
 
-static void ubnt_detect_post(struct node *node, const char *packet_buff,
-			     int packet_buff_len)
+static void tftp_server_detect_post(struct node *node, const char *packet_buff,
+				    int packet_buff_len)
 {
 	struct ether_arp *arphdr;
 
@@ -73,11 +82,16 @@ out:
 	return;
 }
 
-const struct router_type ubnt = {
-	.desc = "ubiquiti",
-	.detect_pre = ubnt_detect_pre,
-	.detect_main = ubnt_detect_main,
-	.detect_post = ubnt_detect_post,
-	.image = &img_ubnt,
-	.priv_size = sizeof(struct ubnt_priv),
+const struct router_tftp_server ubnt = {
+	.router_type = {
+		.desc = "ubiquiti",
+		.detect_pre = tftp_server_detect_pre,
+		.detect_main = tftp_server_detect_main,
+		.detect_post = tftp_server_detect_post,
+		.image = &img_ubnt,
+		.image_desc = "ubiquiti",
+		.priv_size = sizeof(struct tftp_server_priv),
+	},
+	.ip = UBNT_IP,
+	.wait_arp_count = 20,
 };

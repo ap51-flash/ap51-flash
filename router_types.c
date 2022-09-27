@@ -47,7 +47,7 @@ static const struct router_type *router_types[] = {
 	&p60.router_type,
 	&redboot,
 	&tw420.router_type,
-	&ubnt,
+	&ubnt.router_type,
 	&zyxel.router_type,
 	&ap121f,
 	&pa300.router_type,
@@ -135,7 +135,7 @@ void router_types_detect_pre(const uint8_t *our_mac)
 		if (!(*router_type)->detect_pre)
 			continue;
 
-		(*router_type)->detect_pre(our_mac);
+		(*router_type)->detect_pre(*router_type, our_mac);
 	}
 }
 

@@ -5,6 +5,14 @@
 #ifndef __AP51_FLASH_ROUTER_TFTP_SERVER_H__
 #define __AP51_FLASH_ROUTER_TFTP_SERVER_H__
 
-extern const struct router_type ubnt;
+#include "router_types.h"
+
+struct router_tftp_server {
+	struct router_type router_type;
+	unsigned int ip;
+	uint8_t wait_arp_count;
+};
+
+extern const struct router_tftp_server ubnt;
 
 #endif /* __AP51_FLASH_ROUTER_TFTP_SERVER_H__ */
