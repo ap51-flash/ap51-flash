@@ -44,6 +44,7 @@ extern const struct router_tftp_client pa1200;
 extern const struct router_tftp_client pa2200;
 extern const struct router_tftp_client pax1800;
 extern const struct router_tftp_client pax1800v2;
+extern const struct router_tftp_client pax5400;
 extern const struct router_tftp_client tw420;
 extern const struct router_tftp_client zyxel;
 

@@ -72,6 +72,7 @@ Tested
   - PA1200
   - PA2200
   - PAX1800 (v1, v2)
+  - PAX5400
 
 * Ubiquiti
 
