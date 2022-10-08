@@ -33,13 +33,18 @@ static int ap121f_detect_main(const struct router_type *router_type __attribute_
 			      void (*priv)__attribute__((unused)),
 			      const char *packet_buff, int packet_buff_len)
 {
+	struct ether_header *eth_hdr;
 	struct ether_arp *arphdr;
 	int ret = 0;
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
+		return 0;
+
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
 		goto out;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
 		goto out;
 
@@ -65,12 +70,17 @@ static void netconsole_detect_post(struct node *node, const char *packet_buff,
 				   int packet_buff_len)
 {
 	struct netconsole_priv *priv = node->router_priv;
+	struct ether_header *eth_hdr;
 	struct ether_arp *arphdr;
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
 		goto out;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 
 	node->flash_mode = FLASH_MODE_NETCONSOLE;
 	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);

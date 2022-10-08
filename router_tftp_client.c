@@ -38,6 +38,7 @@ static int tftp_client_detect_main(const struct router_type *router_type,
 {
 	const struct mac_accept_entry *mac_accept_entry;
 	struct router_tftp_client *tftp_client;
+	struct ether_header *eth_hdr;
 	struct ether_arp *arphdr;
 	uint8_t arp_u8;
 	uint8_t mac_u8;
@@ -48,10 +49,14 @@ static int tftp_client_detect_main(const struct router_type *router_type,
 	tftp_client = container_of(router_type, struct router_tftp_client,
 				   router_type);
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
 		return 0;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
+		return 0;
+
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
 		return 0;
 
@@ -86,12 +91,17 @@ static int tftp_client_detect_main(const struct router_type *router_type,
 static void tftp_client_detect_post(struct node *node, const char *packet_buff,
 				    int packet_buff_len)
 {
+	struct ether_header *eth_hdr;
 	struct ether_arp *arphdr;
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
 		goto out;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 
 	node->flash_mode = FLASH_MODE_TFTP_CLIENT;
 	node->his_ip_addr = load_ip_addr(arphdr->arp_spa);

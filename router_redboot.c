@@ -303,14 +303,19 @@ static int redboot_detect_main(const struct router_type *router_type __attribute
 			       void *priv, const char *packet_buff,
 			       int packet_buff_len)
 {
-	struct ether_arp *arphdr;
 	struct redboot_priv *redboot_priv = priv;
+	struct ether_header *eth_hdr;
+	struct ether_arp *arphdr;
 	int ret = 0;
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
+		return 0;
+
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
 		goto out;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
 		goto out;
 
@@ -341,12 +346,17 @@ out:
 static void redboot_detect_post(struct node *node, const char *packet_buff,
 				int packet_buff_len)
 {
+	struct ether_header *eth_hdr;
 	struct ether_arp *arphdr;
 
-	if (!len_check(packet_buff_len, sizeof(struct ether_arp), "ARP"))
+	eth_hdr = (struct ether_header *)packet_buff;
+	if (eth_hdr->ether_type != htons(ETH_P_ARP))
 		goto out;
 
-	arphdr = (struct ether_arp *)packet_buff;
+	if (!len_check(packet_buff_len, ETH_HLEN + sizeof(struct ether_arp), "ARP"))
+		goto out;
+
+	arphdr = (struct ether_arp *)(packet_buff + ETH_HLEN);
 
 	if (arphdr->arp_tpa[3] == 20)
 		arphdr->arp_tpa[3] = 1;
