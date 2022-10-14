@@ -16,10 +16,6 @@
 #include "router_images.h"
 #include "router_types.h"
 
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
-#endif
-
 #define MR500_IP 3232260872UL /* 192.168.99.8 */
 #define OM2P_IP 3232261128UL /* 192.168.100.8 */
 #define ZYXEL_IP 3232235875UL /* 192.168.1.99 */

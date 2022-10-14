@@ -16,6 +16,7 @@ enum flash_mode {
 	FLASH_MODE_TFTP_SERVER,
 	FLASH_MODE_TFTP_CLIENT,
 	FLASH_MODE_NETCONSOLE,
+	FLASH_MODE_NETBOOT_SERVER,
 };
 
 enum node_status {
@@ -31,6 +32,7 @@ enum node_status {
 
 struct node {
 	struct list_head list;
+	uint8_t index;
 	uint8_t his_mac_addr[6];
 	uint8_t our_mac_addr[6];
 	uint32_t his_ip_addr;

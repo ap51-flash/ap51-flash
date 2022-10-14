@@ -24,6 +24,7 @@ OBJ += router_redboot.o
 OBJ += router_tftp_client.o
 OBJ += router_tftp_server.o
 OBJ += router_netconsole.o
+OBJ += router_netboot_server.o
 OBJ += router_types.o
 OBJ += socket.o
 AP51_RC = ap51-flash-res

@@ -16,6 +16,7 @@
 #include "router_tftp_client.h"
 #include "router_tftp_server.h"
 #include "router_netconsole.h"
+#include "router_netboot_server.h"
 
 #if defined(CLEAR_SCREEN)
 #if defined(LINUX) || defined(WIN32)
@@ -55,6 +56,7 @@ static const struct router_type *router_types[] = {
 	&pa2200.router_type,
 	&pax1800.router_type,
 	&pax1800v2.router_type,
+	&mikrotik.router_type,
 	NULL,
 };
 

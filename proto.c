@@ -247,54 +247,27 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	}
 }
 
-static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
-			      struct node *node)
+static void handle_tftp_packet(const char *packet_buff, int packet_buff_len,
+			       struct node *node, struct udphdr *udphdr)
 {
-	struct udphdr *udphdr;
-	struct file_info *file_info;
+	const char fwupgradecfg[] = "fwupgrade.cfg";
 	unsigned short opcode, block;
+	struct file_info *file_info;
 	const char *file_name;
 	int ret, data_len;
-	static const char fwupgradecfg[] = "fwupgrade.cfg";
 
-	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
+	if (!len_check(packet_buff_len, 4, "TFTP"))
 		return;
 
-	udphdr = (struct udphdr *)packet_buff;
-
-	switch (node->flash_mode) {
-	case FLASH_MODE_NETCONSOLE:
-		if (udphdr->dest == htons(IPPORT_NETCONSOLE)) {
-			size_t len = sizeof(*udphdr);
-			handle_netconsole_packet(packet_buff + len,
-						 packet_buff_len - len, node);
-			return;
-		}
-		/* fall through */
-	case FLASH_MODE_REDBOOT:
-	case FLASH_MODE_TFTP_CLIENT:
-		if (udphdr->dest != htons(IPPORT_TFTP))
-			return;
-
-		break;
-	case FLASH_MODE_TFTP_SERVER:
-		if (udphdr->source != htons(IPPORT_TFTP))
-			return;
-
-		break;
-	default:
-		return;
-	}
-
-	opcode = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr)));
-	block = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr) + 2));
+	opcode = ntohs(*(unsigned short *)(packet_buff));
+	block = ntohs(*(unsigned short *)(packet_buff + 2));
 	/* fprintf(stderr, "tftp opcode=%d, block=%d, len=%i\n", opcode,
-		block, htons(rcv_udphdr->len) - sizeof(struct udphdr)); */
+		block, packet_buff_len); */
 
 	switch (opcode) {
 	/* TFTP read request */
 	case 1:
-		file_name = packet_buff + sizeof(struct udphdr) + 2;
+		file_name = packet_buff + 2;
 		switch (node->flash_mode) {
 		case FLASH_MODE_UKNOWN:
 			/* ignore */
@@ -305,6 +278,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
 		case FLASH_MODE_NETCONSOLE:
+		case FLASH_MODE_NETBOOT_SERVER:
 			file_info = router_image_get_file(node->router_type,
 							  file_name);
 			if (!file_info) {
@@ -414,14 +388,16 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					case FLASH_MODE_TFTP_SERVER:
 					case FLASH_MODE_TFTP_CLIENT:
 					case FLASH_MODE_NETCONSOLE:
-						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
+					case FLASH_MODE_NETBOOT_SERVER:
+						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - %s ...\n",
 							node->his_mac_addr[0],
 							node->his_mac_addr[1],
 							node->his_mac_addr[2],
 							node->his_mac_addr[3],
 							node->his_mac_addr[4],
 							node->his_mac_addr[5],
-							node->router_type->desc);
+							node->router_type->desc,
+							node->flash_mode == FLASH_MODE_NETBOOT_SERVER ? "booting image" : "writing image to flash");
 						router_images_close_path(node);
 						if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
 							tftp_client_flash_time_set(node);
@@ -467,13 +443,13 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	/* TFTP error */
 	case 5:
-		if ((block == 2) && (htons(udphdr->len) - sizeof(struct udphdr) > 4))
+		if ((block == 2) && (packet_buff_len > 4))
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error: %s\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc,
-				(packet_buff + sizeof(struct udphdr) + 4));
+				(packet_buff + 4));
 		else
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code: %d\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
@@ -493,6 +469,56 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 
 out:
 	return;
+}
+
+static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
+			      struct node *node)
+{
+	struct udphdr *udphdr;
+
+	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
+		return;
+
+	udphdr = (struct udphdr *)packet_buff;
+
+	switch (node->flash_mode) {
+	case FLASH_MODE_NETCONSOLE:
+		if (udphdr->dest == htons(IPPORT_NETCONSOLE)) {
+			size_t len = sizeof(*udphdr);
+			handle_netconsole_packet(packet_buff + len,
+						 packet_buff_len - len, node);
+			return;
+		}
+		/* fall through */
+	case FLASH_MODE_REDBOOT:
+	case FLASH_MODE_TFTP_CLIENT:
+		if (udphdr->dest != htons(IPPORT_TFTP))
+			return;
+
+		handle_tftp_packet(packet_buff + sizeof(struct udphdr),
+				   packet_buff_len - sizeof(struct udphdr),
+				   node, udphdr);
+		break;
+	case FLASH_MODE_TFTP_SERVER:
+		if (udphdr->source != htons(IPPORT_TFTP))
+			return;
+
+		handle_tftp_packet(packet_buff + sizeof(struct udphdr),
+				   packet_buff_len - sizeof(struct udphdr),
+				   node, udphdr);
+		break;
+	case FLASH_MODE_NETBOOT_SERVER:
+		if (udphdr->dest != htons(IPPORT_BOOTP_SERVER))
+			return;
+
+		if (udphdr->source != htons(IPPORT_BOOTP_CLIENT))
+			return;
+
+		// TODO: handle DHCP
+		break;
+	default:
+		return;
+	}
 }
 
 static void tcp_init_state(struct node *node)

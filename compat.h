@@ -80,6 +80,17 @@ struct ether_arp {
 
 #endif
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+#endif
+
+#ifndef IPPORT_BOOTP_SERVER
+#define IPPORT_BOOTP_SERVER	67
+#endif
+
+#ifndef IPPORT_BOOTP_CLIENT
+#define IPPORT_BOOTP_CLIENT	68
+#endif
 
 #ifndef IPPORT_TFTP
 #define IPPORT_TFTP	69

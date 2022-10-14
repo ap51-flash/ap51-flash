@@ -17,6 +17,7 @@
 #include "socket.h"
 
 static int running = 1;
+static unsigned int seen_node_count = 0;
 static DECLARE_LIST_HEAD(node_list);
 static uint8_t our_mac[] = {0x00, 0xba, 0xbe, 0xca, 0xff, 0x00};
 
@@ -43,8 +44,11 @@ struct node *node_list_get(const uint8_t *mac_addr)
 	if (!node)
 		return NULL;
 
+	seen_node_count++;
+
 	memset(node, 0, sizeof(struct node) + router_types_priv_size);
 	memcpy(node->his_mac_addr, mac_addr, ETH_ALEN);
+	node->index = seen_node_count;
 	node->image_state.fd = -1;
 	list_add(&node->list, &node_list);
 
@@ -83,6 +87,7 @@ static void node_list_maintain(void)
 				break;
 			case FLASH_MODE_TFTP_CLIENT:
 			case FLASH_MODE_NETCONSOLE:
+			case FLASH_MODE_NETBOOT_SERVER:
 				/* ignored; handled in handle_udp_packet */
 				break;
 			case FLASH_MODE_UKNOWN:
