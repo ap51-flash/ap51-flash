@@ -15,7 +15,7 @@
 #include "socket.h"
 
 #ifndef SOURCE_VERSION
-#define SOURCE_VERSION "2022.0+"
+#define SOURCE_VERSION "2022.1"
 #endif
 
 static void usage(const char *prgname)

@@ -2,6 +2,15 @@
 .. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 
+2022.1 (2022-12-31)
+===================
+
+* Refactoring of tftp-server code
+* added support for:
+
+  - Plasma Cloud PAX1800 v2
+
+
 2022.0 (2022-03-16)
 ===================
 
