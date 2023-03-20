@@ -107,24 +107,40 @@ static struct file_info *_router_image_get_file(struct list_head *file_list,
 	return NULL;
 }
 
+static const char *router_get_file_postfix(const struct router_type *router_type)
+{
+	if (router_type->image_desc)
+		return router_type->image_desc;
+
+	return router_type->desc;
+}
+
 struct file_info *router_image_get_file(struct router_type *router_type,
 					const char *file_name)
 {
 	struct file_info *file_info = NULL;
 	char file_name_buff[FILE_NAME_MAX_LENGTH];
+	int ret;
 
 	if (strcmp(file_name, fwupgradecfg) == 0) {
-		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH, "%s-%s",
-			 file_name,
-			 router_type->image_desc ? router_type->image_desc : router_type->desc);
+		ret = snprintf(file_name_buff, FILE_NAME_MAX_LENGTH, "%s-%s",
+			       file_name,
+			       router_get_file_postfix(router_type));
+
+		if (ret >= FILE_NAME_MAX_LENGTH)
+			return NULL;
+
 		file_info = _router_image_get_file(&router_type->image->file_list,
 						   file_name_buff);
 	}
 
 	if (strcmp(file_name, fwupgradecfgsig) == 0) {
-		snprintf(file_name_buff, FILE_NAME_MAX_LENGTH, "%s-%s.sig",
-			 fwupgradecfg,
-			 router_type->image_desc ? router_type->image_desc : router_type->desc);
+		ret = snprintf(file_name_buff, FILE_NAME_MAX_LENGTH,
+			       "%s-%s.sig", fwupgradecfg,
+			       router_get_file_postfix(router_type));
+		if (ret >= FILE_NAME_MAX_LENGTH)
+			return NULL;
+
 		file_info = _router_image_get_file(&router_type->image->file_list,
 						   file_name_buff);
 	}
