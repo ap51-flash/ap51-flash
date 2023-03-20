@@ -125,7 +125,8 @@ void handle_netconsole_packet(const char *packet_buff, int packet_buff_len,
 			node->his_mac_addr[4], node->his_mac_addr[5],
 			node->router_type->desc);
 
-		priv->state = NODE_STATUS_REBOOTED;
+		priv->state = NETCONSOLE_STATE_DONE;
+		node->status = NODE_STATUS_REBOOTED;
 
 #if defined(CLEAR_SCREEN)
 		num_nodes_flashed++;
