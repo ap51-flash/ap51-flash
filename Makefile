@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
+# SPDX-FileCopyrightText: Marek Lindner <marek.lindner@mailbox.org>
 
 # enable debug output
 # CPPFLAGS += -DDEBUG

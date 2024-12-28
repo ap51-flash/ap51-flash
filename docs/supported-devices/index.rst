@@ -1,6 +1,6 @@
 .. SPDX-License-Identifier: GPL-3.0-or-later
 .. SPDX-FileCopyrightText: Saverio Proto <zioproto@gmail.com>
-.. SPDX-FileCopyrightText: Marek Lindner <mareklindner@neomailbox.ch>
+.. SPDX-FileCopyrightText: Marek Lindner <marek.lindner@mailbox.org>
 .. SPDX-FileCopyrightText: Antonio Quartulli <a@unstable.cc>
 .. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
