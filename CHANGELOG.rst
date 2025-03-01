@@ -2,6 +2,16 @@
 .. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
 
+2025.0 (2025-03-01)
+===================
+
+* fixed maximum size of fwupgrade.cfg file
+* coding style cleanups and refactoring
+* added support for:
+
+  - Plasma Cloud PAX5400
+
+
 2022.1 (2022-12-31)
 ===================
 
