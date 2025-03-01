@@ -15,9 +15,9 @@ copyright = u'ap51-flash Team'
 author = u'ap51-flash Team'
 
 # The short X.Y version
-version = u'2025.0'
+version = u'2025.0+'
 # The full version, including alpha/beta/rc tags
-release = u'2025.0'
+release = u'2025.0+'
 
 
 # -- General configuration ---------------------------------------------------
