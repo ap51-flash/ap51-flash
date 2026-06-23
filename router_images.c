@@ -434,6 +434,16 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 			break;
 		}
 
+		/* the contained file must lie within the image; otherwise
+		 * later readers (e.g. fwupgrade_cfg_read_sizes()) trust a
+		 * bogus size/offset and read or allocate out of bounds. Use
+		 * 64 bit math to avoid wrapping.
+		 */
+		if ((uint64_t)file_offset + file_size > (uint64_t)size) {
+			fprintf(stderr, "Error - bogus CE image: file extends beyond image\n");
+			return 0;
+		}
+
 		ret = router_image_add_file(router_image, name_buff, file_size,
 					    file_size, file_offset);
 		if (ret)
