@@ -112,7 +112,19 @@ static enum listdump_action socket_rtnl_parse(struct nlmsghdr *resp,
 	size_t attr_len;
 	char *name;
 
+	/* the reply length is taken from recv() and is not guaranteed to be
+	 * large enough to even hold an nlmsghdr; validate it before reading
+	 * any header field below
+	 */
+	if (len < sizeof(*resp))
+		return LISTDUMP_STOP;
+
 	if (resp->nlmsg_type == NLMSG_ERROR) {
+		if (len < NLMSG_LENGTH(sizeof(*nlme))) {
+			fprintf(stderr, "Error - received truncated netlink error\n");
+			return LISTDUMP_STOP;
+		}
+
 		nlme = NLMSG_DATA(resp);
 		fprintf(stderr, "Error - netlink complained: %i\n",
 			nlme->error);
