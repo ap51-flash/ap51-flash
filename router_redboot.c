@@ -207,7 +207,7 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		break;
 	case REDBOOT_STATE_LD_KERNEL:
 		if ((unsigned int)node->image_state.bytes_sent < node->image_state.flash_size) {
-			fprintf(stderr, "Error transferring kernel, send: %d, expected: %d\n",
+			fprintf(stderr, "Error transferring kernel, send: %u, expected: %u\n",
 				node->image_state.bytes_sent, node->image_state.flash_size);
 			goto redboot_failure;
 		}
