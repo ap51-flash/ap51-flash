@@ -689,6 +689,16 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 	if (tcphdr->ack != 1)
 		goto out;
 
+	/* a valid TCP header is at least 5 words (sizeof(struct tcphdr)) long
+	 * and must fit into the received data; otherwise the unsigned data_len
+	 * computation below would wrap around
+	 */
+	if (tcphdr->doff < 5)
+		goto out;
+
+	if (tcphdr->doff * 4 > packet_buff_len)
+		goto out;
+
 	data_len = packet_buff_len - (tcphdr->doff * 4);
 
 	switch (node->tcp_state.status) {
