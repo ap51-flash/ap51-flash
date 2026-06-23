@@ -390,6 +390,16 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
 
+				/* In server mode the device never sends a read
+				 * request, so the opcode-1 path that normally
+				 * marks a transfer as globally counted never
+				 * runs. Without this the final-block accounting
+				 * below (if (!count_globally) goto out) is always
+				 * skipped and the upload never reaches
+				 * NODE_STATUS_FINISHED.
+				 */
+				node->image_state.count_globally = 1;
+
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %u blocks ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
