@@ -43,10 +43,10 @@ static int ap121f_detect_main(const struct router_type *router_type __attribute_
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
 		goto out;
 
-	if (*((unsigned int *)arphdr->arp_spa) != htonl(ap121f_ip))
+	if (load_ip_addr(arphdr->arp_spa) != htonl(ap121f_ip))
 		goto out;
 
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(my_ip))
+	if (load_ip_addr(arphdr->arp_tpa) != htonl(my_ip))
 		goto out;
 
 	if (memcmp(arphdr->arp_sha, ap121f_mac, ETH_ALEN))
