@@ -126,6 +126,16 @@ static enum listdump_action socket_rtnl_parse(struct nlmsghdr *resp,
 		if (nh->nlmsg_type != RTM_NEWLINK)
 			continue;
 
+		/* NLMSG_OK() only guarantees that the message holds a full
+		 * nlmsghdr, not that it is large enough for the ifinfomsg that
+		 * an RTM_NEWLINK is supposed to carry. Without this check
+		 * IFLA_PAYLOAD() (an unsigned subtraction) underflows to a huge
+		 * value for a truncated message, and sock_rta_find_name() then
+		 * walks attributes far past the buffer.
+		 */
+		if (nh->nlmsg_len < NLMSG_LENGTH(sizeof(*ifinfomsg)))
+			continue;
+
 		ifinfomsg = NLMSG_DATA(nh);
 		attr_len = IFLA_PAYLOAD(nh);
 
