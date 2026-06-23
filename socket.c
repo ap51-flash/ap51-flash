@@ -454,7 +454,7 @@ out:
 	}
 	if (pcap_setmintocopy(pcap_fp, 1) < 0) {
 		fprintf(stderr, "Error setting mintocopy: %s\n", error);
-		return -1;
+		goto err_close;
 	}
 #else
 	// For Mac OS X, and maybe others in the future,
@@ -473,37 +473,46 @@ out:
 	ret = pcap_set_snaplen(pcap_fp, 1500);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap snaplen: %s\n", error);
-		return -1;
+		goto err_close;
 	}
 
 	ret = pcap_set_promisc(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n",
 			error);
-		return -1;
+		goto err_close;
 	}
 
 	ret = pcap_set_timeout(pcap_fp, 250);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap timeout: %s\n", error);
-		return -1;
+		goto err_close;
 	}
 
 	ret = pcap_set_immediate_mode(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap immediate mode: %s\n",
 			error);
-		return -1;
+		goto err_close;
 	}
 
 	ret = pcap_activate(pcap_fp);
 	if (ret != 0) {
 		fprintf(stderr, "Error activating pcap handle\n");
-		return -1;
+		goto err_close;
 	}
 #endif
 
 	return 0;
+
+err_close:
+	/* a pcap handle was created but configuration failed; release it so
+	 * it is not leaked (flash_start() bails out without calling
+	 * socket_close() on this error path)
+	 */
+	pcap_close(pcap_fp);
+	pcap_fp = NULL;
+	return -1;
 #else
 #error socket_open() is not supported on your OS
 	return -1;
