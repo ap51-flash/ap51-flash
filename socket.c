@@ -454,7 +454,7 @@ out:
 	}
 	if (pcap_setmintocopy(pcap_fp, 1) < 0) {
 		fprintf(stderr, "Error setting mintocopy: %s\n", error);
-		return 1;
+		return -1;
 	}
 #else
 	// For Mac OS X, and maybe others in the future,
