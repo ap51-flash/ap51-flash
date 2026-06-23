@@ -430,11 +430,21 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		} else {
 			/* nothing more to send */
 			if (node->image_state.last_packet_size != TFTP_PAYLOAD_SIZE) {
-				/* don't count this file as payload? */
+				/* don't count this file as payload? this is
+				 * also the guard against a retransmitted final
+				 * ACK: count_globally is cleared once the file
+				 * has been accounted for, so a duplicate ACK of
+				 * the last (short) block takes this early out
+				 * instead of inflating total_bytes_sent (which
+				 * could declare the flash complete
+				 * prematurely). It is set again for the next
+				 * file by its read request.
+				 */
 				if (!node->image_state.count_globally)
 					goto out;
 
 				node->image_state.total_bytes_sent += node->image_state.bytes_sent;
+				node->image_state.count_globally = 0;
 
 				if (node->image_state.total_bytes_sent >= router_image_get_size(node->router_type)) {
 					switch (node->flash_mode) {
