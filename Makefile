@@ -57,14 +57,25 @@ WINDRES = $(CROSS)windres
 COMPILE.c = $(Q_CC)$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 
-ifeq ($(MAKECMDGOALS),)
-  PLATFORM = LINUX
-else ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
-  PLATFORM = LINUX
-else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
+# default to a native Linux build; cross builds are selected by their
+# dedicated make goals. Deriving the platform only from the explicit
+# binary goals left PLATFORM empty for every other goal (e.g. the default
+# "all" goal, or a single "foo.o"), which dropped -D$(PLATFORM) and broke
+# the compile.
+# The goals may be combined with others (e.g. "make clean ap51-flash.exe"),
+# so look for them anywhere in the goal list.
+ifneq ($(filter $(BINARY_NAME).exe,$(MAKECMDGOALS)),)
+  ifneq ($(filter $(BINARY_NAME) $(BINARY_NAME)-osx all,$(MAKECMDGOALS)),)
+    $(error $(BINARY_NAME).exe cannot be built together with other binaries)
+  endif
   PLATFORM = WIN32
-else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
+else ifneq ($(filter $(BINARY_NAME)-osx,$(MAKECMDGOALS)),)
+  ifneq ($(filter $(BINARY_NAME) all,$(MAKECMDGOALS)),)
+    $(error $(BINARY_NAME)-osx cannot be built together with other binaries)
+  endif
   PLATFORM = OSX
+else
+  PLATFORM = LINUX
 endif
 
 ifneq ($(PLATFORM),)
