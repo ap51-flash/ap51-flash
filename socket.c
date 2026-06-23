@@ -475,7 +475,8 @@ out:
 		return -1;
 	}
 	if (pcap_setmintocopy(pcap_fp, 1) < 0) {
-		fprintf(stderr, "Error setting mintocopy: %s\n", error);
+		fprintf(stderr, "Error setting mintocopy: %s\n",
+			pcap_geterr(pcap_fp));
 		goto err_close;
 	}
 #else
@@ -494,27 +495,29 @@ out:
 
 	ret = pcap_set_snaplen(pcap_fp, 1500);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap snaplen: %s\n", error);
+		fprintf(stderr, "Error setting pcap snaplen: %s\n",
+			pcap_statustostr(ret));
 		goto err_close;
 	}
 
 	ret = pcap_set_promisc(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n",
-			error);
+			pcap_statustostr(ret));
 		goto err_close;
 	}
 
 	ret = pcap_set_timeout(pcap_fp, 250);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap timeout: %s\n", error);
+		fprintf(stderr, "Error setting pcap timeout: %s\n",
+			pcap_statustostr(ret));
 		goto err_close;
 	}
 
 	ret = pcap_set_immediate_mode(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap immediate mode: %s\n",
-			error);
+			pcap_statustostr(ret));
 		goto err_close;
 	}
 
