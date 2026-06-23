@@ -132,14 +132,14 @@ struct iphdr_linux {
     uint16_t check;
     uint32_t saddr;
     uint32_t daddr;
-};
+} __attribute__((packed));
 
 struct udphdr_linux {
     uint16_t source;
     uint16_t dest;
     uint16_t len;
     uint16_t check;
-};
+} __attribute__((packed));
 
 struct tcphdr_linux {
     uint16_t source;
@@ -159,7 +159,7 @@ struct tcphdr_linux {
     uint16_t window;
     uint16_t check;
     uint16_t urg_ptr;
-};
+} __attribute__((packed));
 
 struct icmphdr_linux
 {
@@ -177,7 +177,7 @@ struct icmphdr_linux
 			uint16_t mtu;
 		} frag; /* path mtu discovery */
 	} un;
-};
+} __attribute__((packed));
 
 #endif
 
