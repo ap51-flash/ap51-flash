@@ -42,6 +42,8 @@ struct image_state {
 	unsigned short block_sent;
 	/* flags */
 	unsigned char count_globally:1;
+	/* a read request for the current file was served */
+	unsigned char file_requested:1;
 };
 
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
@@ -50,6 +52,7 @@ int tftp_init_upload(struct node *node);
 int netconsole_init_upload(struct node *node);
 void telnet_handle_connection(struct node *node);
 int telnet_send_cmd(struct node *node, const char *cmd);
+int telnet_send_ack(struct node *node);
 void handle_eth_packet(char *packet_buff, int packet_buff_len);
 int proto_init(void);
 void proto_free(void);

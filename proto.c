@@ -346,6 +346,17 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				goto out;
 			}
 
+			/* describe the requested file before opening the
+			 * image: if the open fails, the state must say that
+			 * nothing of it was sent (the RedBoot state machine
+			 * compares bytes_sent against flash_size)
+			 */
+			node->image_state.bytes_sent = 0;
+			node->image_state.file_requested = 1;
+			node->image_state.file_size = file_info->file_size;
+			node->image_state.flash_size = file_info->file_fsize;
+			node->image_state.offset = file_info->file_offset;
+
 			if (node->image_state.fd <= 0) {
 				ret = router_images_open_path(node);
 				if (ret < 0)
@@ -361,10 +372,6 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				file_name,file_info->file_name,
 				node->router_type->image->path ? node->router_type->image->path : "embedded image",
 				((file_info->file_fsize + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
-
-			node->image_state.file_size = file_info->file_size;
-			node->image_state.flash_size = file_info->file_fsize;
-			node->image_state.offset = file_info->file_offset;
 			break;
 		}
 
@@ -455,7 +462,10 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 						node->status = NODE_STATUS_FINISHED;
 						break;
 					case FLASH_MODE_REDBOOT:
-						/* ignored; handled in REDBOOT_STATE_EXECY */
+						/* the rest is handled in
+						 * REDBOOT_STATE_EXECY
+						 */
+						router_images_close_path(node);
 						break;
 					case FLASH_MODE_UKNOWN:
 						/* ignore */
@@ -685,6 +695,12 @@ int telnet_send_cmd(struct node *node, const char *cmd)
 	 * transmit uninitialised/out-of-bounds bytes past the copied data
 	 */
 	return tcp_send_data(node, (int)strlen(packet_buff));
+}
+
+/* acknowledge received output without sending a command */
+int telnet_send_ack(struct node *node)
+{
+	return tcp_send_ack(node);
 }
 
 static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
