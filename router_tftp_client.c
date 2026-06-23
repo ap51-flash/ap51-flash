@@ -55,7 +55,7 @@ static int tftp_client_detect_main(const struct router_type *router_type,
 	if (arphdr->ea_hdr.ar_op != htons(ARPOP_REQUEST))
 		return 0;
 
-	if (*((unsigned int *)arphdr->arp_tpa) != htonl(tftp_client->ip))
+	if (load_ip_addr(arphdr->arp_tpa) != htonl(tftp_client->ip))
 		return 0;
 
 	if (tftp_client->mac_accept_entries_num == 0)
