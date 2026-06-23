@@ -764,7 +764,7 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 		if (ntohl(tcphdr->ack_seq) > node->tcp_state.my_seq)
 			node->tcp_state.my_seq = ntohl(tcphdr->ack_seq);
 		packet_buff[packet_buff_len] = '\0';
-		redboot_main(node, (char *)(tcphdr + 1));
+		redboot_main(node, packet_buff + tcphdr->doff * 4);
 		break;
 	default:
 		return;
