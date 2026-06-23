@@ -516,7 +516,12 @@ static int zyxel_verify(struct router_image *router_image, const char *buff,
 	kernel_size = ntohl(zyxel_header->kernel_size);
 	rootfs_size = ntohl(zyxel_header->rootfs_size);
 
-	if ((unsigned)size != zyxel_hdr_size + kernel_size + rootfs_size)
+	/* kernel_size and rootfs_size are attacker-controlled 32 bit values
+	 * read straight from the header; summing them in 32 bit math can wrap
+	 * and spuriously match (unsigned)size, accepting a malformed image. Use
+	 * 64 bit math to avoid wrapping, like ci_verify()/ce_verify() do.
+	 */
+	if ((uint64_t)zyxel_hdr_size + kernel_size + rootfs_size != (uint64_t)size)
 		return 0;
 
 	ret = router_image_add_file(router_image, "ras.bin", size, size, 0);
