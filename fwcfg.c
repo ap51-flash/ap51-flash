@@ -23,7 +23,7 @@ static void rtrim(char *s)
 	char *t = &s[len];
 
 	while (t-- && t >= s) {
-		if (!isspace(*t))
+		if (!isspace((unsigned char)*t))
 			break;
 
 		*t = '\0';
