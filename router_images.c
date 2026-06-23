@@ -768,7 +768,7 @@ int router_images_verify_path(const char *image_path)
 		found_consumer = 1;
 
 #if defined(DEBUG)
-		printf("verify image path: %s: %s (%i bytes)\n",
+		printf("verify image path: %s: %s (%u bytes)\n",
 		       image_path, (*router_image)->desc,
 		       (*router_image)->file_size);
 #endif
