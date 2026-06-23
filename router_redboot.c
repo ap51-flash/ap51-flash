@@ -160,6 +160,13 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		redboot_priv->version_info[strlen(telnet_msg)] = '\0';
 		redboot_type_detect(node);
 
+		/* version_info is only consumed by redboot_type_detect() and
+		 * is not referenced again; free it here so it does not leak
+		 * for the lifetime of the node
+		 */
+		free(redboot_priv->version_info);
+		redboot_priv->version_info = NULL;
+
 		req_flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
 							FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 
