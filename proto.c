@@ -494,7 +494,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	/* TFTP error */
 	case 5:
-		if (htons(udphdr->len) - sizeof(struct udphdr) > 4)
+		if (packet_buff_len > (int)(sizeof(struct udphdr) + 4))
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error: %s\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
