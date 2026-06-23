@@ -20,13 +20,16 @@
 static void rtrim(char *s)
 {
 	size_t len = strlen(s);
-	char *t = &s[len];
 
-	while (t-- && t >= s) {
-		if (!isspace((unsigned char)*t))
+	/* walk back from the end; index down before dereferencing so the
+	 * pointer never moves before the start of the string (the previous
+	 * "t-- && t >= s" formed &s[-1] on an empty string, which is undefined)
+	 */
+	while (len > 0) {
+		if (!isspace((unsigned char)s[len - 1]))
 			break;
 
-		*t = '\0';
+		s[--len] = '\0';
 	}
 }
 
