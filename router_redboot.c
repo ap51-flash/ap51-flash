@@ -206,7 +206,7 @@ static int redboot_transfer_done(struct node *node, const char *name,
 	if (node->image_state.bytes_sent >= node->image_state.flash_size)
 		return 1;
 
-	fprintf(stderr, "Error transferring %s, send: %d, expected: %d\n",
+	fprintf(stderr, "Error transferring %s, send: %u, expected: %u\n",
 		name, node->image_state.bytes_sent,
 		node->image_state.flash_size);
 	return -1;
