@@ -57,6 +57,7 @@ static void node_list_free(void)
 
 	list_for_each_entry_safe(node, node_s, &node_list, list) {
 		list_del(&node->list);
+		free(node->tcp_state.packet_buff);
 		free(node);
 	}
 }
