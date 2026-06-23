@@ -153,8 +153,10 @@ int flash_start(const char *iface)
 		goto out;
 
 	packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
-	if (!packet_buff_align)
+	if (!packet_buff_align) {
+		ret = -1;
 		goto list_free;
+	}
 
 	packet_buff = &packet_buff_align[NET_IP_ALIGN];
 
