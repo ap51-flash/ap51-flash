@@ -57,11 +57,13 @@ WINDRES = $(CROSS)windres
 COMPILE.c = $(Q_CC)$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 LINK.o = $(Q_LD)$(CC) $(CFLAGS) $(LDFLAGS) $(TARGET_ARCH)
 
-ifeq ($(MAKECMDGOALS),)
-  PLATFORM = LINUX
-else ifeq ($(MAKECMDGOALS),$(BINARY_NAME))
-  PLATFORM = LINUX
-else ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
+# default to a native Linux build; cross builds are selected by their
+# dedicated make goals. Deriving the platform only from the explicit
+# binary goals left PLATFORM empty for every other goal (e.g. the default
+# "all" goal, or a single "foo.o"), which dropped -D$(PLATFORM) and broke
+# the compile.
+PLATFORM = LINUX
+ifeq ($(MAKECMDGOALS),$(BINARY_NAME).exe)
   PLATFORM = WIN32
 else ifeq ($(MAKECMDGOALS),$(BINARY_NAME)-osx)
   PLATFORM = OSX
