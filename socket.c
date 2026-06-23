@@ -561,7 +561,8 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
 	}
 
 	ret = (int)read_len;
-	packet_buff[read_len] = '\0';
+	if (read_len >= 0)
+		packet_buff[read_len] = '\0';
 
 out:
 	return ret;
