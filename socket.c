@@ -582,8 +582,8 @@ out:
 
 	if ((tmp_packet) && (hdr.len > 0)) {
 		ret = hdr.len;
-		if (ret > packet_buff_len)
-			ret = packet_buff_len;
+		if (ret > packet_buff_len - 1)
+			ret = packet_buff_len - 1;
 		memcpy(packet_buff, tmp_packet, ret);
 		packet_buff[ret] = '\0';
 	}
