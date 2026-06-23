@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "flash.h"
@@ -79,6 +80,7 @@ int main(int argc, char* argv[])
 	bool print_version = false;
 	int c;
 	char *iface = NULL;
+	char *iface_alloc = NULL;
 	int ret = -1;
 	bool load_embedded = true;
 	const char *progname = "ap51-flash";
@@ -139,7 +141,9 @@ int main(int argc, char* argv[])
 	}
 
 	iface = socket_find_iface_by_index(argv[0]);
-	if (!iface)
+	if (iface)
+		iface_alloc = iface;
+	else
 		iface = argv[0];
 
 	argc -= 1;
@@ -178,5 +182,6 @@ int main(int argc, char* argv[])
 	ret = flash_start(iface);
 
 out:
+	free(iface_alloc);
 	return ret;
 }
