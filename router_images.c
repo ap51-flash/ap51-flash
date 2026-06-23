@@ -434,6 +434,16 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 			break;
 		}
 
+		/* the contained file must lie within the image; otherwise
+		 * later readers (e.g. fwupgrade_cfg_read_sizes()) trust a
+		 * bogus size/offset and read or allocate out of bounds. Use
+		 * 64 bit math to avoid wrapping.
+		 */
+		if ((uint64_t)file_offset + file_size > (uint64_t)size) {
+			fprintf(stderr, "Error - bogus CE image: file extends beyond image\n");
+			return 0;
+		}
+
 		ret = router_image_add_file(router_image, name_buff, file_size,
 					    file_size, file_offset);
 		if (ret)
@@ -517,6 +527,10 @@ static int zyxel_verify(struct router_image *router_image, const char *buff,
 	return 1;
 }
 
+static int router_image_verify(struct router_image *router_image,
+			       const char *buff, unsigned int buff_len,
+			       int size);
+
 static int router_image_init_embedded(struct router_image *router_image)
 {
 	int ret = 0;
@@ -524,10 +538,10 @@ static int router_image_init_embedded(struct router_image *router_image)
 #if defined(LINUX) || defined(OSX)
 
 	router_image->embedded_img = router_image->embedded_img_pre_check;
-	ret = router_image->image_verify(router_image,
-					 router_image->embedded_img_pre_check,
-					 (unsigned)router_image->embedded_file_size,
-					 (unsigned)router_image->embedded_file_size);
+	ret = router_image_verify(router_image,
+				  router_image->embedded_img_pre_check,
+				  (unsigned)router_image->embedded_file_size,
+				  (unsigned)router_image->embedded_file_size);
 	if (ret != 1)
 		router_image->embedded_img = NULL;
 #elif defined(WIN32)
@@ -544,7 +558,7 @@ static int router_image_init_embedded(struct router_image *router_image)
 		size = SizeofResource(NULL, hRsrc);
 
 		router_image->embedded_img = buff;
-		ret = router_image->image_verify(router_image, buff, size, size);
+		ret = router_image_verify(router_image, buff, size, size);
 		if (ret != 1)
 			router_image->embedded_img = NULL;
 	}
@@ -590,6 +604,43 @@ static struct router_image *router_images[] = {
 	&img_zyxel,
 	NULL,
 };
+
+/* undo whatever a failed image_verify() added to the router image; a later
+ * image of the same type must not inherit routers or files (with offsets into
+ * the rejected file) from it
+ */
+static void router_image_clear(struct router_image *router_image)
+{
+	struct router_info *router_info, *router_info_s;
+	struct file_info *file_info, *file_info_s;
+
+	list_for_each_entry_safe(router_info, router_info_s,
+				 &router_image->router_list, list) {
+		list_del(&router_info->list);
+		free(router_info);
+	}
+
+	list_for_each_entry_safe(file_info, file_info_s,
+				 &router_image->file_list, list) {
+		list_del(&file_info->list);
+		free(file_info);
+	}
+
+	router_image->file_size = 0;
+}
+
+static int router_image_verify(struct router_image *router_image,
+			       const char *buff, unsigned int buff_len,
+			       int size)
+{
+	int ret;
+
+	ret = router_image->image_verify(router_image, buff, buff_len, size);
+	if (ret != 1)
+		router_image_clear(router_image);
+
+	return ret;
+}
 
 void router_images_init(void)
 {
@@ -748,8 +799,8 @@ int router_images_verify_path(const char *image_path)
 		}
 
 		(*router_image)->path = image_path;
-		ret = (*router_image)->image_verify((*router_image), file_buff,
-						    len, file_size);
+		ret = router_image_verify(*router_image, file_buff, len,
+					  file_size);
 		if (ret != 1) {
 			(*router_image)->path = NULL;
 			continue;
