@@ -296,6 +296,12 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		return;
 	}
 
+	/* every TFTP message carries at least a 2 byte opcode followed by a
+	 * 2 byte block/error-code field
+	 */
+	if (!len_check(packet_buff_len, sizeof(struct udphdr) + 4, "TFTP"))
+		return;
+
 	opcode = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr)));
 	block = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr) + 2));
 	/* fprintf(stderr, "tftp opcode=%d, block=%d, len=%i\n", opcode,
