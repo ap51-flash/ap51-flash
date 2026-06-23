@@ -690,7 +690,11 @@ int telnet_send_cmd(struct node *node, const char *cmd)
 	strncpy(packet_buff, cmd, buflen);
 	packet_buff[buflen - 1] = '\0';
 
-	return tcp_send_data(node, (int)strlen(cmd));
+	/* send only what actually ended up in the buffer: strncpy() may have
+	 * truncated an over-long command, and sending strlen(cmd) bytes would
+	 * transmit uninitialised/out-of-bounds bytes past the copied data
+	 */
+	return tcp_send_data(node, (int)strlen(packet_buff));
 }
 
 static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
