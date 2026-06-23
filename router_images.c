@@ -377,7 +377,7 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 		return 0;
 
 	/* the old format does not have a version field */
-	if (isxdigit(buff[2]) && isxdigit(buff[3])) {
+	if (isxdigit((unsigned char)buff[2]) && isxdigit((unsigned char)buff[3])) {
 		ret = sscanf(buff, "CE%02x", &ce_version);
 		if (ret != 1)
 			return 0;

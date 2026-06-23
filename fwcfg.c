@@ -26,7 +26,7 @@ static void rtrim(char *s)
 	 * "t-- && t >= s" formed &s[-1] on an empty string, which is undefined)
 	 */
 	while (len > 0) {
-		if (!isspace(s[len - 1]))
+		if (!isspace((unsigned char)s[len - 1]))
 			break;
 
 		s[--len] = '\0';
