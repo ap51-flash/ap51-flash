@@ -38,7 +38,7 @@ CPPFLAGS += -D_GNU_SOURCE
 LDLIBS +=
 
 # disable verbose output
-ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifneq ($(findstring s,$(firstword $(MAKEFLAGS))),s)
 ifndef V
   Q_CC = @echo '   ' CC $@;
   Q_LD = @echo '   ' LD $@;
