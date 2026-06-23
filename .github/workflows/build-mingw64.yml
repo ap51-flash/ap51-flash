@@ -31,6 +31,8 @@ jobs:
           pcap_open_live
           pcap_sendpacket
           pcap_setmintocopy
+          pcap_statustostr
+          pcap_geterr
           EOF
           i686-w64-mingw32-dlltool --output-delaylib npcap-sdk/Lib-delayed/wpcap.lib --def npcap-sdk/Lib-delayed/wpcap.def
       - name: Test
