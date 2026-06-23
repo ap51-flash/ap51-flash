@@ -274,6 +274,35 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	}
 }
 
+static void tftp_print_error(const struct node *node, unsigned short code,
+			     const char *msg, int msg_len)
+{
+	char buff[128];
+	size_t len = 0;
+	int i;
+
+	/* the message is NetASCII and not necessarily NUL terminated inside
+	 * the datagram; copy only printable characters so it cannot inject
+	 * terminal escape sequences
+	 */
+	for (i = 0; i < msg_len && msg[i] != '\0'; i++) {
+		if (len == sizeof(buff) - 1)
+			break;
+
+		if (msg[i] < ' ' || msg[i] > '~')
+			continue;
+
+		buff[len++] = msg[i];
+	}
+	buff[len] = '\0';
+
+	fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code %u%s%s\n",
+		node->his_mac_addr[0], node->his_mac_addr[1],
+		node->his_mac_addr[2], node->his_mac_addr[3],
+		node->his_mac_addr[4], node->his_mac_addr[5],
+		node->router_type->desc, code, len ? ": " : "", buff);
+}
+
 static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
@@ -510,20 +539,9 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	/* TFTP error */
 	case 5:
-		if (htons(udphdr->len) - sizeof(struct udphdr) > 4)
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error: %s\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc,
-				(packet_buff + sizeof(struct udphdr) + 4));
-		else
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code: %d\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc, block);
-
+		tftp_print_error(node, block,
+				 packet_buff + sizeof(struct udphdr) + 4,
+				 packet_buff_len - (int)sizeof(struct udphdr) - 4);
 		break;
 	default:
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: unexpected TFTP opcode: %d\n",
