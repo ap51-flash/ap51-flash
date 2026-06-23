@@ -52,6 +52,16 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 		if (strlen(line) == 0)
 			continue;
 
+		/* strtok_r() only splits on '\n', so a CRLF file leaves a
+		 * trailing '\r' on every line. Strip trailing whitespace here so
+		 * it is not carried into the section delimiter check or into a
+		 * filename value (which is otherwise looked up with the '\r'
+		 * still attached and never found).
+		 */
+		rtrim(line);
+		if (strlen(line) == 0)
+			continue;
+
 		if (!section && line[0] != '[') {
 			fprintf(stderr, "Found line before section: %s\n",
 				line);
@@ -60,7 +70,6 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 
 		if (line[0] == '[') {
 			/* section */
-			rtrim(line);
 			line_len = strlen(line);
 			if (line[line_len - 1] != ']') {
 				fprintf(stderr,
