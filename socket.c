@@ -335,7 +335,7 @@ static enum listdump_action print_interface(const char *name,
 					    const char *description,
 					    void *arg __attribute__((unused)))
 {
-	fprintf(stderr, "\n%i: %s\n", index, name);
+	fprintf(stderr, "\n%u: %s\n", index, name);
 	print_description_sanitized(description);
 
 	return LISTDUMP_OK;
