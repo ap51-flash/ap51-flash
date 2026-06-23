@@ -581,8 +581,8 @@ out:
 	ret = 0;
 	tmp_packet = pcap_next(pcap_fp, &hdr);
 
-	if ((tmp_packet) && (hdr.len > 0)) {
-		ret = hdr.len;
+	if ((tmp_packet) && (hdr.caplen > 0)) {
+		ret = hdr.caplen;
 		if (ret > packet_buff_len - 1)
 			ret = packet_buff_len - 1;
 		memcpy(packet_buff, tmp_packet, ret);
