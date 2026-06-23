@@ -534,36 +534,58 @@ static int zyxel_verify(struct router_image *router_image, const char *buff,
 
 static int router_image_init_embedded(struct router_image *router_image)
 {
+	const char *src = NULL;
+	unsigned int size = 0;
+	unsigned int vlen;
+	char *vbuff;
 	int ret = 0;
 
 #if defined(LINUX) || defined(OSX)
-
-	router_image->embedded_img = router_image->embedded_img_pre_check;
-	ret = router_image->image_verify(router_image,
-					 router_image->embedded_img_pre_check,
-					 (unsigned)router_image->embedded_file_size,
-					 (unsigned)router_image->embedded_file_size);
-	if (ret != 1)
-		router_image->embedded_img = NULL;
+	src = router_image->embedded_img_pre_check;
+	size = (unsigned int)router_image->embedded_file_size;
 #elif defined(WIN32)
 	HGLOBAL hGlobal;
 	HRSRC hRsrc;
-	int size;
-	char *buff;
 
 	hRsrc = FindResource(NULL, MAKEINTRESOURCE(router_image->embedded_img_res),
 			     RT_RCDATA);
 	if (hRsrc) {
 		hGlobal = LoadResource(NULL, hRsrc);
-		buff = LockResource(hGlobal);
+		src = LockResource(hGlobal);
 		size = SizeofResource(NULL, hRsrc);
-
-		router_image->embedded_img = buff;
-		ret = router_image->image_verify(router_image, buff, size, size);
-		if (ret != 1)
-			router_image->embedded_img = NULL;
 	}
 #endif
+
+	router_image->embedded_img = (char *)src;
+	if (!src)
+		goto out;
+
+	/* image_verify() parses the header with sscanf(), which scans its
+	 * input as a C string and reads past the end of a buffer that is not
+	 * NUL-terminated. The embedded blob is not terminated, so verify a
+	 * bounded, NUL-terminated copy of the header - just like
+	 * router_images_verify_path() does for image files.
+	 */
+	vlen = size;
+	if (vlen > 64 * 1024)
+		vlen = 64 * 1024;
+
+	vbuff = malloc(vlen + 1);
+	if (!vbuff) {
+		router_image->embedded_img = NULL;
+		goto out;
+	}
+
+	memcpy(vbuff, src, vlen);
+	vbuff[vlen] = '\0';
+
+	ret = router_image->image_verify(router_image, vbuff, vlen, size);
+	free(vbuff);
+
+	if (ret != 1)
+		router_image->embedded_img = NULL;
+
+out:
 	return ret;
 }
 
