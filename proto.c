@@ -797,6 +797,8 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
 	struct icmphdr *icmphdr;
+	int data_len, data_max;
+	char *out_icmp_data;
 	size_t len;
 
 	if (!len_check(packet_buff_len, sizeof(struct icmphdr), "ICMP"))
@@ -810,6 +812,17 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 
 	if (icmphdr->code != 0)
 		goto out;
+
+	/* an echo reply has to return the request's payload unchanged;
+	 * otherwise a ping client that verifies the echoed data (e.g. the
+	 * RedBoot/u-boot ping) rejects the reply. Clamp to what still fits in
+	 * out_packet_buff.
+	 */
+	data_len = packet_buff_len - (int)sizeof(struct icmphdr);
+	data_max = PACKET_BUFF_LEN - ETH_HLEN - (int)sizeof(*out_iphdr) -
+		   (int)sizeof(*out_icmphdr);
+	if (data_len > data_max)
+		data_len = data_max;
 
 	len = 0;
 	memcpy(out_ethhdr->ether_dhost, node->his_mac_addr, ETH_ALEN);
@@ -828,7 +841,8 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 	out_iphdr->saddr = node->our_ip_addr;
 	out_iphdr->daddr = node->his_ip_addr;
 
-	out_iphdr->tot_len = htons(sizeof(*out_iphdr) + sizeof(*out_icmphdr));
+	out_iphdr->tot_len = htons(sizeof(*out_iphdr) + sizeof(*out_icmphdr) +
+				   data_len);
 	out_iphdr->check = 0;
 	out_iphdr->check = ~(htons(chksum(0, (void *)out_iphdr,
 					  sizeof(*out_iphdr))));
@@ -840,11 +854,14 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 	out_icmphdr->un.echo.id = icmphdr->un.echo.id;
 	out_icmphdr->un.echo.sequence = icmphdr->un.echo.sequence;
 
+	out_icmp_data = (char *)out_icmphdr + sizeof(*out_icmphdr);
+	memcpy(out_icmp_data, packet_buff + sizeof(struct icmphdr), data_len);
+
 	out_icmphdr->checksum = 0;
 	out_icmphdr->checksum = ~(htons(chksum(0, (void *)out_icmphdr,
-					       sizeof(*out_icmphdr))));
+					       sizeof(*out_icmphdr) + data_len)));
 
-	len += sizeof(*out_icmphdr);
+	len += sizeof(*out_icmphdr) + data_len;
 
 	socket_write(out_packet_buff, len);
 out:
