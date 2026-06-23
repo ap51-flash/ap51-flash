@@ -292,6 +292,14 @@ static int ci_verify(struct router_image *router_image, const char *buff,
 	if ((!kernel_size) || (!rootfs_size))
 		return 0;
 
+	/* a CI image is a 64 KiB header area followed by the kernel and
+	 * rootfs; reject headers whose claimed sizes don't fit into the
+	 * actual file, which would otherwise underflow the file_size
+	 * computation below. Use 64 bit math to avoid wrapping.
+	 */
+	if ((uint64_t)64 * 1024 + kernel_size + rootfs_size > (uint64_t)size)
+		return 0;
+
 	ret = router_image_add_file(router_image, "kernel", kernel_size,
 				    ((kernel_size + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE,
 				    64 * 1024);
