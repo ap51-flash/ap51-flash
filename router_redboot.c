@@ -42,17 +42,20 @@ struct redboot_priv {
 	int arp_count;
 	enum redboot_state redboot_state;
 	struct redboot_type *redboot_type;
-	char *version_info;
 };
 
-static int redboot_8mb_detect(struct node *node)
+#if defined(DEBUG)
+static int redboot_8mb_detect(struct node *node, const char *version_info)
+#else
+static int redboot_8mb_detect(struct node (*node)__attribute__((unused)),
+			      const char *version_info)
+#endif
 {
-	struct redboot_priv *redboot_priv = node->router_priv;
 	unsigned long device_size = 0;
 	char *flash_str;
 	int num_blocks = 0, ret = 0;
 
-	flash_str = strstr(redboot_priv->version_info, "FLASH:");
+	flash_str = strstr(version_info, "FLASH:");
 	if (!flash_str)
 		goto out;
 
@@ -80,9 +83,11 @@ out:
 }
 
 #if defined(DEBUG)
-static int redboot_4mb_detect(struct node *node)
+static int redboot_4mb_detect(struct node *node,
+			      const char *version_info __attribute__((unused)))
 #else
-static int redboot_4mb_detect(struct node (*node)__attribute__((unused)))
+static int redboot_4mb_detect(struct node (*node)__attribute__((unused)),
+			      const char *version_info __attribute__((unused)))
 #endif
 {
 	/* default redboot type */
@@ -118,7 +123,7 @@ static const struct redboot_type *redboot_types[] = {
 	NULL,
 };
 
-static int redboot_type_detect(struct node *node)
+static int redboot_type_detect(struct node *node, const char *version_info)
 {
 	struct redboot_priv *redboot_priv = node->router_priv;
 	const struct redboot_type **redboot_type;
@@ -128,7 +133,7 @@ static int redboot_type_detect(struct node *node)
 		if (!(*redboot_type)->detect)
 			continue;
 
-		ret = (*redboot_type)->detect(node);
+		ret = (*redboot_type)->detect(node, version_info);
 		if (ret != 1)
 			continue;
 
@@ -152,13 +157,7 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		telnet_send_cmd(node, "version\n");
 		break;
 	case REDBOOT_STATE_VERSION:
-		redboot_priv->version_info = malloc(strlen(telnet_msg) + 1);
-		if (!redboot_priv->version_info)
-			goto redboot_failure;
-
-		strncpy(redboot_priv->version_info, telnet_msg, strlen(telnet_msg) + 1);
-		redboot_priv->version_info[strlen(telnet_msg)] = '\0';
-		redboot_type_detect(node);
+		redboot_type_detect(node, telnet_msg);
 
 		req_flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
 							FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
