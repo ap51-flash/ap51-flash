@@ -4,6 +4,7 @@
 
 #include "router_redboot.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,12 +145,80 @@ static int redboot_type_detect(struct node *node, const char *version_info)
 	return ret;
 }
 
+/* ask RedBoot to load a file from our TFTP server into RAM. The transfer
+ * state is only refreshed when RedBoot's read request is served, so forget
+ * the previous transfer first: a load without a read request must not pass
+ * redboot_transfer_done() with the values of the previous file
+ */
+static void redboot_load(struct node *node, const char *name)
+{
+	struct redboot_priv *redboot_priv = node->router_priv;
+	char buff[100];
+
+	if (redboot_priv->redboot_type->freememlo)
+		sprintf(buff, "load -r -b 0x%08lx -m tftp %s\n",
+			redboot_priv->redboot_type->freememlo, name);
+	else
+		sprintf(buff, "load -r -b %%{FREEMEMLO} -m tftp %s\n", name);
+
+	node->image_state.file_requested = 0;
+	node->image_state.bytes_sent = 0;
+	node->image_state.flash_size = 1;
+	telnet_send_cmd(node, buff);
+}
+
+/* RedBoot's messages that end a load command */
+static const char * const redboot_load_results[] = {
+	"Raw file loaded",
+	"Can't load",
+	"Unable to reach host",
+	"*** Abort",
+	NULL,
+};
+
+static bool redboot_load_ended(const char *telnet_msg)
+{
+	const char * const *result;
+
+	for (result = redboot_load_results; *result; result++) {
+		if (strstr(telnet_msg, *result))
+			return true;
+	}
+
+	return false;
+}
+
+/* check the transfer started by redboot_load() after RedBoot sent telnet_msg.
+ * Returns 1 when the file was transferred, 0 when the load is still running
+ * and -1 when it failed
+ */
+static int redboot_transfer_done(struct node *node, const char *name,
+				 const char *telnet_msg)
+{
+	/* RedBoot didn't ask for the file yet. Unless the load already ended
+	 * (e.g. RedBoot could not reach us), the message is the remainder of
+	 * the output of the previous command (split into several segments)
+	 */
+	if (!node->image_state.file_requested &&
+	    !redboot_load_ended(telnet_msg))
+		return 0;
+
+	if (node->image_state.bytes_sent >= node->image_state.flash_size)
+		return 1;
+
+	fprintf(stderr, "Error transferring %s, send: %d, expected: %d\n",
+		name, node->image_state.bytes_sent,
+		node->image_state.flash_size);
+	return -1;
+}
+
 void redboot_main(struct node *node, const char *telnet_msg)
 {
 	struct redboot_priv *redboot_priv = node->router_priv;
 	struct file_info *file_info;
 	unsigned long req_flash_size;
 	char buff[100];
+	int ret;
 
 	switch (redboot_priv->redboot_state) {
 	case REDBOOT_STATE_INIT:
@@ -188,21 +257,21 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		redboot_priv->redboot_state = REDBOOT_STATE_IP_ADDR;
 		break;
 	case REDBOOT_STATE_IP_ADDR:
-		if (redboot_priv->redboot_type->freememlo)
-			sprintf(buff, "load -r -b 0x%08lx -m tftp kernel\n",
-				redboot_priv->redboot_type->freememlo);
-		else
-			sprintf(buff, "load -r -b %%{FREEMEMLO} -m tftp kernel\n");
-
-		telnet_send_cmd(node, buff);
+		redboot_load(node, "kernel");
 		redboot_priv->redboot_state = REDBOOT_STATE_LD_KERNEL;
 		break;
 	case REDBOOT_STATE_LD_KERNEL:
-		if ((unsigned int)node->image_state.bytes_sent < node->image_state.flash_size) {
-			fprintf(stderr, "Error transferring kernel, send: %d, expected: %d\n",
-				node->image_state.bytes_sent, node->image_state.flash_size);
-			goto redboot_failure;
+		ret = redboot_transfer_done(node, "kernel", telnet_msg);
+		if (ret == 0) {
+			/* nothing to answer; keep RedBoot from retransmitting
+			 * the output (which would resend the load command)
+			 */
+			telnet_send_ack(node);
+			break;
 		}
+
+		if (ret < 0)
+			goto redboot_failure;
 
 		printf("[%02x:%02x:%02x:%02x:%02x:%02x]: %s: initializing partitions ...\n",
 		       node->his_mac_addr[0], node->his_mac_addr[1],
@@ -232,16 +301,22 @@ void redboot_main(struct node *node, const char *telnet_msg)
 		redboot_priv->redboot_state = REDBOOT_STATE_FL_KERNEL;
 		break;
 	case REDBOOT_STATE_FL_KERNEL:
-		if (redboot_priv->redboot_type->freememlo)
-			sprintf(buff, "load -r -b 0x%08lx -m tftp rootfs\n",
-				redboot_priv->redboot_type->freememlo);
-		else
-			sprintf(buff, "load -r -b %%{FREEMEMLO} -m tftp rootfs\n");
-
-		telnet_send_cmd(node, buff);
+		redboot_load(node, "rootfs");
 		redboot_priv->redboot_state = REDBOOT_STATE_LD_ROOTFS;
 		break;
 	case REDBOOT_STATE_LD_ROOTFS:
+		ret = redboot_transfer_done(node, "rootfs", telnet_msg);
+		if (ret == 0) {
+			/* nothing to answer; keep RedBoot from retransmitting
+			 * the output (which would resend the load command)
+			 */
+			telnet_send_ack(node);
+			break;
+		}
+
+		if (ret < 0)
+			goto redboot_failure;
+
 		file_info = router_image_get_file(node->router_type, "kernel");
 		if (!file_info)
 			return;
