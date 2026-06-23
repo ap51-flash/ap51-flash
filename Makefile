@@ -37,8 +37,14 @@ CFLAGS += -Wall -W -std=gnu99 -fno-strict-aliasing $(EXTRA_CFLAGS) -MD -MP
 CPPFLAGS += -D_GNU_SOURCE
 LDLIBS +=
 
-# disable verbose output
-ifneq ($(findstring $(MAKEFLAGS),s),s)
+# disable verbose output; only look at the short options (make >= 4 puts them
+# into the first word, long options like --shuffle follow later)
+ifeq ($(filter 3.%,$(MAKE_VERSION)),)
+  SHORT_OPTS := $(firstword -$(MAKEFLAGS))
+else
+  SHORT_OPTS := $(filter-out --%,$(MAKEFLAGS))
+endif
+ifeq ($(findstring s,$(SHORT_OPTS)),)
 ifndef V
   Q_CC = @echo '   ' CC $@;
   Q_LD = @echo '   ' LD $@;
