@@ -797,6 +797,14 @@ int router_images_open_path(struct node *node)
 		    goto out;
 	}
 
+	/* without a backing file path there is nothing to open; bail out
+	 * instead of calling open(NULL)
+	 */
+	if (!node->router_type->image->path) {
+		node->image_state.fd = -1;
+		goto out;
+	}
+
 	node->image_state.fd = open(node->router_type->image->path,
 				    O_RDONLY | O_BINARY);
 	if (node->image_state.fd < 0)
