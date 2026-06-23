@@ -226,7 +226,7 @@ Wire sequence::
      |  ACK                                     |
      |<-----------------------------------------|   image successfully transmitted
      |                                          |   device writes flash, reboots
-     |  ARP (any) from device                   |
+     |  ARP from device after reboot            |
      |<-----------------------------------------|   flash complete
 
 Details:
@@ -236,9 +236,13 @@ Details:
 * ap51-flash only processes replies that come from UDP source port ``69``.
 * The complete *ubiquiti image* (``UBNT`` or ``OPEN`` magic) is sent as one
   file, padded to a multiple of 64 KiB.
-* After the last block is acknowledged ap51-flash stops talking. The next ARP
-  frame from the device's MAC address is taken as proof that it rebooted and
-  the ``flash complete`` message is printed.
+* After the last block is acknowledged, ap51-flash keeps sending its ARP
+  probes. Replies to them may still come from the boot loader (e.g. when it
+  rejected the image and restarted its TFTP server) and are ignored, unless
+  the device did not answer for at least 10 seconds before - writing the
+  flash and rebooting takes longer. Such a reply, or any ARP request from
+  the device's MAC address, is taken as proof that the new firmware came up
+  and the ``flash complete`` message is printed.
 
 
 Phase 3c: RedBoot mode

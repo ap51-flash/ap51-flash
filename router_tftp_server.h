@@ -15,4 +15,8 @@ struct router_tftp_server {
 
 extern const struct router_tftp_server ubnt;
 
+void tftp_server_flash_time_set(struct node *node);
+int tftp_server_flash_completed(struct node *node,
+				const struct ether_arp *arphdr);
+
 #endif /* __AP51_FLASH_ROUTER_TFTP_SERVER_H__ */
