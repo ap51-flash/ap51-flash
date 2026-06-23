@@ -12,7 +12,7 @@ struct redboot_type {
 	unsigned long freememlo;
 	unsigned long flash_addr;
 	unsigned long kernel_load_addr;
-	int (*detect)(struct node *node);
+	int (*detect)(struct node *node, const char *version_info);
 };
 
 extern const struct router_type redboot;
