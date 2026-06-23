@@ -15,8 +15,17 @@
 
 static const unsigned int my_ip = 3232235801UL;  /* 192.168.1.25 */
 
+/* the boot loader answers our ARP probes until it starts writing the image
+ * to flash, and again when it rejected the image and restarted its tftp
+ * server. Such replies only prove that the flashed firmware came up when the
+ * device was silent in between for (at least) this long: writing the flash
+ * and rebooting takes much longer
+ */
+#define TFTP_SERVER_REBOOT_SILENCE_MS 10000
+
 struct tftp_server_priv {
 	int arp_count;
+	uint64_t last_arp_ms;
 };
 
 static void tftp_server_detect_pre(const struct router_type *router_type,
@@ -80,6 +89,32 @@ static void tftp_server_detect_post(struct node *node, const char *packet_buff,
 
 out:
 	return;
+}
+
+void tftp_server_flash_time_set(struct node *node)
+{
+	struct tftp_server_priv *server_priv = node->router_priv;
+
+	server_priv->last_arp_ms = time_ms();
+}
+
+/* returns 1 when the ARP packet received after the upload shows that the
+ * flashed firmware came up
+ */
+int tftp_server_flash_completed(struct node *node,
+				const struct ether_arp *arphdr)
+{
+	struct tftp_server_priv *server_priv = node->router_priv;
+	uint64_t now = time_ms();
+	uint64_t last = server_priv->last_arp_ms;
+
+	/* the boot loader never asks for addresses on its own */
+	if (arphdr->ea_hdr.ar_op == htons(ARPOP_REQUEST))
+		return 1;
+
+	server_priv->last_arp_ms = now;
+
+	return now - last >= TFTP_SERVER_REBOOT_SILENCE_MS;
 }
 
 const struct router_tftp_server ubnt = {
