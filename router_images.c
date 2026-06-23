@@ -729,7 +729,12 @@ int router_images_verify_path(const char *image_path)
 	unsigned int file_buff_size = 64 * 1024; // max CE hdr size
 	int fd, file_size, ret = -1, len;
 
-	file_buff = malloc(file_buff_size);
+	/* +1 so the buffer can always be NUL-terminated below: the image_verify
+	 * callbacks run sscanf() over it, and sscanf() treats its input as a C
+	 * string (its leading-whitespace skip and %s/%x scans run until a NUL),
+	 * so an un-terminated buffer can be read past its end.
+	 */
+	file_buff = malloc(file_buff_size + 1);
 	if (!file_buff)
 		goto out;
 
@@ -748,6 +753,8 @@ int router_images_verify_path(const char *image_path)
 	}
 
 	len = ret;
+	file_buff[len] = '\0';
+
 	for (router_image = router_images; *router_image; ++router_image) {
 		if ((*router_image)->path || (*router_image)->embedded_img)
 			continue;
