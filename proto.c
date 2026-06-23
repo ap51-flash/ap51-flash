@@ -89,6 +89,17 @@ static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac,
 	out_arphdr->ea_hdr.ar_op = htons(arp_type);
 	memcpy(out_arphdr->arp_sha, src_mac, ETH_ALEN);
 	store_ip_addr(out_arphdr->arp_spa, src_ip);
+
+	/* the target hardware address is unknown in a request and is the
+	 * resolved address in a reply. out_packet_buff is reused between
+	 * sends, so set arp_tha explicitly instead of leaking stale bytes
+	 * from a previous packet onto the wire.
+	 */
+	if (arp_type == ARPOP_REPLY)
+		memcpy(out_arphdr->arp_tha, dst_mac, ETH_ALEN);
+	else
+		memset(out_arphdr->arp_tha, 0, ETH_ALEN);
+
 	store_ip_addr(out_arphdr->arp_tpa, dst_ip);
 }
 
