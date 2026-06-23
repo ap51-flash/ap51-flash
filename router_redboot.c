@@ -175,7 +175,8 @@ void redboot_main(struct node *node, const char *telnet_msg)
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc, node->router_type->image->path,
+				node->router_type->desc,
+				node->router_type->image->path ? node->router_type->image->path : "embedded image",
 				req_flash_size, redboot_priv->redboot_type->flash_size);
 			goto redboot_failure;
 		}
