@@ -353,7 +353,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				node->status = NODE_STATUS_FLASHING;
 			}
 
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s', serving %s portion of: %s (%i blocks) ...\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s', serving %s portion of: %s (%u blocks) ...\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
@@ -390,7 +390,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
 
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %i blocks ...\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %u blocks ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
