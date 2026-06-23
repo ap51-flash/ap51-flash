@@ -21,6 +21,7 @@ enum tcp_status {
 
 struct tcp_state {
 	char *packet_buff;
+	char *packet_buff_align;
 	enum tcp_status status;
 	unsigned int his_seq;
 	unsigned int his_ack_seq;

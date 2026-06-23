@@ -528,10 +528,15 @@ static void tcp_init_state(struct node *node)
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
 
-	node->tcp_state.packet_buff = malloc(PACKET_BUFF_LEN);
-	if (!node->tcp_state.packet_buff)
+	/* offset the buffer by NET_IP_ALIGN so that the IP header (which
+	 * follows the ethernet header) ends up 4-byte aligned, just like the
+	 * RX buffer and out_packet_buff do
+	 */
+	node->tcp_state.packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
+	if (!node->tcp_state.packet_buff_align)
 		goto out;
 
+	node->tcp_state.packet_buff = node->tcp_state.packet_buff_align + NET_IP_ALIGN;
 	memset(node->tcp_state.packet_buff, 0, PACKET_BUFF_LEN);
 
 	ethhdr = (struct ether_header *)node->tcp_state.packet_buff;

@@ -59,7 +59,7 @@ static void node_list_free(void)
 	list_for_each_entry_safe(node, node_s, &node_list, list) {
 		list_del(&node->list);
 		router_images_close_path(node);
-		free(node->tcp_state.packet_buff);
+		free(node->tcp_state.packet_buff_align);
 		free(node);
 	}
 }
