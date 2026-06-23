@@ -894,7 +894,14 @@ bool router_images_available(void)
 
 void router_images_close_path(struct node *node)
 {
-	if ((node->router_type->image->path) &&
+	/* node_list_free() calls this for every node, including ones that
+	 * were created from stray traffic and never matched a router type
+	 * (router_type == NULL) or were rejected before it was assigned. Such
+	 * a node never had an image opened (fd stays -1), so guard the
+	 * router_type dereference instead of crashing on cleanup.
+	 */
+	if ((node->router_type) &&
+	    (node->router_type->image->path) &&
 	    (node->image_state.fd > 0))
 		close(node->image_state.fd);
 
