@@ -212,7 +212,7 @@ static __inline__ int list_is_singular(const struct list_head *head)
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
- * All nodes from @list are added to to the beginning of the list of @head.
+ * All nodes from @list are added to the beginning of the list of @head.
  * It is similar to list_add but for multiple nodes. The @list head is not
  * modified and has to be initialized to be used as a valid list head/node
  * again.
@@ -239,7 +239,7 @@ static __inline__ void list_splice(struct list_head *list,
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
- * All nodes from @list are added to to the end of the list of @head.
+ * All nodes from @list are added to the end of the list of @head.
  * It is similar to list_add_tail but for multiple nodes. The @list head is not
  * modified and has to be initialized to be used as a valid list head/node
  * again.
@@ -266,7 +266,7 @@ static __inline__ void list_splice_tail(struct list_head *list,
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
- * All nodes from @list are added to to the beginning of the list of @head.
+ * All nodes from @list are added to the beginning of the list of @head.
  * It is similar to list_add but for multiple nodes.
  *
  * The @list head will not end up in an uninitialized state like when using
@@ -285,7 +285,7 @@ static __inline__ void list_splice_init(struct list_head *list,
  * @list: pointer to the head of the list with the node entries
  * @head: pointer to the head of the list
  *
- * All nodes from @list are added to to the end of the list of @head.
+ * All nodes from @list are added to the end of the list of @head.
  * It is similar to list_add_tail but for multiple nodes.
  *
  * The @list head will not end up in an uninitialized state like when using
@@ -306,7 +306,7 @@ static __inline__ void list_splice_tail_init(struct list_head *list,
  * @node: pointer to the node in which defines the cutting point
  *
  * All entries from the beginning of the list @head_from to (including) the
- * @node is moved to @head_from.
+ * @node is moved to @head_to.
  *
  * @head_to is replaced when @head_from is not empty. @node must be a real
  * list node from @head_from or the behavior is undefined.
@@ -399,8 +399,8 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @node: list_head pointer used as iterator
  * @head: pointer to the head of the list
  *
- * The nodes and the head of the list must must be kept unmodified while
- * iterating through it. Any modifications to the the list will cause undefined
+ * The nodes and the head of the list must be kept unmodified while
+ * iterating through it. Any modifications to the list will cause undefined
  * behavior.
  */
 #define list_for_each(node, head) \
@@ -415,8 +415,8 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @type: type of the entries containing the list nodes
  * @member: name of the list_head member variable in struct @type
  *
- * The nodes and the head of the list must must be kept unmodified while
- * iterating through it. Any modifications to the the list will cause undefined
+ * The nodes and the head of the list must be kept unmodified while
+ * iterating through it. Any modifications to the list will cause undefined
  * behavior.
  *
  * WARNING this functionality is not available in the Linux list implementation
@@ -432,8 +432,8 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @head: pointer to the head of the list
  * @member: name of the list_head member variable in struct type of @entry
  *
- * The nodes and the head of the list must must be kept unmodified while
- * iterating through it. Any modifications to the the list will cause undefined
+ * The nodes and the head of the list must be kept unmodified while
+ * iterating through it. Any modifications to the list will cause undefined
  * behavior.
  */
 #ifdef LIST_TYPEOF_USE
@@ -448,7 +448,7 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @head: pointer to the head of the list
  *
  * The current node (iterator) is allowed to be removed from the list. Any
- * other modifications to the the list will cause undefined behavior.
+ * other modifications to the list will cause undefined behavior.
  */
 #define list_for_each_safe(node, safe, head) \
 	for (node = (head)->next, safe = node->next; \
@@ -464,7 +464,7 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @member: name of the list_head member variable in struct @type
  *
  * The current node (iterator) is allowed to be removed from the list. Any
- * other modifications to the the list will cause undefined behavior.
+ * other modifications to the list will cause undefined behavior.
  *
  * WARNING this functionality is not available in the Linux list implementation
  */
@@ -483,7 +483,7 @@ static __inline__ void list_move_tail(struct list_head *node,
  * @member: name of the list_head member variable in struct type of @entry
  *
  * The current node (iterator) is allowed to be removed from the list. Any
- * other modifications to the the list will cause undefined behavior.
+ * other modifications to the list will cause undefined behavior.
  */
 #ifdef LIST_TYPEOF_USE
 #define list_for_each_entry_safe(entry, safe, head, member) \
@@ -672,7 +672,7 @@ static __inline__ int hlist_empty(const struct hlist_head *head)
  * @list: pointer to the head of the hlist with the node entries
  * @head: pointer to the head of the hlist
  *
- * All nodes from @list are added to to the beginning of the list of @head.
+ * All nodes from @list are added to the beginning of the list of @head.
  * @head can be uninitialized or an empty, initialized hlist. All entries of
  * a non-empty hlist @head would be lost after this operation.
  *
@@ -708,11 +708,11 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  */
 #ifdef LIST_TYPEOF_USE
 #define hlist_entry_safe(node, type, member) __extension__ ({ \
-	 __typeof__(node) __node = (node); \
-	 !__node ? NULL : hlist_entry(__node, type, member); })
+	__typeof__(node) __node = (node); \
+	!__node ? NULL : hlist_entry(__node, type, member); })
 #else
 #define hlist_entry_safe(node, type, member) \
-	(node) ? hlist_entry(node, type, member) : NULL
+	((node) ? hlist_entry(node, type, member) : NULL)
 #endif
 
 /**
@@ -720,8 +720,8 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @node: hlist_node pointer used as iterator
  * @head: pointer to the head of the hlist
  *
- * The nodes and the head of the hlist must must be kept unmodified while
- * iterating through it. Any modifications to the the hlist will cause undefined
+ * The nodes and the head of the hlist must be kept unmodified while
+ * iterating through it. Any modifications to the hlist will cause undefined
  * behavior.
  */
 #define hlist_for_each(node, head) \
@@ -736,8 +736,8 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @type: type of the entries containing the hlist nodes
  * @member: name of the hlist_node member variable in struct @type
  *
- * The nodes and the head of the hlist must must be kept unmodified while
- * iterating through it. Any modifications to the the hlist will cause undefined
+ * The nodes and the head of the hlist must be kept unmodified while
+ * iterating through it. Any modifications to the hlist will cause undefined
  * behavior.
  *
  * WARNING this functionality is not available in the Linux list implementation
@@ -753,8 +753,8 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @head: pointer to the head of the hlist
  * @member: name of the hlist_node member variable in struct type of @entry
  *
- * The nodes and the head of the hlist must must be kept unmodified while
- * iterating through it. Any modifications to the the hlist will cause undefined
+ * The nodes and the head of the hlist must be kept unmodified while
+ * iterating through it. Any modifications to the hlist will cause undefined
  * behavior.
  */
 #ifdef LIST_TYPEOF_USE
@@ -769,7 +769,7 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @head: pointer to the head of the hlist
  *
  * The current node (iterator) is allowed to be removed from the hlist. Any
- * other modifications to the the hlist will cause undefined behavior.
+ * other modifications to the hlist will cause undefined behavior.
  */
 #define hlist_for_each_safe(node, safe, head) \
 	for (node = (head)->first; \
@@ -785,7 +785,7 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @member: name of the hlist_node member variable in struct @type
  *
  * The current node (iterator) is allowed to be removed from the hlist. Any
- * other modifications to the the hlist will cause undefined behavior.
+ * other modifications to the hlist will cause undefined behavior.
  *
  * WARNING this functionality is not available in the Linux list implementation
  */
@@ -802,7 +802,7 @@ static __inline__ void hlist_move_list(struct hlist_head *list,
  * @member: name of the hlist_node member variable in struct type of @entry
  *
  * The current node (iterator) is allowed to be removed from the hlist. Any
- * other modifications to the the hlist will cause undefined behavior.
+ * other modifications to the hlist will cause undefined behavior.
  */
 #ifdef LIST_TYPEOF_USE
 #define hlist_for_each_entry_safe(entry, safe, head, member) \
