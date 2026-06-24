@@ -167,6 +167,14 @@ static int tftp_packet_send_data(struct node *node, unsigned short src_port,
 	sum = chksum(sum, (void *)out_udphdr, ntohs(out_udphdr->len));
 	out_udphdr->check = ~(htons(sum));
 
+	/* RFC 768: if the computed checksum is zero it must be sent as all
+	 * ones (0xffff), because an all-zero checksum field is the special
+	 * value that means "no checksum was computed". Both are equal under
+	 * ones' complement, so the receiver still validates correctly.
+	 */
+	if (out_udphdr->check == 0)
+		out_udphdr->check = 0xffff;
+
 	out_iphdr->tot_len = htons(20 + 8 + tftp_data_len);
 	out_iphdr->check = 0;
 	out_iphdr->check = ~(htons(chksum(0, (void *)out_iphdr, sizeof(struct iphdr))));
