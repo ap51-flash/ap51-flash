@@ -315,9 +315,27 @@ static void print_description_sanitized(const char *description)
 	ptr = (unsigned char *)description;
 	last_char = 0;
 
-	while (' ' <= *ptr) {
+	for (; *ptr != '\0'; ptr++) {
 		c = *ptr;
-		ptr++;
+
+		/* Drop control characters so a crafted interface description
+		 * cannot inject terminal escape sequences: the C0 range, DEL
+		 * and (outside Windows, whose console does not interpret C1
+		 * controls) the UTF-8 encoding of the C1 range
+		 * (U+0080-U+009F). Other bytes >= 0x80 are kept untouched -
+		 * they are lead, trail or continuation bytes in the encodings
+		 * descriptions actually use (UTF-8, the ANSI/DBCS code pages on
+		 * Windows).
+		 */
+		if (c < ' ' || c == 0x7f)
+			continue;
+
+#if !defined(WIN32)
+		if (c == 0xc2 && ptr[1] >= 0x80 && ptr[1] <= 0x9f) {
+			ptr++;
+			continue;
+		}
+#endif
 
 		/* skip multiple spaces */
 		if (last_char == ' ' && last_char == c)
