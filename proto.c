@@ -405,6 +405,17 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
 
+				/* a retransmitted ACK 0 means our first DATA block
+				 * was lost and the transfer restarts from block 1;
+				 * reset the send position so block 1 is re-read from
+				 * the start of the image. Without this bytes_sent is
+				 * left at its previous value and block 1 is resent
+				 * with the wrong portion of the image, corrupting the
+				 * upload (the opcode-1 path resets it the same way).
+				 */
+				node->image_state.bytes_sent = 0;
+				node->image_state.last_packet_size = 0;
+
 				/* In server mode the device never sends a read
 				 * request, so the opcode-1 path that normally
 				 * marks a transfer as globally counted never
