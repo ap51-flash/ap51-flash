@@ -94,6 +94,8 @@ CPPFLAGS += -D_FILE_OFFSET_BITS=64
 
 ifeq ($(PLATFORM),LINUX)
   BINARY_SUFFIX =
+  # clock_gettime() lives in librt before glibc 2.17
+  LDLIBS += -lrt
 else ifeq ($(PLATFORM),WIN32)
   BINARY_SUFFIX = .exe
   CPPFLAGS += -D_CONSOLE -D_MBCS -D__USE_MINGW_ANSI_STDIO=1

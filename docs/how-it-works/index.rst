@@ -60,8 +60,8 @@ address are dropped. IPv4 frames addressed to the ethernet broadcast address
 are dropped as well. All other ethertypes than ARP (``0x0806``) and IPv4
 (``0x0800``) are ignored.
 
-When no frame arrives for 250 ms, a maintenance tick runs. The tick sends the
-periodic probe frames described below (ARP probes for Ubiquiti devices, TFTP
+Every 250 ms a maintenance tick runs, no matter how much traffic arrives in
+between. The tick sends the periodic probe frames described below (ARP probes for Ubiquiti devices, TFTP
 write request retries, TCP SYN retries) and checks timers.
 
 Because the host kernel also sees the device's frames, ap51-flash works best on

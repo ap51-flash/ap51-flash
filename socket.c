@@ -598,13 +598,15 @@ err_close:
 #endif
 }
 
-#if defined(USE_PCAP)
+/* wait at most timeout_ms for a packet (the pcap variants use the read timeout
+ * set in socket_open() instead). Returns the packet length, 0 when no packet
+ * arrived and -1 on error.
+ */
+#if USE_PCAP
 int socket_read(char *packet_buff, int packet_buff_len,
-		int (*sleep_sec)__attribute__((unused)),
-		int (*sleep_usec)__attribute__((unused)))
+		int timeout_ms __attribute__((unused)))
 #else
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
-		int *sleep_usec)
+int socket_read(char *packet_buff, int packet_buff_len, int timeout_ms)
 #endif
 {
 #if defined(LINUX)
@@ -622,13 +624,10 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
 	FD_ZERO(&watched_fds);
 	FD_SET(raw_sock, &watched_fds);
 
-	tv.tv_sec = *sleep_sec;
-	tv.tv_usec = *sleep_usec;
+	tv.tv_sec = timeout_ms / 1000;
+	tv.tv_usec = (timeout_ms % 1000) * 1000;
 
 	ret = select(raw_sock + 1, &watched_fds, NULL, NULL, &tv);
-
-	*sleep_sec = tv.tv_sec;
-	*sleep_usec = tv.tv_usec;
 
 	if (ret < 0) {
 		if (errno != EINTR)
