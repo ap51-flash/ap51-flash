@@ -173,10 +173,19 @@ int flash_start(const char *iface)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	sleep_sec = READ_SLEEP_SEC;
-	sleep_usec = READ_SLEEP_USEC;
-
 	while (running) {
+		/* Reset the timeout on every iteration. On Linux select()
+		 * updates the timeval in place to the time left unslept, and
+		 * socket_read() writes that decremented value back through
+		 * sleep_sec/sleep_usec. Reusing it (the packet path used to
+		 * 'continue' without resetting) lets the idle poll interval
+		 * shrink towards zero under traffic, so the periodic ARP probes
+		 * (router_types_detect_pre()) and per-node state machine
+		 * (node_list_maintain()) no longer run at the intended cadence.
+		 */
+		sleep_sec = READ_SLEEP_SEC;
+		sleep_usec = READ_SLEEP_USEC;
+
 		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec,
 				  &sleep_usec);
 
@@ -186,14 +195,9 @@ int flash_start(const char *iface)
 		}
 
 		if (ret <= 0)
-			goto reset_sleep;
+			continue;
 
 		handle_eth_packet(packet_buff, ret);
-		continue;
-
-reset_sleep:
-		sleep_sec = READ_SLEEP_SEC;
-		sleep_usec = READ_SLEEP_USEC;
 	}
 
 	ret = 0;
