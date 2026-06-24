@@ -387,9 +387,18 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	case 4:
 		if (block == 0) {
 			if (node->flash_mode == FLASH_MODE_TFTP_SERVER) {
-				ret = router_images_open_path(node);
-				if (ret < 0)
-					return;
+				/* the device's tftp server retransmits its ACK 0
+				 * when our first DATA packet was lost; only open
+				 * the image on the first ACK 0, otherwise each
+				 * retransmit overwrites image_state.fd with a fresh
+				 * descriptor and leaks the previous one (the opcode-1
+				 * path guards the open the same way)
+				 */
+				if (node->image_state.fd <= 0) {
+					ret = router_images_open_path(node);
+					if (ret < 0)
+						return;
+				}
 				node->status = NODE_STATUS_FLASHING;
 				node->image_state.file_size = node->router_type->image->file_size;
 				node->image_state.flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
