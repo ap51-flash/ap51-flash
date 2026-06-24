@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -308,6 +309,7 @@ char *socket_find_iface_by_index(const char *iface_number)
 	char *endptr;
 	long if_num;
 
+	errno = 0;
 	if_num = strtol(iface_number, &endptr, 10);
 	if (!endptr || iface_number == endptr || *endptr != '\0')
 		return NULL;
@@ -315,7 +317,15 @@ char *socket_find_iface_by_index(const char *iface_number)
 	if (if_num < 1)
 		return NULL;
 
-	find_arg.index = if_num;
+	/* find_arg.index is an unsigned int; a value that does not fit would be
+	 * silently truncated on assignment and could alias a different, valid
+	 * interface index (e.g. 0x100000001 -> 1). Reject out-of-range input
+	 * (including strtol() overflow) instead of selecting the wrong device.
+	 */
+	if (errno == ERANGE || if_num > UINT_MAX)
+		return NULL;
+
+	find_arg.index = (unsigned int)if_num;
 	socket_dump_ifaces(compare_interface, &find_arg);
 
 	return find_arg.name;
