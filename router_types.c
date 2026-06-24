@@ -63,14 +63,26 @@ static const struct router_type *router_types[] = {
 static int read_mac(uint8_t mac[ETH_ALEN], const char *macstr)
 {
 	int ret;
+	int end = -1;
 
-	ret = sscanf(macstr, "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX",
-		     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
-	if (ret != 6)
-		ret = sscanf(macstr, "%02hhX-%02hhX-%02hhX-%02hhX-%02hhX-%02hhX",
-			     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+	/* %n stores how many characters were consumed; require it to reach the
+	 * terminating NUL so that trailing garbage is rejected instead of
+	 * silently ignored. Without it sscanf() returning 6 only proves that
+	 * six fields parsed, so e.g. "00:11:22:33:44:5g" is happily accepted as
+	 * 00:11:22:33:44:05 and a wrong MAC filter is installed.
+	 */
+	ret = sscanf(macstr, "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX%n",
+		     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5], &end);
+	if (ret == 6 && end >= 0 && macstr[end] == '\0')
+		return 1;
 
-	return (ret == 6);
+	end = -1;
+	ret = sscanf(macstr, "%02hhX-%02hhX-%02hhX-%02hhX-%02hhX-%02hhX%n",
+		     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5], &end);
+	if (ret == 6 && end >= 0 && macstr[end] == '\0')
+		return 1;
+
+	return 0;
 }
 
 int mac_allowlist_add(const char *macstr)
