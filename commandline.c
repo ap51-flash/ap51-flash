@@ -152,8 +152,7 @@ int main(int argc, char* argv[])
 	router_images_init();
 
 	while (argc > 0) {
-		ret = router_images_verify_path(argv[0]);
-		if (ret < 0)
+		if (router_images_verify_path(argv[0]) < 0)
 			goto out;
 
 		argc -= 1;
