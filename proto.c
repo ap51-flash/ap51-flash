@@ -438,7 +438,15 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	/* TFTP ack */
 	case 4:
 		if (block == 0) {
-			if (node->flash_mode == FLASH_MODE_TFTP_SERVER) {
+			/* ACK 0 (re)starts the upload only as long as it did
+			 * not get past block 1. The 16 bit block number wraps,
+			 * so ACK 0 is also the regular in-order ACK of block
+			 * 65536 in images with more than 65535 blocks; that one
+			 * must continue the upload instead of restarting it
+			 * from the start of the image.
+			 */
+			if (node->flash_mode == FLASH_MODE_TFTP_SERVER &&
+			    node->image_state.bytes_sent <= TFTP_PAYLOAD_SIZE) {
 				/* the device's tftp server retransmits its ACK 0
 				 * when our first DATA packet was lost; only open
 				 * the image on the first ACK 0, otherwise each
@@ -456,6 +464,17 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				node->image_state.flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
 										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
 				node->image_state.offset = 0;
+
+				/* a retransmitted ACK 0 means our first DATA block
+				 * was lost and the transfer restarts from block 1;
+				 * reset the send position so block 1 is re-read from
+				 * the start of the image. Without this bytes_sent is
+				 * left at its previous value and block 1 is resent
+				 * with the wrong portion of the image, corrupting the
+				 * upload (the opcode-1 path resets it the same way).
+				 */
+				node->image_state.bytes_sent = 0;
+				node->image_state.last_packet_size = 0;
 
 				/* In server mode the device never sends a read
 				 * request, so the opcode-1 path that normally
