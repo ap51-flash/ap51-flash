@@ -432,6 +432,7 @@ int socket_open(const char *iface)
 		goto close_sock;
 	}
 
+	memset(&addr, 0, sizeof(addr));
 	addr.sll_family = AF_PACKET;
 	addr.sll_protocol = htons(ETH_P_ALL);
 	addr.sll_ifindex = req.ifr_ifindex;
