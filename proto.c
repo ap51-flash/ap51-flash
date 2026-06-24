@@ -33,7 +33,13 @@ enum tcp_packet_type {
 
 #define PACKET_BUFF_LEN 2000
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
-#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - ETH_HLEN - sizeof(struct iphdr) - \
+/* ETH_DATA_LEN (1500) is the ethernet MTU, i.e. the maximum IP packet size; it
+ * already excludes the ethernet header. The largest TCP payload that fits into
+ * one unfragmented packet is therefore MTU - IP header - TCP header. The
+ * ethernet header must NOT be subtracted again here (doing so understated the
+ * advertised MSS and TCP window by ETH_HLEN bytes).
+ */
+#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - sizeof(struct iphdr) - \
 			 sizeof(struct tcphdr))
 
 static char *out_packet_buff;
