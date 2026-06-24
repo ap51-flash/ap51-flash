@@ -288,7 +288,13 @@ static int ci_verify(struct router_image *router_image, const char *buff,
 	if ((buff[0] != 'C') || (buff[1] != 'I'))
 		return 0;
 
-	sscanf(buff, "CI%08x%08x", &kernel_size, &rootfs_size);
+	/* the two size fields must actually parse; otherwise sscanf() leaves
+	 * kernel_size/rootfs_size uninitialized and the checks below read
+	 * indeterminate values (and may accept a malformed image)
+	 */
+	if (sscanf(buff, "CI%08x%08x", &kernel_size, &rootfs_size) != 2)
+		return 0;
+
 	if ((!kernel_size) || (!rootfs_size))
 		return 0;
 
