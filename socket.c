@@ -347,9 +347,18 @@ static void print_description_sanitized(const char *description)
 	ptr = (unsigned char *)description;
 	last_char = 0;
 
-	while (' ' <= *ptr) {
+	for (; *ptr != '\0'; ptr++) {
 		c = *ptr;
-		ptr++;
+
+		/* Drop control characters so a crafted interface description
+		 * cannot inject terminal escape sequences. The previous
+		 * 'while (' ' <= c)' both stopped at the first C0 control byte
+		 * (truncating the rest of the description, defeating the
+		 * multi-space collapse below) and still let DEL (0x7f) and the
+		 * C1 range (0x80-0x9f) through unsanitized.
+		 */
+		if (c < ' ' || c == 0x7f || (c >= 0x80 && c <= 0x9f))
+			continue;
 
 		/* skip multiple spaces */
 		if (last_char == ' ' && last_char == c)
