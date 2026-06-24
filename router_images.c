@@ -942,7 +942,7 @@ void router_images_close_path(struct node *node)
 	 */
 	if ((node->router_type) &&
 	    (node->router_type->image->path) &&
-	    (node->image_state.fd > 0))
+	    (node->image_state.fd >= 0))
 		close(node->image_state.fd);
 
 	node->image_state.fd = -1;

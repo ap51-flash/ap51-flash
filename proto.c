@@ -352,7 +352,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				goto out;
 			}
 
-			if (node->image_state.fd <= 0) {
+			if (node->image_state.fd < 0) {
 				ret = router_images_open_path(node);
 				if (ret < 0)
 					goto out;
@@ -394,7 +394,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				 * descriptor and leaks the previous one (the opcode-1
 				 * path guards the open the same way)
 				 */
-				if (node->image_state.fd <= 0) {
+				if (node->image_state.fd < 0) {
 					ret = router_images_open_path(node);
 					if (ret < 0)
 						return;
