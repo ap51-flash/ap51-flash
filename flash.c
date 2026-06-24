@@ -25,8 +25,7 @@ int num_nodes_flashed = 0;
 #endif
 
 #define PACKET_BUFF_LEN 2000
-#define READ_SLEEP_SEC 0
-#define READ_SLEEP_USEC 250000
+#define READ_SLEEP_MS 250
 
 struct node *node_list_get(const uint8_t *mac_addr)
 {
@@ -157,7 +156,8 @@ int flash_start(const char *iface)
 {
 	char *packet_buff_align;
 	char *packet_buff;
-	int ret, sleep_sec, sleep_usec;
+	uint64_t now, next_tick;
+	int ret;
 
 	ret = socket_open(iface);
 	if (ret < 0)
@@ -182,27 +182,32 @@ int flash_start(const char *iface)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	sleep_sec = READ_SLEEP_SEC;
-	sleep_usec = READ_SLEEP_USEC;
+	/* Run the periodic work (ARP probes in router_types_detect_pre(), the
+	 * per-node state machine in node_list_maintain()) once per poll
+	 * interval against a monotonic deadline, no matter how much traffic
+	 * arrives in between. Waiting for a socket_read() timeout instead lets
+	 * any traffic with inter-packet gaps below the poll interval (the
+	 * bootloaders ARP-broadcast continuously) postpone the periodic work
+	 * forever.
+	 */
+	next_tick = time_ms() + READ_SLEEP_MS;
 
 	while (running) {
-		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec,
-				  &sleep_usec);
-
-		if (ret == 0) {
+		now = time_ms();
+		if (now >= next_tick) {
 			router_types_detect_pre(our_mac);
 			node_list_maintain();
+
+			now = time_ms();
+			next_tick = now + READ_SLEEP_MS;
 		}
 
+		ret = socket_read(packet_buff, PACKET_BUFF_LEN,
+				  (int)(next_tick - now));
 		if (ret <= 0)
-			goto reset_sleep;
+			continue;
 
 		handle_eth_packet(packet_buff, ret);
-		continue;
-
-reset_sleep:
-		sleep_sec = READ_SLEEP_SEC;
-		sleep_usec = READ_SLEEP_USEC;
 	}
 
 	ret = 0;
