@@ -176,6 +176,12 @@ int main(int argc, char* argv[])
 	if (!router_images_available()) {
 		fprintf(stderr, "Error - no images specified\n");
 		usage(progname);
+		/* the image argument loop sets ret to 0 via
+		 * router_images_verify_path() (which returns 0 even for files
+		 * it could not use), so without this the program would report
+		 * success (exit code 0) on this error path
+		 */
+		ret = -1;
 		goto out;
 	}
 
