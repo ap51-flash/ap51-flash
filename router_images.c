@@ -567,6 +567,21 @@ static int router_image_init_embedded(struct router_image *router_image)
 	if (!src)
 		goto out;
 
+	/* image_verify() receives the size as an int and the size checks
+	 * inside it cast that int to uint64_t. A blob in the 2-4 GiB range
+	 * yields a size that does not fit in an int and sign-extends to a huge
+	 * uint64_t, which silently defeats those overflow checks (and corrupts
+	 * the file_size bookkeeping) - exactly like the image-file path guards
+	 * against in router_images_verify_path(). Reject anything that does not
+	 * fit in the int the rest of the image code assumes.
+	 */
+	if (size > INT_MAX) {
+		fprintf(stderr, "Embedded image '%s' is too large to process\n",
+			router_image->desc);
+		router_image->embedded_img = NULL;
+		goto out;
+	}
+
 	/* image_verify() parses the header with sscanf(), which scans its
 	 * input as a C string and reads past the end of a buffer that is not
 	 * NUL-terminated. The embedded blob is not terminated, so verify a
