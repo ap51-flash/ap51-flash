@@ -4,6 +4,7 @@
 
 #include "proto.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -290,6 +291,75 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	}
 }
 
+/* set up the transfer of a file - before the image is opened: if the open
+ * fails, the state must say that nothing of the file was sent (the RedBoot
+ * state machine compares bytes_sent against flash_size). Returns the number
+ * of blocks
+ */
+static unsigned int tftp_transfer_start(struct node *node,
+					unsigned int file_size,
+					unsigned int flash_size,
+					unsigned int offset,
+					bool count_globally)
+{
+	node->image_state.bytes_sent = 0;
+	node->image_state.block_acked = 0;
+	node->image_state.block_sent = 0;
+	node->image_state.file_size = file_size;
+	node->image_state.flash_size = flash_size;
+	node->image_state.offset = offset;
+	node->image_state.count_globally = count_globally;
+
+	return (flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE;
+}
+
+/* map a 16 bit TFTP wire block number to the absolute block number that is
+ * closest to the last sent block; the wire number wraps after 65535 blocks
+ */
+static unsigned int tftp_block_unwrap(const struct node *node,
+				      unsigned short block)
+{
+	unsigned int ref = node->image_state.block_sent;
+	int delta;
+
+	delta = (unsigned short)(block - ref);
+	if (delta >= 0x8000)
+		delta -= 0x10000;
+
+	/* before the start of the file */
+	if (delta < 0 && (unsigned int)-delta > ref)
+		return 0;
+
+	return ref + delta;
+}
+
+/* send the (absolute) block number. The send position is derived from the
+ * block number alone, and the transfer state is only updated once the block
+ * actually went out - a failed read or send leaves no partial state behind
+ * that could shift the data of later blocks.
+ */
+static void tftp_send_block(struct node *node, const struct udphdr *udphdr,
+			    unsigned int block)
+{
+	unsigned int pos = (block - 1) * TFTP_PAYLOAD_SIZE;
+	int data_len, ret;
+
+	*((unsigned short *)out_tftp_data) = htons(3);
+	*((unsigned short *)(out_tftp_data + 2)) = htons((unsigned short)block);
+
+	data_len = router_images_read_data(out_tftp_data + 4, node, pos);
+	if (data_len < 0)
+		return;
+
+	ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source,
+				    data_len + 4); /* opcode size */
+	if (ret < 0)
+		return;
+
+	node->image_state.bytes_sent = pos + data_len;
+	node->image_state.block_sent = block;
+}
+
 static void tftp_print_error(const struct node *node, unsigned short code,
 			     const char *msg, int msg_len)
 {
@@ -326,7 +396,8 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	struct file_info *file_info;
 	unsigned short opcode, block;
 	const char *file_name;
-	int ret, data_len;
+	unsigned int ack, blocks;
+	int ret;
 	static const char fwupgradecfg[] = "fwupgrade.cfg";
 
 	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
@@ -375,11 +446,9 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		file_name = packet_buff + sizeof(struct udphdr) + 2;
 		switch (node->flash_mode) {
 		case FLASH_MODE_UKNOWN:
-			/* ignore */
-			break;
 		case FLASH_MODE_TFTP_SERVER:
-			/* ignored; handled in node_list_maintain */
-			break;
+			/* ignore; server mode is handled in node_list_maintain */
+			goto out;
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
 		case FLASH_MODE_NETCONSOLE:
@@ -397,21 +466,19 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				goto out;
 			}
 
-			/* describe the requested file before opening the
-			 * image: if the open fails, the state must say that
-			 * nothing of it was sent (the RedBoot state machine
-			 * compares bytes_sent against flash_size)
-			 */
-			node->image_state.bytes_sent = 0;
+			/* fwupgrade.cfg is not part of the flashed payload */
+			blocks = tftp_transfer_start(node, file_info->file_size,
+						     file_info->file_fsize,
+						     file_info->file_offset,
+						     strncmp(file_name, fwupgradecfg,
+							     strlen(fwupgradecfg)) != 0);
 			node->image_state.file_requested = 1;
-			node->image_state.file_size = file_info->file_size;
-			node->image_state.flash_size = file_info->file_fsize;
-			node->image_state.offset = file_info->file_offset;
 
 			if (node->image_state.fd < 0) {
 				ret = router_images_open_path(node);
 				if (ret < 0)
 					goto out;
+
 				node->status = NODE_STATUS_FLASHING;
 			}
 
@@ -422,71 +489,66 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 				node->router_type->desc,
 				file_name,file_info->file_name,
 				node->router_type->image->path ? node->router_type->image->path : "embedded image",
-				((file_info->file_fsize + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
+				blocks);
 			break;
 		}
 
-		block = 0;
-		node->image_state.bytes_sent = 0;
-		node->image_state.last_packet_size = 0;
-
-		if (strncmp(file_name, fwupgradecfg, strlen(fwupgradecfg)) == 0)
-			node->image_state.count_globally = 0;
-		else
-			node->image_state.count_globally = 1;
-		/* fall through - start sending data */
+		tftp_send_block(node, udphdr, 1);
+		break;
 	/* TFTP ack */
 	case 4:
-		if (block == 0) {
-			/* ACK 0 (re)starts the upload only as long as it did
-			 * not get past block 1. The 16 bit block number wraps,
-			 * so ACK 0 is also the regular in-order ACK of block
-			 * 65536 in images with more than 65535 blocks; that one
-			 * must continue the upload instead of restarting it
-			 * from the start of the image.
+		if (node->flash_mode == FLASH_MODE_TFTP_SERVER &&
+		    node->status == NODE_STATUS_DETECTED && block == 0) {
+			/* the device's tftp server accepted our write request.
+			 * Later ACK 0s (retransmits, or the in-order ACK of
+			 * the wrapped block 65536) are handled by the generic
+			 * code below.
 			 */
-			if (node->flash_mode == FLASH_MODE_TFTP_SERVER &&
-			    node->image_state.bytes_sent <= TFTP_PAYLOAD_SIZE) {
-				/* the device's tftp server retransmits its ACK 0
-				 * when our first DATA packet was lost; only open
-				 * the image on the first ACK 0, otherwise each
-				 * retransmit overwrites image_state.fd with a fresh
-				 * descriptor and leaks the previous one (the opcode-1
-				 * path guards the open the same way)
-				 */
-				if (node->image_state.fd < 0) {
-					ret = router_images_open_path(node);
-					if (ret < 0)
-						return;
-				}
-				node->status = NODE_STATUS_FLASHING;
-				node->image_state.file_size = node->router_type->image->file_size;
-				node->image_state.flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
-										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-				node->image_state.offset = 0;
+			/* the whole image is sent as one file, which is
+			 * counted as payload like any file a tftp client
+			 * requests - otherwise the final-block accounting below
+			 * is skipped and the upload never reaches
+			 * NODE_STATUS_FINISHED
+			 */
+			blocks = tftp_transfer_start(node, node->router_type->image->file_size,
+						     ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
+						      FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE,
+						     0, true);
 
-				/* a retransmitted ACK 0 means our first DATA block
-				 * was lost and the transfer restarts from block 1;
-				 * reset the send position so block 1 is re-read from
-				 * the start of the image. Without this bytes_sent is
-				 * left at its previous value and block 1 is resent
-				 * with the wrong portion of the image, corrupting the
-				 * upload (the opcode-1 path resets it the same way).
-				 */
-				node->image_state.bytes_sent = 0;
-				node->image_state.last_packet_size = 0;
+			ret = router_images_open_path(node);
+			if (ret < 0)
+				return;
 
-				/* In server mode the device never sends a read
-				 * request, so the opcode-1 path that normally
-				 * marks a transfer as globally counted never
-				 * runs. Without this the final-block accounting
-				 * below (if (!count_globally) goto out) is always
-				 * skipped and the upload never reaches
-				 * NODE_STATUS_FINISHED.
-				 */
-				node->image_state.count_globally = 1;
+			node->status = NODE_STATUS_FLASHING;
 
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %u blocks ...\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %u blocks ...\n",
+				node->his_mac_addr[0],
+				node->his_mac_addr[1],
+				node->his_mac_addr[2],
+				node->his_mac_addr[3],
+				node->his_mac_addr[4],
+				node->his_mac_addr[5],
+				node->router_type->desc, blocks);
+
+			tftp_send_block(node, udphdr, 1);
+			break;
+		}
+
+		/* no transfer running (or the final block was already acked and
+		 * the image closed)
+		 */
+		if (node->image_state.fd < 0)
+			goto out;
+
+		ack = tftp_block_unwrap(node, block);
+
+		if (ack != node->image_state.block_sent) {
+			/* The peer acked something other than the block we
+			 * just sent: a duplicate/stale ACK because our DATA got
+			 * lost. Resend block_acked + 1.
+			 */
+			if (ack < node->image_state.block_sent)
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %u, last received ack: %u\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -494,114 +556,75 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
 					node->router_type->desc,
-					((node->image_state.flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
-			}
-
-			node->image_state.block_acked = 0;
-			node->image_state.block_sent = 0;
-		} else if (block != node->image_state.block_sent) {
-			if (block < node->image_state.block_sent)
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %d, last received ack: %d\n",
-					node->his_mac_addr[0],
-					node->his_mac_addr[1],
-					node->his_mac_addr[2],
-					node->his_mac_addr[3],
-					node->his_mac_addr[4],
-					node->his_mac_addr[5],
-					node->router_type->desc, block + 1,
+					node->image_state.block_acked + 1,
 					node->image_state.block_acked);
 			else
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp acks unsent block %d (last sent block: %d)\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp acks unsent block %u (last sent block: %u)\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
 					node->his_mac_addr[3],
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
-					node->router_type->desc, block,
+					node->router_type->desc, ack,
 					node->image_state.block_sent);
 
-			block = node->image_state.block_acked;
-			node->image_state.bytes_sent -= node->image_state.last_packet_size;
-		} else {
-			/* nothing more to send */
-			if (node->image_state.last_packet_size != TFTP_PAYLOAD_SIZE) {
-				/* don't count this file as payload? this is
-				 * also the guard against a retransmitted final
-				 * ACK: count_globally is cleared once the file
-				 * has been accounted for, so a duplicate ACK of
-				 * the last (short) block takes this early out
-				 * instead of inflating total_bytes_sent (which
-				 * could declare the flash complete
-				 * prematurely). It is set again for the next
-				 * file by its read request.
-				 */
-				if (!node->image_state.count_globally)
-					goto out;
-
-				node->image_state.total_bytes_sent += node->image_state.bytes_sent;
-				node->image_state.count_globally = 0;
-
-				if (node->image_state.total_bytes_sent >= router_image_get_size(node->router_type)) {
-					switch (node->flash_mode) {
-					case FLASH_MODE_TFTP_SERVER:
-					case FLASH_MODE_TFTP_CLIENT:
-					case FLASH_MODE_NETCONSOLE:
-						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
-							node->his_mac_addr[0],
-							node->his_mac_addr[1],
-							node->his_mac_addr[2],
-							node->his_mac_addr[3],
-							node->his_mac_addr[4],
-							node->his_mac_addr[5],
-							node->router_type->desc);
-						router_images_close_path(node);
-						if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
-							tftp_client_flash_time_set(node);
-						else if (node->flash_mode == FLASH_MODE_TFTP_SERVER)
-							tftp_server_flash_time_set(node);
-						node->status = NODE_STATUS_FINISHED;
-						break;
-					case FLASH_MODE_REDBOOT:
-						/* the rest is handled in
-						 * REDBOOT_STATE_EXECY
-						 */
-						router_images_close_path(node);
-						break;
-					case FLASH_MODE_UKNOWN:
-						/* ignore */
-						break;
-					}
-				}
-
-				goto out;
-			}
-
-			node->image_state.block_acked = block;
+			tftp_send_block(node, udphdr,
+					node->image_state.block_acked + 1);
+			break;
 		}
 
-		block++;
+		node->image_state.block_acked = ack;
 
-		/* TFTP DATA packet */
-		*((unsigned short *)out_tftp_data) = htons(3);
-		*((unsigned short *)(out_tftp_data + 2)) = htons(block);
-
-		data_len = router_images_read_data(out_tftp_data + 4, node);
-		if (data_len < 0)
+		/* more to send when the last sent block was a full one - or when
+		 * no block was sent yet because sending the first block failed
+		 * and the device retransmitted its ACK 0
+		 */
+		if (node->image_state.bytes_sent ==
+		    node->image_state.block_sent * TFTP_PAYLOAD_SIZE) {
+			tftp_send_block(node, udphdr, ack + 1);
 			break;
+		}
 
-		data_len += 4; /* opcode size */
+		/* the final (short) block was acked; later duplicates of this
+		 * ACK are dropped by the closed image check above
+		 */
+		router_images_close_path(node);
 
-		ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source,
-					    data_len);
-		if (ret < 0)
-			return;
+		/* don't count this file as payload? */
+		if (!node->image_state.count_globally)
+			goto out;
 
-		node->image_state.last_packet_size = data_len - 4; /* opcode size */
-		node->image_state.bytes_sent += node->image_state.last_packet_size;
-		node->image_state.block_sent = block;
-		/* printf("tftp data out: tftp_sent=%lu, remaining_size=%lu, data_len=%i, block=%d\n",
-			tftp_sent, tftp_xfer_size - tftp_sent, tftp_data_len - 4, block); */
+		node->image_state.total_bytes_sent += node->image_state.bytes_sent;
+
+		if (node->image_state.total_bytes_sent < router_image_get_size(node->router_type))
+			goto out;
+
+		switch (node->flash_mode) {
+		case FLASH_MODE_TFTP_SERVER:
+		case FLASH_MODE_TFTP_CLIENT:
+		case FLASH_MODE_NETCONSOLE:
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
+				node->his_mac_addr[0],
+				node->his_mac_addr[1],
+				node->his_mac_addr[2],
+				node->his_mac_addr[3],
+				node->his_mac_addr[4],
+				node->his_mac_addr[5],
+				node->router_type->desc);
+			if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
+				tftp_client_flash_time_set(node);
+			else if (node->flash_mode == FLASH_MODE_TFTP_SERVER)
+				tftp_server_flash_time_set(node);
+			node->status = NODE_STATUS_FINISHED;
+			break;
+		case FLASH_MODE_REDBOOT:
+			/* ignored; handled in REDBOOT_STATE_EXECY */
+			break;
+		case FLASH_MODE_UKNOWN:
+			/* ignore */
+			break;
+		}
 		break;
 	/* TFTP error */
 	case 5:
