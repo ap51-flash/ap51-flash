@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -756,6 +757,7 @@ int router_images_verify_path(const char *image_path)
 	char *file_buff = NULL, found_consumer = 0;
 	unsigned int file_buff_size = 64 * 1024; // max CE hdr size
 	int fd, file_size, ret = -1, len;
+	off_t file_size_off;
 
 	/* +1 so the buffer can always be NUL-terminated below: the image_verify
 	 * callbacks run sscanf() over it, and sscanf() treats its input as a C
@@ -790,12 +792,28 @@ int router_images_verify_path(const char *image_path)
 		if (!(*router_image)->image_verify)
 			continue;
 
-		file_size = (int)lseek(fd, 0, SEEK_END);
-		if (file_size < 0) {
+		file_size_off = lseek(fd, 0, SEEK_END);
+		if (file_size_off < 0) {
 			fprintf(stderr, "Unable to retrieve file size of '%s': %s\n",
 				image_path, strerror(errno));
 			continue;
 		}
+
+		/* image_verify() receives the size as an int and the size
+		 * checks inside it cast that int to uint64_t. A plain
+		 * (int)lseek() truncation of a > 2 GiB file yields a negative
+		 * value that sign-extends to a huge uint64_t, which silently
+		 * defeats those overflow checks (and corrupts file_size
+		 * bookkeeping). Reject anything that does not fit in the int
+		 * the rest of the image code assumes.
+		 */
+		if (file_size_off > INT_MAX) {
+			fprintf(stderr, "Image '%s' is too large to process\n",
+				image_path);
+			continue;
+		}
+
+		file_size = (int)file_size_off;
 
 		(*router_image)->path = image_path;
 		ret = (*router_image)->image_verify((*router_image), file_buff,
