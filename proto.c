@@ -469,8 +469,24 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->router_type->desc, block,
 					node->image_state.block_sent);
 
+			/* The peer acked something other than the block we just
+			 * sent, i.e. a (possibly repeated) duplicate/stale ACK
+			 * because our DATA was lost: rewind and resend from
+			 * block_acked + 1. Recompute the send offset from the last
+			 * acked block instead of subtracting last_packet_size:
+			 * subtracting is correct only for a single retransmit, but
+			 * a second identical duplicate ACK subtracts again (the
+			 * same last_packet_size) and rewinds too far - underflowing
+			 * the unsigned bytes_sent for the early blocks, after which
+			 * router_images_read_data() reads from a bogus offset and
+			 * sends a corrupt image. Only full TFTP_PAYLOAD_SIZE blocks
+			 * reach this branch (the final short block is handled in the
+			 * block == block_sent case), so block_acked * payload size is
+			 * the exact within-file offset and the assignment is
+			 * idempotent across repeated duplicate ACKs.
+			 */
 			block = node->image_state.block_acked;
-			node->image_state.bytes_sent -= node->image_state.last_packet_size;
+			node->image_state.bytes_sent = (unsigned int)block * TFTP_PAYLOAD_SIZE;
 		} else {
 			/* nothing more to send */
 			if (node->image_state.last_packet_size != TFTP_PAYLOAD_SIZE) {
