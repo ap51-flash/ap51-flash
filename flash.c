@@ -128,10 +128,21 @@ static void node_list_maintain(void)
 
 void our_mac_set(struct node *node)
 {
+	int i;
+
 	memcpy(node->our_mac_addr, our_mac, ETH_ALEN);
 
-	/* TODO: 256 addresses might not be sufficient */
-	our_mac[5]++;
+	/* Hand out a distinct source MAC per detected device. Incrementing
+	 * only the last octet wraps after 256 devices and reuses the initial
+	 * address, so two devices flashed in the same run would share a source
+	 * MAC and collide on the wire. Increment the whole address as a
+	 * big-endian counter so the carry propagates instead of wrapping at
+	 * 256.
+	 */
+	for (i = ETH_ALEN - 1; i >= 0; i--) {
+		if (++our_mac[i] != 0)
+			break;
+	}
 }
 
 static void sig_handler(int signal)
