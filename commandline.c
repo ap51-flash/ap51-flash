@@ -115,7 +115,14 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	progname = argv[0];
+	/* keep the "ap51-flash" fallback when argv[0] is unavailable: with an
+	 * empty argv (argc == 0, argv[0] == NULL, as a caller may pass via
+	 * execve()) the unconditional assignment made progname NULL, which was
+	 * then handed to usage()'s "%s" prints - undefined behaviour. The
+	 * initializer was otherwise dead, always overwritten here.
+	 */
+	if (argc > 0 && argv[0])
+		progname = argv[0];
 	if (print_help) {
 		usage(progname);
 		goto out;
