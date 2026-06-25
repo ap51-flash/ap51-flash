@@ -32,8 +32,8 @@ Every session goes through the same three phases:
    the boot loader will talk to.
 
 2. **Impersonation** -- ap51-flash picks a MAC address of its own
-   (``00:ba:be:ca:ff:xx``, the last byte is incremented for every detected
-   device) and adopts the IP address the device asked for. From now on it
+   (``00:ba:be:ca:ff:00`` upwards, incremented for every detected device)
+   and adopts the IP address the device asked for. From now on it
    answers ARP requests and ICMP echo requests for that address, so the device
    believes a real host is there.
 
@@ -448,8 +448,9 @@ Addresses and ports at a glance
      - ``192.168.1.2``
      - UDP 6666 <-> UDP 6666; U-Boot TFTP client -> UDP 69
 
-ap51-flash MAC addresses are always ``00:ba:be:ca:ff:00`` to
-``00:ba:be:ca:ff:ff`` (one per detected device, in order of detection).
+ap51-flash MAC addresses always start with ``00:ba:be:ca``: the first
+detected device gets ``00:ba:be:ca:ff:00`` and every further device the next
+address (wrapping from ``00:ba:be:ca:ff:ff`` to ``00:ba:be:ca:00:00``).
 
 
 Image containers and the files served from them
