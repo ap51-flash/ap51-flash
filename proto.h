@@ -37,9 +37,11 @@ struct image_state {
 	unsigned int total_bytes_sent;
 	unsigned int flash_size;
 	unsigned int offset;
-	unsigned short last_packet_size;
-	unsigned short block_acked;
-	unsigned short block_sent;
+	/* absolute block numbers; the 16 bit TFTP wire block number wraps
+	 * for files with more than 65535 blocks
+	 */
+	unsigned int block_acked;
+	unsigned int block_sent;
 	/* flags */
 	unsigned char count_globally:1;
 	/* a read request for the current file was served */

@@ -924,21 +924,24 @@ out:
 	return node->image_state.fd;
 }
 
-int router_images_read_data(char *dst, struct node *node)
+int router_images_read_data(char *dst, struct node *node, unsigned int pos)
 {
 	int len = TFTP_PAYLOAD_SIZE, read_len;
 	uint8_t *file_data;
 	off_t reto;
 
-	if (node->image_state.flash_size - node->image_state.bytes_sent < TFTP_PAYLOAD_SIZE)
-		len = node->image_state.flash_size - node->image_state.bytes_sent;
+	if (pos > node->image_state.flash_size)
+		return -1;
+
+	if (node->image_state.flash_size - pos < TFTP_PAYLOAD_SIZE)
+		len = node->image_state.flash_size - pos;
 
 	read_len = len;
 
-	if (node->image_state.file_size < node->image_state.bytes_sent)
+	if (node->image_state.file_size < pos)
 		read_len = 0;
-	else if (node->image_state.file_size < node->image_state.bytes_sent + len)
-		read_len = node->image_state.file_size - node->image_state.bytes_sent;
+	else if (node->image_state.file_size - pos < (unsigned int)len)
+		read_len = node->image_state.file_size - pos;
 
 	if (node->router_type->image->path) {
 		if (node->image_state.fd < 0) {
@@ -950,7 +953,7 @@ int router_images_read_data(char *dst, struct node *node)
 
 		if (read_len > 0) {
 			reto = lseek(node->image_state.fd,
-				     node->image_state.bytes_sent + node->image_state.offset,
+				     (off_t)pos + node->image_state.offset,
 				     SEEK_SET);
 			if (reto == (off_t) -1) {
 				fprintf(stderr, "Error - seeking in file '%s': %s\n",
@@ -973,7 +976,7 @@ int router_images_read_data(char *dst, struct node *node)
 		return len;
 	} else if (node->router_type->image->embedded_img) {
 		file_data = (uint8_t *)node->router_type->image->embedded_img;
-		file_data += node->image_state.bytes_sent;
+		file_data += pos;
 		file_data += node->image_state.offset;
 
 		if (read_len > 0)

@@ -68,7 +68,8 @@ bool router_images_available(void);
 void router_images_print_desc(void);
 int router_images_verify_path(const char *image_path);
 int router_images_open_path(struct node *node);
-int router_images_read_data(char *dst, struct node *node);
+int router_images_read_data(char *dst, struct node *node,
+			    unsigned int pos);
 void router_images_close_path(struct node *node);
 unsigned int router_image_get_size(struct router_type *router_type);
 struct file_info *router_image_get_file_info(struct router_image *router_image,
