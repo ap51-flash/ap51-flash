@@ -88,6 +88,10 @@ ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
 endif
 
+# 64 bit off_t on 32 bit glibc and mingw: lseek() must report the real size
+# of large image files, so they can be rejected as too large to process
+CPPFLAGS += -D_FILE_OFFSET_BITS=64
+
 ifeq ($(PLATFORM),LINUX)
   BINARY_SUFFIX =
 else ifeq ($(PLATFORM),WIN32)
