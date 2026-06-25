@@ -28,6 +28,24 @@
 int router_types_priv_size = 0;
 static DECLARE_LIST_HEAD(mac_allowlist);
 
+/* Each router type is handed a slice of the trailing per-node private area
+ * (see node_list_get() and router_types_detect_main()). The slices are packed
+ * back-to-back by advancing a pointer by each type's priv_size. A type with a
+ * priv_size that is not a multiple of the strictest member alignment (e.g. the
+ * 4-byte struct tftp_server_priv / struct netconsole_priv) would otherwise
+ * push the following type's slice onto an under-aligned address, and a struct
+ * holding an 8-byte time_t (e.g. struct om2p_priv) accessed through that
+ * misaligned node->router_priv is undefined behaviour - it faults on
+ * strict-alignment CPUs and is flagged by -fsanitize=alignment. Round every
+ * slice up to the alignment of union node_priv_align. This has to cover
+ * 64 bit time_t on 32 bit targets, so the pointer width is not enough. The
+ * leading slice starts at node->priv, which the flexible array member aligns
+ * the same way.
+ */
+#define ROUTER_PRIV_ALIGN sizeof(union node_priv_align)
+#define ROUTER_PRIV_SIZE(s) \
+	(((s) + (ROUTER_PRIV_ALIGN - 1)) & ~(size_t)(ROUTER_PRIV_ALIGN - 1))
+
 static const struct router_type *router_types[] = {
 	&a40.router_type,
 	&a42.router_type,
@@ -167,7 +185,7 @@ int router_types_init(void)
 			goto out;
 		}
 
-		router_types_priv_size += (*router_type)->priv_size;
+		router_types_priv_size += ROUTER_PRIV_SIZE((*router_type)->priv_size);
 	}
 
 	ret = 0;
@@ -193,7 +211,7 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 {
 	const struct router_type **router_type;
 	struct router_info *router_info;
-	void *priv = node + 1;
+	void *priv = node->priv;
 	int ret = 0;
 
 	for (router_type = router_types; *router_type; ++router_type) {
@@ -282,7 +300,7 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 		break;
 
 next:
-		priv = (char *)priv + (*router_type)->priv_size;
+		priv = (char *)priv + ROUTER_PRIV_SIZE((*router_type)->priv_size);
 	}
 
 	return ret;
