@@ -184,23 +184,27 @@ int flash_start(const char *iface)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	while (running) {
-		/* Reset the timeout on every iteration. On Linux select()
-		 * updates the timeval in place to the time left unslept, and
-		 * socket_read() writes that decremented value back through
-		 * sleep_sec/sleep_usec. Reusing it (the packet path used to
-		 * 'continue' without resetting) lets the idle poll interval
-		 * shrink towards zero under traffic, so the periodic ARP probes
-		 * (router_types_detect_pre()) and per-node state machine
-		 * (node_list_maintain()) no longer run at the intended cadence.
-		 */
-		sleep_sec = READ_SLEEP_SEC;
-		sleep_usec = READ_SLEEP_USEC;
+	/* On Linux select() updates the timeval in place to the time left
+	 * unslept and socket_read() writes that decremented value back through
+	 * sleep_sec/sleep_usec. Carry the remainder across packet iterations
+	 * and refill it only when it actually expired: resetting it on every
+	 * iteration lets any traffic with inter-packet gaps below the poll
+	 * interval (the bootloaders ARP-broadcast continuously) postpone the
+	 * timeout forever, so the periodic ARP probes
+	 * (router_types_detect_pre()) and the per-node state machine
+	 * (node_list_maintain()) never run.
+	 */
+	sleep_sec = READ_SLEEP_SEC;
+	sleep_usec = READ_SLEEP_USEC;
 
+	while (running) {
 		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec,
 				  &sleep_usec);
 
 		if (ret == 0) {
+			sleep_sec = READ_SLEEP_SEC;
+			sleep_usec = READ_SLEEP_USEC;
+
 			router_types_detect_pre(our_mac);
 			node_list_maintain();
 		}
