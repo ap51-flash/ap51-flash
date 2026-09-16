@@ -1,6 +1,13 @@
 .. SPDX-License-Identifier: CC0-1.0
 .. SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
 
+2026.0 (2026-09-16)
+===================
+
+* added support for:
+
+  - Plasma Cloud PAX1800-lite
+
 
 2025.0 (2025-03-01)
 ===================
