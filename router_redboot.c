@@ -148,7 +148,7 @@ static int redboot_type_detect(struct node *node, const char *version_info)
 /* ask RedBoot to load a file from our TFTP server into RAM. The transfer
  * state is only refreshed when RedBoot's read request is served, so forget
  * the previous transfer first: a load without a read request must not pass
- * redboot_transfer_done() with the values of the previous file
+ * redboot_transfer_done() with the state of the previous file
  */
 static void redboot_load(struct node *node, const char *name)
 {
@@ -162,8 +162,7 @@ static void redboot_load(struct node *node, const char *name)
 		sprintf(buff, "load -r -b %%{FREEMEMLO} -m tftp %s\n", name);
 
 	node->image_state.file_requested = 0;
-	node->image_state.bytes_sent = 0;
-	node->image_state.flash_size = 1;
+	node->image_state.file_complete = 0;
 	telnet_send_cmd(node, buff);
 }
 
@@ -203,12 +202,18 @@ static int redboot_transfer_done(struct node *node, const char *name,
 	    !redboot_load_ended(telnet_msg))
 		return 0;
 
-	if (node->image_state.bytes_sent >= node->image_state.flash_size)
+	/* only the acknowledgement of the final block shows that RedBoot
+	 * received the whole file
+	 */
+	if (node->image_state.file_complete)
 		return 1;
 
-	fprintf(stderr, "Error transferring %s, send: %u, expected: %u\n",
-		name, node->image_state.bytes_sent,
-		node->image_state.flash_size);
+	if (!node->image_state.file_requested)
+		fprintf(stderr, "Error transferring %s, not requested\n", name);
+	else
+		fprintf(stderr, "Error transferring %s, final block not acknowledged (send: %u, expected: %u)\n",
+			name, node->image_state.bytes_sent,
+			node->image_state.flash_size);
 	return -1;
 }
 
