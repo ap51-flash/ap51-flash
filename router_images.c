@@ -543,17 +543,29 @@ static int router_image_verify(struct router_image *router_image,
 			       const char *buff, unsigned int buff_len,
 			       int size);
 
+/* image_verify() parses at most this many bytes of the image header */
+#define IMAGE_HDR_MAX_LEN (64 * 1024) /* max CE hdr size */
+
+/* image_verify() receives the size as an int and the size checks inside it
+ * cast that int to uint64_t. A size in the 2-4 GiB range does not fit in an
+ * int and sign-extends to a huge uint64_t, which silently defeats those
+ * overflow checks (and corrupts the file_size bookkeeping). Reject anything
+ * that does not fit in the int the rest of the image code assumes.
+ */
+static bool router_image_size_valid(uint64_t size)
+{
+	return size <= INT_MAX;
+}
+
 static int router_image_init_embedded(struct router_image *router_image)
 {
 	const char *src = NULL;
-	unsigned int size = 0;
-	unsigned int vlen;
-	char *vbuff;
+	uint64_t size = 0;
 	int ret = 0;
 
 #if defined(LINUX) || defined(OSX)
 	src = router_image->embedded_img_pre_check;
-	size = (unsigned int)router_image->embedded_file_size;
+	size = router_image->embedded_file_size;
 #elif defined(WIN32)
 	HGLOBAL hGlobal;
 	HRSRC hRsrc;
@@ -571,43 +583,15 @@ static int router_image_init_embedded(struct router_image *router_image)
 	if (!src)
 		goto out;
 
-	/* image_verify() receives the size as an int and the size checks
-	 * inside it cast that int to uint64_t. A blob in the 2-4 GiB range
-	 * yields a size that does not fit in an int and sign-extends to a huge
-	 * uint64_t, which silently defeats those overflow checks (and corrupts
-	 * the file_size bookkeeping) - exactly like the image-file path guards
-	 * against in router_images_verify_path(). Reject anything that does not
-	 * fit in the int the rest of the image code assumes.
-	 */
-	if (size > INT_MAX) {
+	if (!router_image_size_valid(size)) {
 		fprintf(stderr, "Embedded image '%s' is too large to process\n",
 			router_image->desc);
 		router_image->embedded_img = NULL;
 		goto out;
 	}
 
-	/* image_verify() parses the header with sscanf(), which scans its
-	 * input as a C string and reads past the end of a buffer that is not
-	 * NUL-terminated. The embedded blob is not terminated, so verify a
-	 * bounded, NUL-terminated copy of the header - just like
-	 * router_images_verify_path() does for image files.
-	 */
-	vlen = size;
-	if (vlen > 64 * 1024)
-		vlen = 64 * 1024;
-
-	vbuff = malloc(vlen + 1);
-	if (!vbuff) {
-		router_image->embedded_img = NULL;
-		goto out;
-	}
-
-	memcpy(vbuff, src, vlen);
-	vbuff[vlen] = '\0';
-
-	ret = router_image_verify(router_image, vbuff, vlen, size);
-	free(vbuff);
-
+	ret = router_image_verify(router_image, src, (unsigned int)size,
+				  (int)size);
 	if (ret != 1)
 		router_image->embedded_img = NULL;
 
@@ -678,13 +662,36 @@ static void router_image_clear(struct router_image *router_image)
 	router_image->file_size = 0;
 }
 
+/* buff holds the first buff_len bytes of an image of the given size */
 static int router_image_verify(struct router_image *router_image,
 			       const char *buff, unsigned int buff_len,
 			       int size)
 {
+	char *hdr;
 	int ret;
 
-	ret = router_image->image_verify(router_image, buff, buff_len, size);
+	/* image_verify() parses the header with sscanf(), which scans its
+	 * input as a C string (its leading-whitespace skip and %s/%x scans
+	 * run until a NUL) and reads past the end of a buffer that is not
+	 * NUL-terminated. Neither the embedded image blobs nor the data read
+	 * from an image file are terminated, so verify a bounded,
+	 * NUL-terminated copy of the header.
+	 */
+	if (buff_len > IMAGE_HDR_MAX_LEN)
+		buff_len = IMAGE_HDR_MAX_LEN;
+
+	hdr = malloc(buff_len + 1);
+	if (!hdr) {
+		router_image_clear(router_image);
+		return -1;
+	}
+
+	memcpy(hdr, buff, buff_len);
+	hdr[buff_len] = '\0';
+
+	ret = router_image->image_verify(router_image, hdr, buff_len, size);
+	free(hdr);
+
 	if (ret != 1)
 		router_image_clear(router_image);
 
@@ -811,16 +818,11 @@ int router_images_verify_path(const char *image_path)
 {
 	struct router_image **router_image;
 	char *file_buff = NULL, found_consumer = 0;
-	unsigned int file_buff_size = 64 * 1024; // max CE hdr size
+	unsigned int file_buff_size = IMAGE_HDR_MAX_LEN;
 	int fd, file_size, ret = -1, len;
 	off_t file_size_off;
 
-	/* +1 so the buffer can always be NUL-terminated below: the image_verify
-	 * callbacks run sscanf() over it, and sscanf() treats its input as a C
-	 * string (its leading-whitespace skip and %s/%x scans run until a NUL),
-	 * so an un-terminated buffer can be read past its end.
-	 */
-	file_buff = malloc(file_buff_size + 1);
+	file_buff = malloc(file_buff_size);
 	if (!file_buff)
 		goto out;
 
@@ -839,7 +841,6 @@ int router_images_verify_path(const char *image_path)
 	}
 
 	len = ret;
-	file_buff[len] = '\0';
 
 	file_size_off = lseek(fd, 0, SEEK_END);
 	if (file_size_off < 0) {
@@ -849,14 +850,7 @@ int router_images_verify_path(const char *image_path)
 		goto close_fd;
 	}
 
-	/* image_verify() receives the size as an int and the size checks
-	 * inside it cast that int to uint64_t. A plain (int)lseek() truncation
-	 * of a > 2 GiB file yields a negative value that sign-extends to a
-	 * huge uint64_t, which silently defeats those overflow checks (and
-	 * corrupts file_size bookkeeping). Reject anything that does not fit
-	 * in the int the rest of the image code assumes.
-	 */
-	if (file_size_off > INT_MAX) {
+	if (!router_image_size_valid((uint64_t)file_size_off)) {
 		fprintf(stderr, "Image '%s' is too large to process - ignoring file\n",
 			image_path);
 		ret = 0;
