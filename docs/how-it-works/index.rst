@@ -49,7 +49,8 @@ Interface access
 ================
 
 * **Linux**: a ``PF_PACKET``/``SOCK_RAW`` socket bound to the interface with
-  ``ETH_P_ALL``. The ``IFF_PROMISC`` flag is set on the interface.
+  ``ETH_P_ALL``. Promiscuous mode is requested with a ``PACKET_MR_PROMISC``
+  membership on the socket, which the kernel drops together with the socket.
 * **Windows and macOS**: a libpcap/Npcap/WinPcap capture handle in promiscuous
   mode with immediate delivery.
 
