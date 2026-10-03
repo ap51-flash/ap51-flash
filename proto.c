@@ -694,6 +694,10 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 	unsigned int data_len;
 	char *buff;
 
+	/* no SYN was sent yet - the buffer is allocated before the first one */
+	if (!node->tcp_state.packet_buff)
+		goto out;
+
 	if (!len_check(packet_buff_len, sizeof(struct tcphdr), "TCP"))
 		goto out;
 
