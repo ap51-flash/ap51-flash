@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <time.h>
 
 #include "compat.h"
 #include "flash.h"
@@ -25,11 +24,11 @@
 #define ZYXEL_IP 3232235875UL /* 192.168.1.99 */
 
 struct mr500_priv {
-	time_t start_flash;
+	uint64_t start_flash_ms;
 };
 
 struct om2p_priv {
-	time_t start_flash;
+	uint64_t start_flash_ms;
 };
 
 static int tftp_client_detect_main(const struct router_type *router_type,
@@ -108,7 +107,7 @@ void tftp_client_flash_time_set(struct node *node)
 
 	if (node->router_type == &mr500.router_type) {
 		mr500_priv = node->router_priv;
-		mr500_priv->start_flash = time(NULL);
+		mr500_priv->start_flash_ms = time_ms();
 	} else if ((node->router_type == &mr600.router_type) ||
 		   (node->router_type == &mr900.router_type) ||
 		   (node->router_type == &mr1750.router_type) ||
@@ -137,7 +136,7 @@ void tftp_client_flash_time_set(struct node *node)
 		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
-		om2p_priv->start_flash = time(NULL);
+		om2p_priv->start_flash_ms = time_ms();
 	}
 }
 
@@ -145,11 +144,12 @@ int tftp_client_flash_completed(struct node *node)
 {
 	struct mr500_priv *mr500_priv;
 	struct om2p_priv *om2p_priv;
-	time_t time2flash;
+	uint64_t time2flash_ms;
 
 	if (node->router_type == &mr500.router_type) {
 		mr500_priv = node->router_priv;
-		time2flash = mr500_priv->start_flash + 45 + (node->image_state.total_bytes_sent / 65536);
+		time2flash_ms = mr500_priv->start_flash_ms +
+				(45 + node->image_state.total_bytes_sent / 65536) * 1000ULL;
 	} else if ((node->router_type == &mr600.router_type) ||
 		   (node->router_type == &mr900.router_type) ||
 		   (node->router_type == &mr1750.router_type) ||
@@ -178,12 +178,13 @@ int tftp_client_flash_completed(struct node *node)
 		   (node->router_type == &zyxel.router_type)) {
 
 		om2p_priv = node->router_priv;
-		time2flash = om2p_priv->start_flash + 10 + (node->image_state.total_bytes_sent / 65536);
+		time2flash_ms = om2p_priv->start_flash_ms +
+				(10 + node->image_state.total_bytes_sent / 65536) * 1000ULL;
 	} else {
 		return 0;
 	}
 
-	if (time(NULL) < time2flash)
+	if (time_ms() < time2flash_ms)
 		return 0;
 
 	return 1;
