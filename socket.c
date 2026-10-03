@@ -611,6 +611,23 @@ err_close:
 #endif
 }
 
+#if defined(LINUX)
+/* the kernel unbinds a packet socket (ifindex -1) when its interface is
+ * removed, e.g. when a USB adapter is unplugged; such a socket stays silent
+ * forever instead of returning errors
+ */
+static int socket_iface_gone(void)
+{
+	struct sockaddr_ll addr;
+	socklen_t addr_len = sizeof(addr);
+
+	if (getsockname(raw_sock, (struct sockaddr *)&addr, &addr_len) < 0)
+		return 0;
+
+	return addr.sll_ifindex == -1;
+}
+#endif
+
 #if defined(WIN32)
 /* returns true while a failing pcap read may still recover */
 static bool pcap_read_error_transient(void)
@@ -671,24 +688,32 @@ int socket_read(char *packet_buff, int packet_buff_len, int timeout_ms)
 	if (ret < 0) {
 		if (errno != EINTR)
 			fprintf(stderr,
-				"Error waiting for data from network: %s",
+				"Error waiting for data from network: %s\n",
 				strerror(errno));
 	}
 
 	if (ret <= 0)
-		goto out;
+		goto check_iface;
 
 	read_len = read(raw_sock, packet_buff, packet_buff_len - 1);
 
 	if (read_len < 0) {
 		if ((errno != EWOULDBLOCK) && (errno != EINTR))
-			fprintf(stderr, "Error reading data from network: %s",
+			fprintf(stderr, "Error reading data from network: %s\n",
 				strerror(errno));
 	}
 
 	ret = (int)read_len;
-	if (read_len >= 0)
+	if (read_len >= 0) {
 		packet_buff[read_len] = '\0';
+		goto out;
+	}
+
+check_iface:
+	if (socket_iface_gone()) {
+		fprintf(stderr, "Error reading from network: interface was removed\n");
+		ret = SOCKET_READ_FATAL;
+	}
 
 out:
 	return ret;
