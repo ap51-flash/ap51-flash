@@ -744,9 +744,21 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 		node->tcp_state.status = TCP_STATUS_TELNET_READY;
 		node->tcp_state.my_ack_seq += data_len;
 
-		/* send CTRL + C */
+		/* remember the banner: RedBoot retransmits it when the CTRL + C
+		 * gets lost, and the retransmission check in
+		 * TCP_STATUS_TELNET_READY must answer it with the CTRL + C
+		 * instead of handling it as new output
+		 */
+		node->tcp_state.his_seq = tcphdr->seq;
+		node->tcp_state.his_ack_seq = tcphdr->ack_seq;
+		node->tcp_state.his_last_len = data_len;
+
+		/* send CTRL + C; tcp_resend_data() takes the length from the
+		 * NUL terminator, the buffer still holds the SYN's MSS option
+		 */
 		buff = node->tcp_state.packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
 		buff[0] = 0x03;
+		buff[1] = '\0';
 		tcp_send_data(node, 1);
 		break;
 	case TCP_STATUS_TELNET_READY:
