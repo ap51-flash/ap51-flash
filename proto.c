@@ -26,6 +26,7 @@
 #define REDBOOT_TELNET_DPORT 9000
 
 #define TFTP_PAYLOAD_SIZE 512
+#define TFTP_RESEND_HOLDOFF_MS 250
 
 enum tcp_packet_type {
 	TCP_SYN,
@@ -305,6 +306,7 @@ static unsigned int tftp_transfer_start(struct node *node,
 	node->image_state.bytes_sent = 0;
 	node->image_state.block_acked = 0;
 	node->image_state.block_sent = 0;
+	node->image_state.last_send_ms = 0;
 	node->image_state.file_size = file_size;
 	node->image_state.flash_size = flash_size;
 	node->image_state.offset = offset;
@@ -358,6 +360,7 @@ static void tftp_send_block(struct node *node, const struct udphdr *udphdr,
 
 	node->image_state.bytes_sent = pos + data_len;
 	node->image_state.block_sent = block;
+	node->image_state.last_send_ms = time_ms();
 }
 
 static void tftp_print_error(const struct node *node, unsigned short code,
@@ -545,8 +548,19 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		if (ack != node->image_state.block_sent) {
 			/* The peer acked something other than the block we
 			 * just sent: a duplicate/stale ACK because our DATA got
-			 * lost. Resend block_acked + 1.
+			 * lost or delayed. Resend block_acked + 1, but not
+			 * again right after the last transmission: a delayed
+			 * (not lost) DATA block makes the peer ACK every
+			 * following block twice, and answering each of these
+			 * duplicates would send every remaining block twice
+			 * (Sorcerer's Apprentice syndrome, RFC 1123 4.2.3.1).
+			 * A peer whose DATA really got lost re-ACKs after its
+			 * own retransmission timeout, which is longer than
+			 * the hold-off.
 			 */
+			if (time_ms() - node->image_state.last_send_ms < TFTP_RESEND_HOLDOFF_MS)
+				goto out;
+
 			if (ack < node->image_state.block_sent)
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %u, last received ack: %u\n",
 					node->his_mac_addr[0],
