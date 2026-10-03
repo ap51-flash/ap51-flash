@@ -240,6 +240,11 @@ close_sock:
 
 pcap_t *pcap_fp = NULL;
 
+/* pcap can't wait for the timeout_ms requested by socket_read(); a short
+ * read timeout lets the main loop check its deadline often enough
+ */
+#define PCAP_READ_TIMEOUT_MS 20
+
 #if defined(WIN32)
 /* Npcap fails reads with ERROR_DEVICE_REMOVED while NDIS detaches and
  * re-attaches its filter driver (adapter restart, resume from standby,
@@ -530,7 +535,7 @@ out:
 	char error[PCAP_ERRBUF_SIZE];
 
 #if WIN32
-	pcap_fp = pcap_open_live(iface, 1500, 1, 250, error);
+	pcap_fp = pcap_open_live(iface, 1500, 1, PCAP_READ_TIMEOUT_MS, error);
 	if (!pcap_fp) {
 		fprintf(stderr, "Error opening adapter: %s\n", error);
 		return -1;
@@ -569,7 +574,7 @@ out:
 		goto err_close;
 	}
 
-	ret = pcap_set_timeout(pcap_fp, 250);
+	ret = pcap_set_timeout(pcap_fp, PCAP_READ_TIMEOUT_MS);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap timeout: %s\n",
 			pcap_statustostr(ret));
@@ -645,16 +650,14 @@ static bool pcap_read_error_transient(void)
 	if (now - pcap_read_failing_since >= PCAP_READ_ERROR_GRACE_MS)
 		return false;
 
-	/* the failing read returns immediately - wait like a read that timed
-	 * out instead of spinning
-	 */
-	Sleep(250);
+	/* the failing read returns immediately - don't spin */
+	Sleep(PCAP_READ_TIMEOUT_MS);
 	return true;
 }
 #endif
 
-/* wait at most timeout_ms for a packet (the pcap variants use the read timeout
- * set in socket_open() instead). Returns the packet length, 0 when no packet
+/* wait at most timeout_ms for a packet (the pcap variants return after the
+ * shorter PCAP_READ_TIMEOUT_MS instead). Returns the packet length, 0 when no packet
  * arrived, -1 on a transient error and SOCKET_READ_FATAL when the capture
  * device stopped working.
  */
