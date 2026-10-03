@@ -8,7 +8,7 @@ on: [push, pull_request]
 
 jobs:
   run:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: add mxe deb repository
         uses: myci-actions/add-deb-repo@10
