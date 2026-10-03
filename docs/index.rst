@@ -11,5 +11,6 @@ ap51-flash
    :caption: Contents:
 
 
+   how-it-works/index
    supported-devices/index
 
