@@ -27,7 +27,7 @@ jobs:
           pcap_close
           pcap_findalldevs
           pcap_freealldevs
-          pcap_next
+          pcap_next_ex
           pcap_open_live
           pcap_sendpacket
           pcap_setmintocopy

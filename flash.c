@@ -204,6 +204,11 @@ int flash_start(const char *iface)
 
 		ret = socket_read(packet_buff, PACKET_BUFF_LEN,
 				  (int)(next_tick - now));
+		if (ret == SOCKET_READ_FATAL) {
+			ret = -1;
+			goto proto_free;
+		}
+
 		if (ret <= 0)
 			continue;
 

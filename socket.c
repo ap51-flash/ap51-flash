@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,6 +239,18 @@ close_sock:
 #elif USE_PCAP
 
 pcap_t *pcap_fp = NULL;
+
+#if defined(WIN32)
+/* Npcap fails reads with ERROR_DEVICE_REMOVED while NDIS detaches and
+ * re-attaches its filter driver (adapter restart, resume from standby,
+ * changed bindings) and the handle works again afterwards. Only give up
+ * when the reads keep failing for this long.
+ */
+#define PCAP_READ_ERROR_GRACE_MS 10000
+
+static bool pcap_read_failing;
+static uint64_t pcap_read_failing_since;
+#endif
 
 static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 							   unsigned int index,
@@ -598,9 +611,35 @@ err_close:
 #endif
 }
 
+#if defined(WIN32)
+/* returns true while a failing pcap read may still recover */
+static bool pcap_read_error_transient(void)
+{
+	uint64_t now = time_ms();
+
+	if (!pcap_read_failing) {
+		fprintf(stderr,
+			"Error reading from network: %s - waiting for the interface to come back\n",
+			pcap_geterr(pcap_fp));
+		pcap_read_failing = true;
+		pcap_read_failing_since = now;
+	}
+
+	if (now - pcap_read_failing_since >= PCAP_READ_ERROR_GRACE_MS)
+		return false;
+
+	/* the failing read returns immediately - wait like a read that timed
+	 * out instead of spinning
+	 */
+	Sleep(250);
+	return true;
+}
+#endif
+
 /* wait at most timeout_ms for a packet (the pcap variants use the read timeout
  * set in socket_open() instead). Returns the packet length, 0 when no packet
- * arrived and -1 on error.
+ * arrived, -1 on a transient error and SOCKET_READ_FATAL when the capture
+ * device stopped working.
  */
 #if USE_PCAP
 int socket_read(char *packet_buff, int packet_buff_len,
@@ -655,7 +694,7 @@ out:
 	return ret;
 #elif USE_PCAP
 
-	struct pcap_pkthdr hdr;
+	struct pcap_pkthdr *hdr;
 	const unsigned char *tmp_packet;
 	int ret = -1;
 
@@ -665,16 +704,37 @@ out:
 		goto out;
 	}
 
-	ret = 0;
-	tmp_packet = pcap_next(pcap_fp, &hdr);
-
-	if ((tmp_packet) && (hdr.caplen > 0)) {
-		ret = hdr.caplen;
-		if (ret > packet_buff_len - 1)
-			ret = packet_buff_len - 1;
-		memcpy(packet_buff, tmp_packet, ret);
-		packet_buff[ret] = '\0';
+	/* unlike pcap_next(), pcap_next_ex() tells a read timeout (0) apart
+	 * from a failing capture device (e.g. an unplugged USB adapter)
+	 */
+	ret = pcap_next_ex(pcap_fp, &hdr, &tmp_packet);
+	if (ret < 0) {
+#if defined(WIN32)
+		if (pcap_read_error_transient()) {
+			ret = -1;
+			goto out;
+		}
+#endif
+		fprintf(stderr, "Error reading from network: %s\n",
+			pcap_geterr(pcap_fp));
+		ret = SOCKET_READ_FATAL;
+		goto out;
 	}
+
+#if defined(WIN32)
+	pcap_read_failing = false;
+#endif
+
+	if (ret == 0 || !tmp_packet || hdr->caplen == 0) {
+		ret = 0;
+		goto out;
+	}
+
+	ret = hdr->caplen;
+	if (ret > packet_buff_len - 1)
+		ret = packet_buff_len - 1;
+	memcpy(packet_buff, tmp_packet, ret);
+	packet_buff[ret] = '\0';
 out:
 	return ret;
 #else
