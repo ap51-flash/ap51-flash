@@ -463,6 +463,7 @@ out:
 	// in order to be able to set immediate mode before activating the pcap
 	// handle.
 
+	const char *errmsg;
 	int ret;
 
 	pcap_fp = pcap_create(iface, error);
@@ -501,7 +502,12 @@ out:
 
 	ret = pcap_activate(pcap_fp);
 	if (ret != 0) {
-		fprintf(stderr, "Error activating pcap handle\n");
+		/* pcap_geterr() holds the details for most errors and warnings
+		 * (e.g. which /dev/bpf* device could not be opened)
+		 */
+		errmsg = pcap_geterr(pcap_fp);
+		fprintf(stderr, "Error activating pcap handle: %s%s%s\n",
+			pcap_statustostr(ret), errmsg[0] ? ": " : "", errmsg);
 		goto err_close;
 	}
 #endif
