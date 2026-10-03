@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: CC0-1.0
+# SPDX-FileCopyrightText: Sven Eckelmann <sven@narfation.org>
+
+sphinx
+sphinx_rtd_theme
