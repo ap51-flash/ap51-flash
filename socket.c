@@ -410,6 +410,7 @@ void socket_print_all_ifaces(void)
 int socket_open(const char *iface)
 {
 #if defined(LINUX)
+	struct packet_mreq mreq;
 	struct sockaddr_ll addr;
 	struct ifreq req;
 	int ret, sock_opts;
@@ -452,16 +453,6 @@ int socket_open(const char *iface)
 		goto close_sock;
 	}
 
-	req.ifr_flags |= IFF_PROMISC;
-	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
 	ret = ioctl(raw_sock, SIOCGIFINDEX, &req);
 
 	if (ret < 0) {
@@ -479,6 +470,23 @@ int socket_open(const char *iface)
 	ret = bind(raw_sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_ll));
 	if (ret < 0) {
 		fprintf(stderr, "Error - can't bind raw socket: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	/* unlike IFF_PROMISC, the membership is counted by the kernel: it is
+	 * dropped together with the socket (no matter how ap51-flash exits)
+	 * and doesn't disable a promiscuous mode which was set by someone else
+	 */
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = req.ifr_ifindex;
+	mreq.mr_type = PACKET_MR_PROMISC;
+
+	ret = setsockopt(raw_sock, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
+			 sizeof(mreq));
+	if (ret < 0) {
+		fprintf(stderr,
+			"Error - can't enable promiscuous mode: %s\n",
 			strerror(errno));
 		goto close_sock;
 	}
@@ -721,36 +729,12 @@ out:
 void socket_close(const char *iface)
 {
 #if defined(LINUX)
-	struct ifreq req;
-	int ret;
+	(void)iface;
 
 	if (raw_sock < 0)
 		goto out;
 
-	memset(&req, 0, sizeof (struct ifreq));
-	strncpy(req.ifr_name, iface, IFNAMSIZ);
-	req.ifr_name[sizeof(req.ifr_name) - 1] = '\0';
-
-	ret = ioctl(raw_sock, SIOCGIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't get interface flags (SIOCGIFFLAGS): %s (%i)\n",
-			strerror(errno), raw_sock);
-		goto close_sock;
-	}
-
-	req.ifr_flags &= ~IFF_PROMISC;
-	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
-close_sock:
+	/* closing the socket also drops the promiscuous mode membership */
 	close(raw_sock);
 	raw_sock = -1;
 out:
