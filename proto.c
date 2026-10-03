@@ -363,19 +363,18 @@ static void tftp_send_block(struct node *node, const struct udphdr *udphdr,
 	node->image_state.last_send_ms = time_ms();
 }
 
-static void tftp_print_error(const struct node *node, unsigned short code,
-			     const char *msg, int msg_len)
+/* TFTP strings are NetASCII and not necessarily NUL terminated inside the
+ * datagram; copy only printable characters so they cannot inject terminal
+ * escape sequences. Returns the number of copied characters
+ */
+static size_t tftp_copy_printable(char *buff, size_t buff_len,
+				  const char *msg, int msg_len)
 {
-	char buff[128];
 	size_t len = 0;
 	int i;
 
-	/* the message is NetASCII and not necessarily NUL terminated inside
-	 * the datagram; copy only printable characters so it cannot inject
-	 * terminal escape sequences
-	 */
 	for (i = 0; i < msg_len && msg[i] != '\0'; i++) {
-		if (len == sizeof(buff) - 1)
+		if (len == buff_len - 1)
 			break;
 
 		if (msg[i] < ' ' || msg[i] > '~')
@@ -384,6 +383,17 @@ static void tftp_print_error(const struct node *node, unsigned short code,
 		buff[len++] = msg[i];
 	}
 	buff[len] = '\0';
+
+	return len;
+}
+
+static void tftp_print_error(const struct node *node, unsigned short code,
+			     const char *msg, int msg_len)
+{
+	char buff[128];
+	size_t len;
+
+	len = tftp_copy_printable(buff, sizeof(buff), msg, msg_len);
 
 	fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code %u%s%s\n",
 		node->his_mac_addr[0], node->his_mac_addr[1],
@@ -399,6 +409,8 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	struct file_info *file_info;
 	unsigned short opcode, block;
 	const char *file_name;
+	int file_name_len;
+	char file_name_print[128];
 	unsigned int ack, blocks;
 	int ret;
 	static const char fwupgradecfg[] = "fwupgrade.cfg";
@@ -447,6 +459,11 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	/* TFTP read request */
 	case 1:
 		file_name = packet_buff + sizeof(struct udphdr) + 2;
+		file_name_len = packet_buff_len - (int)sizeof(struct udphdr) - 2;
+
+		/* the file name must be terminated inside the datagram */
+		if (!memchr(file_name, '\0', file_name_len))
+			goto out;
 		switch (node->flash_mode) {
 		case FLASH_MODE_UKNOWN:
 		case FLASH_MODE_TFTP_SERVER:
@@ -458,6 +475,9 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			file_info = router_image_get_file(node->router_type,
 							  file_name);
 			if (!file_info) {
+				tftp_copy_printable(file_name_print,
+						    sizeof(file_name_print),
+						    file_name, file_name_len);
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s' - file not found ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
@@ -465,7 +485,8 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->his_mac_addr[3],
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
-					node->router_type->desc, file_name);
+					node->router_type->desc,
+					file_name_print);
 				goto out;
 			}
 
