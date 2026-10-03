@@ -299,33 +299,27 @@ char *socket_find_iface_by_index(const char *iface_number)
 	return find_arg.name;
 }
 
-static void print_description_sanitized(const char *description)
+/* print str without control characters, so a crafted interface name or
+ * description cannot inject terminal escape sequences
+ */
+static void print_sanitized(const char *str)
 {
 	unsigned char last_char;
 	unsigned char *ptr;
 	unsigned char c;
 
-	if (!description || strlen(description) == 0) {
-		fprintf(stderr, "\t(No description available)\n");
-		return;
-	}
-
-	fprintf(stderr, "\t(Description: ");
-
-	ptr = (unsigned char *)description;
+	ptr = (unsigned char *)str;
 	last_char = 0;
 
 	for (; *ptr != '\0'; ptr++) {
 		c = *ptr;
 
-		/* Drop control characters so a crafted interface description
-		 * cannot inject terminal escape sequences: the C0 range, DEL
-		 * and (outside Windows, whose console does not interpret C1
-		 * controls) the UTF-8 encoding of the C1 range
-		 * (U+0080-U+009F). Other bytes >= 0x80 are kept untouched -
-		 * they are lead, trail or continuation bytes in the encodings
-		 * descriptions actually use (UTF-8, the ANSI/DBCS code pages on
-		 * Windows).
+		/* Drop the C0 range, DEL and (outside Windows, whose console
+		 * does not interpret C1 controls) the UTF-8 encoding of the C1
+		 * range (U+0080-U+009F). Other bytes >= 0x80 are kept
+		 * untouched - they are lead, trail or continuation bytes in
+		 * the encodings names and descriptions actually use (UTF-8,
+		 * the ANSI/DBCS code pages on Windows).
 		 */
 		if (c < ' ' || c == 0x7f)
 			continue;
@@ -344,7 +338,17 @@ static void print_description_sanitized(const char *description)
 		fprintf(stderr, "%c", c);
 		last_char = c;
 	}
+}
 
+static void print_description_sanitized(const char *description)
+{
+	if (!description || strlen(description) == 0) {
+		fprintf(stderr, "\t(No description available)\n");
+		return;
+	}
+
+	fprintf(stderr, "\t(Description: ");
+	print_sanitized(description);
 	fprintf(stderr, ")\n");
 }
 
@@ -353,7 +357,9 @@ static enum listdump_action print_interface(const char *name,
 					    const char *description,
 					    void *arg __attribute__((unused)))
 {
-	fprintf(stderr, "\n%u: %s\n", index, name);
+	fprintf(stderr, "\n%u: ", index);
+	print_sanitized(name);
+	fprintf(stderr, "\n");
 	print_description_sanitized(description);
 
 	return LISTDUMP_OK;
