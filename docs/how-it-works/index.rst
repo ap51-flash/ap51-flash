@@ -175,8 +175,12 @@ Details:
 * Data blocks are 512 bytes; no TFTP options (block size, transfer size) are
   negotiated. The transfer ends with a block shorter than 512 bytes.
 * Retransmission: if an ACK repeats a block number ap51-flash already saw, the
-  following block is sent again. An ACK for a block that was never sent is
-  reported and the last acknowledged block is resent.
+  following block is sent again - but not within 250 ms after the last data
+  block went out. A delayed (not lost) data block makes the client acknowledge
+  every following block twice, and answering each of these duplicates would
+  send every remaining block twice (Sorcerer's Apprentice syndrome,
+  `RFC 1123`_ section 4.2.3.1). An ACK for a block that was never sent is
+  reported and the block after the last acknowledged one is resent.
 * The IP header has TTL 50 and no fragmentation. UDP checksums are filled in.
 * **File names.** For the *combined ext image* (``CE`` header) used by Open
   Mesh, Plasma Cloud and Datto the boot loader first asks for
@@ -507,6 +511,7 @@ Building ap51-flash with ``make CPPFLAGS=-DDEBUG`` prints every ARP frame
 that is considered during detection.
 
 
+.. _RFC 1123: https://www.rfc-editor.org/rfc/rfc1123
 .. _RFC 1350: https://www.rfc-editor.org/rfc/rfc1350
 .. _RedBoot: https://ecos.sourceware.org/docs-latest/redboot/redboot-guide.html
 .. _TCP port 9000: https://ecos.sourceware.org/docs-latest/redboot/user-interface.html

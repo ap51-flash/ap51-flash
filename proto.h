@@ -42,6 +42,7 @@ struct image_state {
 	 */
 	unsigned int block_acked;
 	unsigned int block_sent;
+	uint64_t last_send_ms;
 	/* flags */
 	unsigned char count_globally:1;
 	/* a read request for the current file was served */
