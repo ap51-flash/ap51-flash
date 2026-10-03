@@ -360,7 +360,8 @@ The command sequence step by step, with links to the RedBoot manual:
    ``kernel`` as raw binary via TFTP from the server address set in step 3.
    RedBoot is the TFTP client here and ap51-flash serves the ``kernel`` part
    of the *combined image* exactly as described for the TFTP client mode above. ap51-flash
-   checks that the whole kernel was transferred before continuing. Output that
+   checks that the final block of the kernel was acknowledged before
+   continuing. Output that
    arrives before RedBoot requested the file is ignored, unless it reports the
    end of the load.
 

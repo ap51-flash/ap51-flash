@@ -294,8 +294,7 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 
 /* set up the transfer of a file - before the image is opened: if the open
  * fails, the state must say that nothing of the file was sent (the RedBoot
- * state machine compares bytes_sent against flash_size). Returns the number
- * of blocks
+ * state machine checks file_complete). Returns the number of blocks
  */
 static unsigned int tftp_transfer_start(struct node *node,
 					unsigned int file_size,
@@ -307,6 +306,7 @@ static unsigned int tftp_transfer_start(struct node *node,
 	node->image_state.block_acked = 0;
 	node->image_state.block_sent = 0;
 	node->image_state.last_send_ms = 0;
+	node->image_state.file_complete = 0;
 	node->image_state.file_size = file_size;
 	node->image_state.flash_size = flash_size;
 	node->image_state.offset = offset;
@@ -624,6 +624,7 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		/* the final (short) block was acked; later duplicates of this
 		 * ACK are dropped by the closed image check above
 		 */
+		node->image_state.file_complete = 1;
 		router_images_close_path(node);
 
 		/* don't count this file as payload? */

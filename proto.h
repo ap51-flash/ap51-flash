@@ -47,6 +47,8 @@ struct image_state {
 	unsigned char count_globally:1;
 	/* a read request for the current file was served */
 	unsigned char file_requested:1;
+	/* the final block of the current file was acknowledged */
+	unsigned char file_complete:1;
 };
 
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
