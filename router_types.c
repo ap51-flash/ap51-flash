@@ -32,13 +32,13 @@ static DECLARE_LIST_HEAD(mac_allowlist);
  * (see node_list_get() and router_types_detect_main()). The slices are packed
  * back-to-back by advancing a pointer by each type's priv_size. A type with a
  * priv_size that is not a multiple of the strictest member alignment (e.g. the
- * 4-byte struct tftp_server_priv / struct netconsole_priv) would otherwise
- * push the following type's slice onto an under-aligned address, and a struct
- * holding an 8-byte time_t (e.g. struct om2p_priv) accessed through that
- * misaligned node->router_priv is undefined behaviour - it faults on
- * strict-alignment CPUs and is flagged by -fsanitize=alignment. Round every
- * slice up to the alignment of union node_priv_align. This has to cover
- * 64 bit time_t on 32 bit targets, so the pointer width is not enough. The
+ * 4-byte struct netconsole_priv) would otherwise push the following type's
+ * slice onto an under-aligned address, and a struct holding a uint64_t (e.g.
+ * struct om2p_priv) accessed through that misaligned node->router_priv is
+ * undefined behaviour - it faults on strict-alignment CPUs and is flagged by
+ * -fsanitize=alignment. Round every slice up to the alignment of union
+ * node_priv_align. This has to cover 64 bit types on 32 bit targets, so the
+ * pointer width is not enough. The
  * leading slice starts at node->priv, which the flexible array member aligns
  * the same way.
  */

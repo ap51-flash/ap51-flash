@@ -6,7 +6,6 @@
 #define __AP51_FLASH_FLASH_H__
 
 #include <stdint.h>
-#include <time.h>
 
 #include "list.h"
 #include "proto.h"
@@ -35,7 +34,6 @@ union node_priv_align {
 	void *ptr;
 	uint64_t u64;
 	double dbl;
-	time_t time;
 };
 
 struct node {
