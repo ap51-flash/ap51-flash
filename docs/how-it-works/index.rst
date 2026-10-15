@@ -32,8 +32,8 @@ Every session goes through the same three phases:
    the boot loader will talk to.
 
 2. **Impersonation** -- ap51-flash picks a MAC address of its own
-   (``00:ba:be:ca:ff:xx``, the last byte is incremented for every detected
-   device) and adopts the IP address the device asked for. From now on it
+   (``00:ba:be:ca:ff:00`` upwards, incremented for every detected device)
+   and adopts the IP address the device asked for. From now on it
    answers ARP requests and ICMP echo requests for that address, so the device
    believes a real host is there.
 
@@ -49,7 +49,8 @@ Interface access
 ================
 
 * **Linux**: a ``PF_PACKET``/``SOCK_RAW`` socket bound to the interface with
-  ``ETH_P_ALL``. The ``IFF_PROMISC`` flag is set on the interface.
+  ``ETH_P_ALL``. Promiscuous mode is requested with a ``PACKET_MR_PROMISC``
+  membership on the socket, which the kernel drops together with the socket.
 * **Windows and macOS**: a libpcap/Npcap/WinPcap capture handle in promiscuous
   mode with immediate delivery.
 
@@ -59,8 +60,8 @@ address are dropped. IPv4 frames addressed to the ethernet broadcast address
 are dropped as well. All other ethertypes than ARP (``0x0806``) and IPv4
 (``0x0800``) are ignored.
 
-When no frame arrives for 250 ms, a maintenance tick runs. The tick sends the
-periodic probe frames described below (ARP probes for Ubiquiti devices, TFTP
+Every 250 ms a maintenance tick runs, no matter how much traffic arrives in
+between. The tick sends the periodic probe frames described below (ARP probes for Ubiquiti devices, TFTP
 write request retries, TCP SYN retries) and checks timers.
 
 Because the host kernel also sees the device's frames, ap51-flash works best on
@@ -174,8 +175,12 @@ Details:
 * Data blocks are 512 bytes; no TFTP options (block size, transfer size) are
   negotiated. The transfer ends with a block shorter than 512 bytes.
 * Retransmission: if an ACK repeats a block number ap51-flash already saw, the
-  following block is sent again. An ACK for a block that was never sent is
-  reported and the last acknowledged block is resent.
+  following block is sent again - but not within 250 ms after the last data
+  block went out. A delayed (not lost) data block makes the client acknowledge
+  every following block twice, and answering each of these duplicates would
+  send every remaining block twice (Sorcerer's Apprentice syndrome,
+  `RFC 1123`_ section 4.2.3.1). An ACK for a block that was never sent is
+  reported and the block after the last acknowledged one is resent.
 * The IP header has TTL 50 and no fragmentation. UDP checksums are filled in.
 * **File names.** For the *combined ext image* (``CE`` header) used by Open
   Mesh, Plasma Cloud and Datto the boot loader first asks for
@@ -225,7 +230,7 @@ Wire sequence::
      |  ACK                                     |
      |<-----------------------------------------|   image successfully transmitted
      |                                          |   device writes flash, reboots
-     |  ARP (any) from device                   |
+     |  ARP from device after reboot            |
      |<-----------------------------------------|   flash complete
 
 Details:
@@ -235,9 +240,13 @@ Details:
 * ap51-flash only processes replies that come from UDP source port ``69``.
 * The complete *ubiquiti image* (``UBNT`` or ``OPEN`` magic) is sent as one
   file, padded to a multiple of 64 KiB.
-* After the last block is acknowledged ap51-flash stops talking. The next ARP
-  frame from the device's MAC address is taken as proof that it rebooted and
-  the ``flash complete`` message is printed.
+* After the last block is acknowledged, ap51-flash keeps sending its ARP
+  probes. Replies to them may still come from the boot loader (e.g. when it
+  rejected the image and restarted its TFTP server) and are ignored, unless
+  the device did not answer for at least 10 seconds before - writing the
+  flash and rebooting takes longer. Such a reply, or any ARP request from
+  the device's MAC address, is taken as proof that the new firmware came up
+  and the ``flash complete`` message is printed.
 
 
 Phase 3c: RedBoot mode
@@ -351,7 +360,10 @@ The command sequence step by step, with links to the RedBoot manual:
    ``kernel`` as raw binary via TFTP from the server address set in step 3.
    RedBoot is the TFTP client here and ap51-flash serves the ``kernel`` part
    of the *combined image* exactly as described for the TFTP client mode above. ap51-flash
-   checks that the whole kernel was transferred before continuing.
+   checks that the final block of the kernel was acknowledged before
+   continuing. Output that
+   arrives before RedBoot requested the file is ignored, unless it reports the
+   end of the load.
 
 5. `fis init`_ (re)creates the flash partition table, answered with ``y``.
 
@@ -447,8 +459,9 @@ Addresses and ports at a glance
      - ``192.168.1.2``
      - UDP 6666 <-> UDP 6666; U-Boot TFTP client -> UDP 69
 
-ap51-flash MAC addresses are always ``00:ba:be:ca:ff:00`` to
-``00:ba:be:ca:ff:ff`` (one per detected device, in order of detection).
+ap51-flash MAC addresses always start with ``00:ba:be:ca``: the first
+detected device gets ``00:ba:be:ca:ff:00`` and every further device the next
+address (wrapping from ``00:ba:be:ca:ff:ff`` to ``00:ba:be:ca:00:00``).
 
 
 Image containers and the files served from them
@@ -499,6 +512,7 @@ Building ap51-flash with ``make CPPFLAGS=-DDEBUG`` prints every ARP frame
 that is considered during detection.
 
 
+.. _RFC 1123: https://www.rfc-editor.org/rfc/rfc1123
 .. _RFC 1350: https://www.rfc-editor.org/rfc/rfc1350
 .. _RedBoot: https://ecos.sourceware.org/docs-latest/redboot/redboot-guide.html
 .. _TCP port 9000: https://ecos.sourceware.org/docs-latest/redboot/user-interface.html

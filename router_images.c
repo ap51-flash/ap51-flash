@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -288,8 +289,22 @@ static int ci_verify(struct router_image *router_image, const char *buff,
 	if ((buff[0] != 'C') || (buff[1] != 'I'))
 		return 0;
 
-	sscanf(buff, "CI%08x%08x", &kernel_size, &rootfs_size);
+	/* the two size fields must actually parse; otherwise sscanf() leaves
+	 * kernel_size/rootfs_size uninitialized and the checks below read
+	 * indeterminate values (and may accept a malformed image)
+	 */
+	if (sscanf(buff, "CI%08x%08x", &kernel_size, &rootfs_size) != 2)
+		return 0;
+
 	if ((!kernel_size) || (!rootfs_size))
+		return 0;
+
+	/* a CI image is a 64 KiB header area followed by the kernel and
+	 * rootfs; reject headers whose claimed sizes don't fit into the
+	 * actual file, which would otherwise underflow the file_size
+	 * computation below. Use 64 bit math to avoid wrapping.
+	 */
+	if ((uint64_t)64 * 1024 + kernel_size + rootfs_size > (uint64_t)size)
 		return 0;
 
 	ret = router_image_add_file(router_image, "kernel", kernel_size,
@@ -369,7 +384,7 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 		return 0;
 
 	/* the old format does not have a version field */
-	if (isxdigit(buff[2]) && isxdigit(buff[3])) {
+	if (isxdigit((unsigned char)buff[2]) && isxdigit((unsigned char)buff[3])) {
 		ret = sscanf(buff, "CE%02x", &ce_version);
 		if (ret != 1)
 			return 0;
@@ -424,6 +439,16 @@ static int ce_verify(struct router_image *router_image, const char *buff,
 				return 0;
 
 			break;
+		}
+
+		/* the contained file must lie within the image; otherwise
+		 * later readers (e.g. fwupgrade_cfg_read_sizes()) trust a
+		 * bogus size/offset and read or allocate out of bounds. Use
+		 * 64 bit math to avoid wrapping.
+		 */
+		if ((uint64_t)file_offset + file_size > (uint64_t)size) {
+			fprintf(stderr, "Error - bogus CE image: file extends beyond image\n");
+			return 0;
 		}
 
 		ret = router_image_add_file(router_image, name_buff, file_size,
@@ -498,7 +523,12 @@ static int zyxel_verify(struct router_image *router_image, const char *buff,
 	kernel_size = ntohl(zyxel_header->kernel_size);
 	rootfs_size = ntohl(zyxel_header->rootfs_size);
 
-	if ((unsigned)size != zyxel_hdr_size + kernel_size + rootfs_size)
+	/* kernel_size and rootfs_size are attacker-controlled 32 bit values
+	 * read straight from the header; summing them in 32 bit math can wrap
+	 * and spuriously match (unsigned)size, accepting a malformed image. Use
+	 * 64 bit math to avoid wrapping, like ci_verify()/ce_verify() do.
+	 */
+	if ((uint64_t)zyxel_hdr_size + kernel_size + rootfs_size != (uint64_t)size)
 		return 0;
 
 	ret = router_image_add_file(router_image, "ras.bin", size, size, 0);
@@ -509,38 +539,63 @@ static int zyxel_verify(struct router_image *router_image, const char *buff,
 	return 1;
 }
 
+static int router_image_verify(struct router_image *router_image,
+			       const char *buff, unsigned int buff_len,
+			       int size);
+
+/* image_verify() parses at most this many bytes of the image header */
+#define IMAGE_HDR_MAX_LEN (64 * 1024) /* max CE hdr size */
+
+/* image_verify() receives the size as an int and the size checks inside it
+ * cast that int to uint64_t. A size in the 2-4 GiB range does not fit in an
+ * int and sign-extends to a huge uint64_t, which silently defeats those
+ * overflow checks (and corrupts the file_size bookkeeping). Reject anything
+ * that does not fit in the int the rest of the image code assumes.
+ */
+static bool router_image_size_valid(uint64_t size)
+{
+	return size <= INT_MAX;
+}
+
 static int router_image_init_embedded(struct router_image *router_image)
 {
+	const char *src = NULL;
+	uint64_t size = 0;
 	int ret = 0;
 
 #if defined(LINUX) || defined(OSX)
-
-	router_image->embedded_img = router_image->embedded_img_pre_check;
-	ret = router_image->image_verify(router_image,
-					 router_image->embedded_img_pre_check,
-					 (unsigned)router_image->embedded_file_size,
-					 (unsigned)router_image->embedded_file_size);
-	if (ret != 1)
-		router_image->embedded_img = NULL;
+	src = router_image->embedded_img_pre_check;
+	size = router_image->embedded_file_size;
 #elif defined(WIN32)
 	HGLOBAL hGlobal;
 	HRSRC hRsrc;
-	int size;
-	char *buff;
 
 	hRsrc = FindResource(NULL, MAKEINTRESOURCE(router_image->embedded_img_res),
 			     RT_RCDATA);
 	if (hRsrc) {
 		hGlobal = LoadResource(NULL, hRsrc);
-		buff = LockResource(hGlobal);
+		src = LockResource(hGlobal);
 		size = SizeofResource(NULL, hRsrc);
-
-		router_image->embedded_img = buff;
-		ret = router_image->image_verify(router_image, buff, size, size);
-		if (ret != 1)
-			router_image->embedded_img = NULL;
 	}
 #endif
+
+	router_image->embedded_img = (char *)src;
+	if (!src)
+		goto out;
+
+	if (!router_image_size_valid(size)) {
+		fprintf(stderr, "Embedded image '%s' is too large to process\n",
+			router_image->desc);
+		router_image->embedded_img = NULL;
+		goto out;
+	}
+
+	ret = router_image_verify(router_image, src, (unsigned int)size,
+				  (int)size);
+	if (ret != 1)
+		router_image->embedded_img = NULL;
+
+out:
 	return ret;
 }
 
@@ -582,6 +637,66 @@ static struct router_image *router_images[] = {
 	&img_zyxel,
 	NULL,
 };
+
+/* undo whatever a failed image_verify() added to the router image; a later
+ * image of the same type must not inherit routers or files (with offsets into
+ * the rejected file) from it
+ */
+static void router_image_clear(struct router_image *router_image)
+{
+	struct router_info *router_info, *router_info_s;
+	struct file_info *file_info, *file_info_s;
+
+	list_for_each_entry_safe(router_info, router_info_s,
+				 &router_image->router_list, list) {
+		list_del(&router_info->list);
+		free(router_info);
+	}
+
+	list_for_each_entry_safe(file_info, file_info_s,
+				 &router_image->file_list, list) {
+		list_del(&file_info->list);
+		free(file_info);
+	}
+
+	router_image->file_size = 0;
+}
+
+/* buff holds the first buff_len bytes of an image of the given size */
+static int router_image_verify(struct router_image *router_image,
+			       const char *buff, unsigned int buff_len,
+			       int size)
+{
+	char *hdr;
+	int ret;
+
+	/* image_verify() parses the header with sscanf(), which scans its
+	 * input as a C string (its leading-whitespace skip and %s/%x scans
+	 * run until a NUL) and reads past the end of a buffer that is not
+	 * NUL-terminated. Neither the embedded image blobs nor the data read
+	 * from an image file are terminated, so verify a bounded,
+	 * NUL-terminated copy of the header.
+	 */
+	if (buff_len > IMAGE_HDR_MAX_LEN)
+		buff_len = IMAGE_HDR_MAX_LEN;
+
+	hdr = malloc(buff_len + 1);
+	if (!hdr) {
+		router_image_clear(router_image);
+		return -1;
+	}
+
+	memcpy(hdr, buff, buff_len);
+	hdr[buff_len] = '\0';
+
+	ret = router_image->image_verify(router_image, hdr, buff_len, size);
+	free(hdr);
+
+	if (ret != 1)
+		router_image_clear(router_image);
+
+	return ret;
+}
 
 void router_images_init(void)
 {
@@ -703,8 +818,9 @@ int router_images_verify_path(const char *image_path)
 {
 	struct router_image **router_image;
 	char *file_buff = NULL, found_consumer = 0;
-	unsigned int file_buff_size = 64 * 1024; // max CE hdr size
+	unsigned int file_buff_size = IMAGE_HDR_MAX_LEN;
 	int fd, file_size, ret = -1, len;
+	off_t file_size_off;
 
 	file_buff = malloc(file_buff_size);
 	if (!file_buff)
@@ -725,6 +841,24 @@ int router_images_verify_path(const char *image_path)
 	}
 
 	len = ret;
+
+	file_size_off = lseek(fd, 0, SEEK_END);
+	if (file_size_off < 0) {
+		fprintf(stderr, "Unable to retrieve file size of '%s': %s - ignoring file\n",
+			image_path, strerror(errno));
+		ret = 0;
+		goto close_fd;
+	}
+
+	if (!router_image_size_valid((uint64_t)file_size_off)) {
+		fprintf(stderr, "Image '%s' is too large to process - ignoring file\n",
+			image_path);
+		ret = 0;
+		goto close_fd;
+	}
+
+	file_size = (int)file_size_off;
+
 	for (router_image = router_images; *router_image; ++router_image) {
 		if ((*router_image)->path || (*router_image)->embedded_img)
 			continue;
@@ -732,16 +866,9 @@ int router_images_verify_path(const char *image_path)
 		if (!(*router_image)->image_verify)
 			continue;
 
-		file_size = (int)lseek(fd, 0, SEEK_END);
-		if (file_size < 0) {
-			fprintf(stderr, "Unable to retrieve file size of '%s': %s\n",
-				image_path, strerror(errno));
-			continue;
-		}
-
 		(*router_image)->path = image_path;
-		ret = (*router_image)->image_verify((*router_image), file_buff,
-						    len, file_size);
+		ret = router_image_verify(*router_image, file_buff, len,
+					  file_size);
 		if (ret != 1) {
 			(*router_image)->path = NULL;
 			continue;
@@ -750,7 +877,7 @@ int router_images_verify_path(const char *image_path)
 		found_consumer = 1;
 
 #if defined(DEBUG)
-		printf("verify image path: %s: %s (%i bytes)\n",
+		printf("verify image path: %s: %s (%u bytes)\n",
 		       image_path, (*router_image)->desc,
 		       (*router_image)->file_size);
 #endif
@@ -779,6 +906,14 @@ int router_images_open_path(struct node *node)
 		    goto out;
 	}
 
+	/* without a backing file path there is nothing to open; bail out
+	 * instead of calling open(NULL)
+	 */
+	if (!node->router_type->image->path) {
+		node->image_state.fd = -1;
+		goto out;
+	}
+
 	node->image_state.fd = open(node->router_type->image->path,
 				    O_RDONLY | O_BINARY);
 	if (node->image_state.fd < 0)
@@ -789,21 +924,24 @@ out:
 	return node->image_state.fd;
 }
 
-int router_images_read_data(char *dst, struct node *node)
+int router_images_read_data(char *dst, struct node *node, unsigned int pos)
 {
 	int len = TFTP_PAYLOAD_SIZE, read_len;
 	uint8_t *file_data;
 	off_t reto;
 
-	if (node->image_state.flash_size - node->image_state.bytes_sent < TFTP_PAYLOAD_SIZE)
-		len = node->image_state.flash_size - node->image_state.bytes_sent;
+	if (pos > node->image_state.flash_size)
+		return -1;
+
+	if (node->image_state.flash_size - pos < TFTP_PAYLOAD_SIZE)
+		len = node->image_state.flash_size - pos;
 
 	read_len = len;
 
-	if (node->image_state.file_size < node->image_state.bytes_sent)
+	if (node->image_state.file_size < pos)
 		read_len = 0;
-	else if (node->image_state.file_size < node->image_state.bytes_sent + len)
-		read_len = node->image_state.file_size - node->image_state.bytes_sent;
+	else if (node->image_state.file_size - pos < (unsigned int)len)
+		read_len = node->image_state.file_size - pos;
 
 	if (node->router_type->image->path) {
 		if (node->image_state.fd < 0) {
@@ -815,7 +953,7 @@ int router_images_read_data(char *dst, struct node *node)
 
 		if (read_len > 0) {
 			reto = lseek(node->image_state.fd,
-				     node->image_state.bytes_sent + node->image_state.offset,
+				     (off_t)pos + node->image_state.offset,
 				     SEEK_SET);
 			if (reto == (off_t) -1) {
 				fprintf(stderr, "Error - seeking in file '%s': %s\n",
@@ -838,7 +976,7 @@ int router_images_read_data(char *dst, struct node *node)
 		return len;
 	} else if (node->router_type->image->embedded_img) {
 		file_data = (uint8_t *)node->router_type->image->embedded_img;
-		file_data += node->image_state.bytes_sent;
+		file_data += pos;
 		file_data += node->image_state.offset;
 
 		if (read_len > 0)
@@ -868,8 +1006,15 @@ bool router_images_available(void)
 
 void router_images_close_path(struct node *node)
 {
-	if ((node->router_type->image->path) &&
-	    (node->image_state.fd > 0))
+	/* node_list_free() calls this for every node, including ones that
+	 * were created from stray traffic and never matched a router type
+	 * (router_type == NULL) or were rejected before it was assigned. Such
+	 * a node never had an image opened (fd stays -1), so guard the
+	 * router_type dereference instead of crashing on cleanup.
+	 */
+	if ((node->router_type) &&
+	    (node->router_type->image->path) &&
+	    (node->image_state.fd >= 0))
 		close(node->image_state.fd);
 
 	node->image_state.fd = -1;

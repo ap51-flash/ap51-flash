@@ -21,6 +21,7 @@ enum tcp_status {
 
 struct tcp_state {
 	char *packet_buff;
+	char *packet_buff_align;
 	enum tcp_status status;
 	unsigned int his_seq;
 	unsigned int his_ack_seq;
@@ -36,11 +37,18 @@ struct image_state {
 	unsigned int total_bytes_sent;
 	unsigned int flash_size;
 	unsigned int offset;
-	unsigned short last_packet_size;
-	unsigned short block_acked;
-	unsigned short block_sent;
+	/* absolute block numbers; the 16 bit TFTP wire block number wraps
+	 * for files with more than 65535 blocks
+	 */
+	unsigned int block_acked;
+	unsigned int block_sent;
+	uint64_t last_send_ms;
 	/* flags */
 	unsigned char count_globally:1;
+	/* a read request for the current file was served */
+	unsigned char file_requested:1;
+	/* the final block of the current file was acknowledged */
+	unsigned char file_complete:1;
 };
 
 int arp_req_send(const uint8_t *src_mac, const uint8_t *dst_mac,
@@ -49,6 +57,7 @@ int tftp_init_upload(struct node *node);
 int netconsole_init_upload(struct node *node);
 void telnet_handle_connection(struct node *node);
 int telnet_send_cmd(struct node *node, const char *cmd);
+int telnet_send_ack(struct node *node);
 void handle_eth_packet(char *packet_buff, int packet_buff_len);
 int proto_init(void);
 void proto_free(void);

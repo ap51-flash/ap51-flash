@@ -88,8 +88,14 @@ ifneq ($(PLATFORM),)
 CPPFLAGS += -D$(PLATFORM)
 endif
 
+# 64 bit off_t on 32 bit glibc and mingw: lseek() must report the real size
+# of large image files, so they can be rejected as too large to process
+CPPFLAGS += -D_FILE_OFFSET_BITS=64
+
 ifeq ($(PLATFORM),LINUX)
   BINARY_SUFFIX =
+  # clock_gettime() lives in librt before glibc 2.17
+  LDLIBS += -lrt
 else ifeq ($(PLATFORM),WIN32)
   BINARY_SUFFIX = .exe
   CPPFLAGS += -D_CONSOLE -D_MBCS -D__USE_MINGW_ANSI_STDIO=1

@@ -20,13 +20,16 @@
 static void rtrim(char *s)
 {
 	size_t len = strlen(s);
-	char *t = &s[len];
 
-	while (t-- && t >= s) {
-		if (!isspace(*t))
+	/* walk back from the end; index down before dereferencing so the
+	 * pointer never moves before the start of the string (the previous
+	 * "t-- && t >= s" formed &s[-1] on an empty string, which is undefined)
+	 */
+	while (len > 0) {
+		if (!isspace((unsigned char)s[len - 1]))
 			break;
 
-		*t = '\0';
+		s[--len] = '\0';
 	}
 }
 
@@ -49,6 +52,16 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 		if (strlen(line) == 0)
 			continue;
 
+		/* strtok_r() only splits on '\n', so a CRLF file leaves a
+		 * trailing '\r' on every line. Strip trailing whitespace here so
+		 * it is not carried into the section delimiter check or into a
+		 * filename value (which is otherwise looked up with the '\r'
+		 * still attached and never found).
+		 */
+		rtrim(line);
+		if (strlen(line) == 0)
+			continue;
+
 		if (!section && line[0] != '[') {
 			fprintf(stderr, "Found line before section: %s\n",
 				line);
@@ -57,7 +70,6 @@ static unsigned int fwcfg_parse_sizes(struct router_image *router_image,
 
 		if (line[0] == '[') {
 			/* section */
-			rtrim(line);
 			line_len = strlen(line);
 			if (line[line_len - 1] != ']') {
 				fprintf(stderr,

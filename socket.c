@@ -6,6 +6,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -112,7 +114,19 @@ static enum listdump_action socket_rtnl_parse(struct nlmsghdr *resp,
 	size_t attr_len;
 	char *name;
 
+	/* the reply length is taken from recv() and is not guaranteed to be
+	 * large enough to even hold an nlmsghdr; validate it before reading
+	 * any header field below
+	 */
+	if (len < sizeof(*resp))
+		return LISTDUMP_STOP;
+
 	if (resp->nlmsg_type == NLMSG_ERROR) {
+		if (len < NLMSG_LENGTH(sizeof(*nlme))) {
+			fprintf(stderr, "Error - received truncated netlink error\n");
+			return LISTDUMP_STOP;
+		}
+
 		nlme = NLMSG_DATA(resp);
 		fprintf(stderr, "Error - netlink complained: %i\n",
 			nlme->error);
@@ -124,6 +138,16 @@ static enum listdump_action socket_rtnl_parse(struct nlmsghdr *resp,
 			return LISTDUMP_STOP;
 
 		if (nh->nlmsg_type != RTM_NEWLINK)
+			continue;
+
+		/* NLMSG_OK() only guarantees that the message holds a full
+		 * nlmsghdr, not that it is large enough for the ifinfomsg that
+		 * an RTM_NEWLINK is supposed to carry. Without this check
+		 * IFLA_PAYLOAD() (an unsigned subtraction) underflows to a huge
+		 * value for a truncated message, and sock_rta_find_name() then
+		 * walks attributes far past the buffer.
+		 */
+		if (nh->nlmsg_len < NLMSG_LENGTH(sizeof(*ifinfomsg)))
 			continue;
 
 		ifinfomsg = NLMSG_DATA(nh);
@@ -216,6 +240,23 @@ close_sock:
 
 pcap_t *pcap_fp = NULL;
 
+/* pcap can't wait for the timeout_ms requested by socket_read(); a short
+ * read timeout lets the main loop check its deadline often enough
+ */
+#define PCAP_READ_TIMEOUT_MS 20
+
+#if defined(WIN32)
+/* Npcap fails reads with ERROR_DEVICE_REMOVED while NDIS detaches and
+ * re-attaches its filter driver (adapter restart, resume from standby,
+ * changed bindings) and the handle works again afterwards. Only give up
+ * when the reads keep failing for this long.
+ */
+#define PCAP_READ_ERROR_GRACE_MS 10000
+
+static bool pcap_read_failing;
+static uint64_t pcap_read_failing_since;
+#endif
+
 static int socket_dump_ifaces(enum listdump_action (*dump)(const char *name,
 							   unsigned int index,
 							   const char *description,
@@ -286,6 +327,7 @@ char *socket_find_iface_by_index(const char *iface_number)
 	char *endptr;
 	long if_num;
 
+	errno = 0;
 	if_num = strtol(iface_number, &endptr, 10);
 	if (!endptr || iface_number == endptr || *endptr != '\0')
 		return NULL;
@@ -293,31 +335,56 @@ char *socket_find_iface_by_index(const char *iface_number)
 	if (if_num < 1)
 		return NULL;
 
-	find_arg.index = if_num;
+	/* find_arg.index is an unsigned int; a value that does not fit would be
+	 * silently truncated on assignment and could alias a different, valid
+	 * interface index (e.g. 0x100000001 -> 1). Reject out-of-range input
+	 * (including strtol() overflow) instead of selecting the wrong device.
+	 */
+	if (errno == ERANGE)
+		return NULL;
+
+#if LONG_MAX > UINT_MAX
+	if (if_num > (long)UINT_MAX)
+		return NULL;
+#endif
+
+	find_arg.index = (unsigned int)if_num;
 	socket_dump_ifaces(compare_interface, &find_arg);
 
 	return find_arg.name;
 }
 
-static void print_description_sanitized(const char *description)
+/* print str without control characters, so a crafted interface name or
+ * description cannot inject terminal escape sequences
+ */
+static void print_sanitized(const char *str)
 {
 	unsigned char last_char;
 	unsigned char *ptr;
 	unsigned char c;
 
-	if (!description || strlen(description) == 0) {
-		fprintf(stderr, "\t(No description available)\n");
-		return;
-	}
-
-	fprintf(stderr, "\t(Description: ");
-
-	ptr = (unsigned char *)description;
+	ptr = (unsigned char *)str;
 	last_char = 0;
 
-	while (' ' <= *ptr) {
+	for (; *ptr != '\0'; ptr++) {
 		c = *ptr;
-		ptr++;
+
+		/* Drop the C0 range, DEL and (outside Windows, whose console
+		 * does not interpret C1 controls) the UTF-8 encoding of the C1
+		 * range (U+0080-U+009F). Other bytes >= 0x80 are kept
+		 * untouched - they are lead, trail or continuation bytes in
+		 * the encodings names and descriptions actually use (UTF-8,
+		 * the ANSI/DBCS code pages on Windows).
+		 */
+		if (c < ' ' || c == 0x7f)
+			continue;
+
+#if !defined(WIN32)
+		if (c == 0xc2 && ptr[1] >= 0x80 && ptr[1] <= 0x9f) {
+			ptr++;
+			continue;
+		}
+#endif
 
 		/* skip multiple spaces */
 		if (last_char == ' ' && last_char == c)
@@ -326,7 +393,17 @@ static void print_description_sanitized(const char *description)
 		fprintf(stderr, "%c", c);
 		last_char = c;
 	}
+}
 
+static void print_description_sanitized(const char *description)
+{
+	if (!description || strlen(description) == 0) {
+		fprintf(stderr, "\t(No description available)\n");
+		return;
+	}
+
+	fprintf(stderr, "\t(Description: ");
+	print_sanitized(description);
 	fprintf(stderr, ")\n");
 }
 
@@ -335,7 +412,9 @@ static enum listdump_action print_interface(const char *name,
 					    const char *description,
 					    void *arg __attribute__((unused)))
 {
-	fprintf(stderr, "\n%i: %s\n", index, name);
+	fprintf(stderr, "\n%u: ", index);
+	print_sanitized(name);
+	fprintf(stderr, "\n");
 	print_description_sanitized(description);
 
 	return LISTDUMP_OK;
@@ -349,6 +428,7 @@ void socket_print_all_ifaces(void)
 int socket_open(const char *iface)
 {
 #if defined(LINUX)
+	struct packet_mreq mreq;
 	struct sockaddr_ll addr;
 	struct ifreq req;
 	int ret, sock_opts;
@@ -391,16 +471,6 @@ int socket_open(const char *iface)
 		goto close_sock;
 	}
 
-	req.ifr_flags |= IFF_PROMISC;
-	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
 	ret = ioctl(raw_sock, SIOCGIFINDEX, &req);
 
 	if (ret < 0) {
@@ -410,6 +480,7 @@ int socket_open(const char *iface)
 		goto close_sock;
 	}
 
+	memset(&addr, 0, sizeof(addr));
 	addr.sll_family = AF_PACKET;
 	addr.sll_protocol = htons(ETH_P_ALL);
 	addr.sll_ifindex = req.ifr_ifindex;
@@ -417,6 +488,23 @@ int socket_open(const char *iface)
 	ret = bind(raw_sock, (struct sockaddr *)&addr, sizeof(struct sockaddr_ll));
 	if (ret < 0) {
 		fprintf(stderr, "Error - can't bind raw socket: %s\n",
+			strerror(errno));
+		goto close_sock;
+	}
+
+	/* unlike IFF_PROMISC, the membership is counted by the kernel: it is
+	 * dropped together with the socket (no matter how ap51-flash exits)
+	 * and doesn't disable a promiscuous mode which was set by someone else
+	 */
+	memset(&mreq, 0, sizeof(mreq));
+	mreq.mr_ifindex = req.ifr_ifindex;
+	mreq.mr_type = PACKET_MR_PROMISC;
+
+	ret = setsockopt(raw_sock, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
+			 sizeof(mreq));
+	if (ret < 0) {
+		fprintf(stderr,
+			"Error - can't enable promiscuous mode: %s\n",
 			strerror(errno));
 		goto close_sock;
 	}
@@ -447,14 +535,15 @@ out:
 	char error[PCAP_ERRBUF_SIZE];
 
 #if WIN32
-	pcap_fp = pcap_open_live(iface, 1500, 1, 250, error);
+	pcap_fp = pcap_open_live(iface, 1500, 1, PCAP_READ_TIMEOUT_MS, error);
 	if (!pcap_fp) {
 		fprintf(stderr, "Error opening adapter: %s\n", error);
 		return -1;
 	}
 	if (pcap_setmintocopy(pcap_fp, 1) < 0) {
-		fprintf(stderr, "Error setting mintocopy: %s\n", error);
-		return 1;
+		fprintf(stderr, "Error setting mintocopy: %s\n",
+			pcap_geterr(pcap_fp));
+		goto err_close;
 	}
 #else
 	// For Mac OS X, and maybe others in the future,
@@ -462,6 +551,7 @@ out:
 	// in order to be able to set immediate mode before activating the pcap
 	// handle.
 
+	const char *errmsg;
 	int ret;
 
 	pcap_fp = pcap_create(iface, error);
@@ -472,51 +562,110 @@ out:
 
 	ret = pcap_set_snaplen(pcap_fp, 1500);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap snaplen: %s\n", error);
-		return -1;
+		fprintf(stderr, "Error setting pcap snaplen: %s\n",
+			pcap_statustostr(ret));
+		goto err_close;
 	}
 
 	ret = pcap_set_promisc(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap promiscuous mode: %s\n",
-			error);
-		return -1;
+			pcap_statustostr(ret));
+		goto err_close;
 	}
 
-	ret = pcap_set_timeout(pcap_fp, 250);
+	ret = pcap_set_timeout(pcap_fp, PCAP_READ_TIMEOUT_MS);
 	if (ret != 0) {
-		fprintf(stderr, "Error setting pcap timeout: %s\n", error);
-		return -1;
+		fprintf(stderr, "Error setting pcap timeout: %s\n",
+			pcap_statustostr(ret));
+		goto err_close;
 	}
 
 	ret = pcap_set_immediate_mode(pcap_fp, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error setting pcap immediate mode: %s\n",
-			error);
-		return -1;
+			pcap_statustostr(ret));
+		goto err_close;
 	}
 
 	ret = pcap_activate(pcap_fp);
 	if (ret != 0) {
-		fprintf(stderr, "Error activating pcap handle\n");
-		return -1;
+		/* pcap_geterr() holds the details for most errors and warnings
+		 * (e.g. which /dev/bpf* device could not be opened)
+		 */
+		errmsg = pcap_geterr(pcap_fp);
+		fprintf(stderr, "Error activating pcap handle: %s%s%s\n",
+			pcap_statustostr(ret), errmsg[0] ? ": " : "", errmsg);
+		goto err_close;
 	}
 #endif
 
 	return 0;
+
+err_close:
+	/* a pcap handle was created but configuration failed; release it so
+	 * it is not leaked (flash_start() bails out without calling
+	 * socket_close() on this error path)
+	 */
+	pcap_close(pcap_fp);
+	pcap_fp = NULL;
+	return -1;
 #else
 #error socket_open() is not supported on your OS
 	return -1;
 #endif
 }
 
-#if defined(USE_PCAP)
+#if defined(LINUX)
+/* the kernel unbinds a packet socket (ifindex -1) when its interface is
+ * removed, e.g. when a USB adapter is unplugged; such a socket stays silent
+ * forever instead of returning errors
+ */
+static int socket_iface_gone(void)
+{
+	struct sockaddr_ll addr;
+	socklen_t addr_len = sizeof(addr);
+
+	if (getsockname(raw_sock, (struct sockaddr *)&addr, &addr_len) < 0)
+		return 0;
+
+	return addr.sll_ifindex == -1;
+}
+#endif
+
+#if defined(WIN32)
+/* returns true while a failing pcap read may still recover */
+static bool pcap_read_error_transient(void)
+{
+	uint64_t now = time_ms();
+
+	if (!pcap_read_failing) {
+		fprintf(stderr,
+			"Error reading from network: %s - waiting for the interface to come back\n",
+			pcap_geterr(pcap_fp));
+		pcap_read_failing = true;
+		pcap_read_failing_since = now;
+	}
+
+	if (now - pcap_read_failing_since >= PCAP_READ_ERROR_GRACE_MS)
+		return false;
+
+	/* the failing read returns immediately - don't spin */
+	Sleep(PCAP_READ_TIMEOUT_MS);
+	return true;
+}
+#endif
+
+/* wait at most timeout_ms for a packet (the pcap variants return after the
+ * shorter PCAP_READ_TIMEOUT_MS instead). Returns the packet length, 0 when no packet
+ * arrived, -1 on a transient error and SOCKET_READ_FATAL when the capture
+ * device stopped working.
+ */
+#if USE_PCAP
 int socket_read(char *packet_buff, int packet_buff_len,
-		int (*sleep_sec)__attribute__((unused)),
-		int (*sleep_usec)__attribute__((unused)))
+		int timeout_ms __attribute__((unused)))
 #else
-int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
-		int *sleep_usec)
+int socket_read(char *packet_buff, int packet_buff_len, int timeout_ms)
 #endif
 {
 #if defined(LINUX)
@@ -534,40 +683,46 @@ int socket_read(char *packet_buff, int packet_buff_len, int *sleep_sec,
 	FD_ZERO(&watched_fds);
 	FD_SET(raw_sock, &watched_fds);
 
-	tv.tv_sec = *sleep_sec;
-	tv.tv_usec = *sleep_usec;
+	tv.tv_sec = timeout_ms / 1000;
+	tv.tv_usec = (timeout_ms % 1000) * 1000;
 
 	ret = select(raw_sock + 1, &watched_fds, NULL, NULL, &tv);
-
-	*sleep_sec = tv.tv_sec;
-	*sleep_usec = tv.tv_usec;
 
 	if (ret < 0) {
 		if (errno != EINTR)
 			fprintf(stderr,
-				"Error waiting for data from network: %s",
+				"Error waiting for data from network: %s\n",
 				strerror(errno));
 	}
 
 	if (ret <= 0)
-		goto out;
+		goto check_iface;
 
 	read_len = read(raw_sock, packet_buff, packet_buff_len - 1);
 
 	if (read_len < 0) {
 		if ((errno != EWOULDBLOCK) && (errno != EINTR))
-			fprintf(stderr, "Error reading data from network: %s",
+			fprintf(stderr, "Error reading data from network: %s\n",
 				strerror(errno));
 	}
 
 	ret = (int)read_len;
-	packet_buff[read_len] = '\0';
+	if (read_len >= 0) {
+		packet_buff[read_len] = '\0';
+		goto out;
+	}
+
+check_iface:
+	if (socket_iface_gone()) {
+		fprintf(stderr, "Error reading from network: interface was removed\n");
+		ret = SOCKET_READ_FATAL;
+	}
 
 out:
 	return ret;
 #elif USE_PCAP
 
-	struct pcap_pkthdr hdr;
+	struct pcap_pkthdr *hdr;
 	const unsigned char *tmp_packet;
 	int ret = -1;
 
@@ -577,16 +732,37 @@ out:
 		goto out;
 	}
 
-	ret = 0;
-	tmp_packet = pcap_next(pcap_fp, &hdr);
-
-	if ((tmp_packet) && (hdr.len > 0)) {
-		ret = hdr.len;
-		if (ret > packet_buff_len)
-			ret = packet_buff_len;
-		memcpy(packet_buff, tmp_packet, ret);
-		packet_buff[ret] = '\0';
+	/* unlike pcap_next(), pcap_next_ex() tells a read timeout (0) apart
+	 * from a failing capture device (e.g. an unplugged USB adapter)
+	 */
+	ret = pcap_next_ex(pcap_fp, &hdr, &tmp_packet);
+	if (ret < 0) {
+#if defined(WIN32)
+		if (pcap_read_error_transient()) {
+			ret = -1;
+			goto out;
+		}
+#endif
+		fprintf(stderr, "Error reading from network: %s\n",
+			pcap_geterr(pcap_fp));
+		ret = SOCKET_READ_FATAL;
+		goto out;
 	}
+
+#if defined(WIN32)
+	pcap_read_failing = false;
+#endif
+
+	if (ret == 0 || !tmp_packet || hdr->caplen == 0) {
+		ret = 0;
+		goto out;
+	}
+
+	ret = hdr->caplen;
+	if (ret > packet_buff_len - 1)
+		ret = packet_buff_len - 1;
+	memcpy(packet_buff, tmp_packet, ret);
+	packet_buff[ret] = '\0';
 out:
 	return ret;
 #else
@@ -640,36 +816,12 @@ out:
 void socket_close(const char *iface)
 {
 #if defined(LINUX)
-	struct ifreq req;
-	int ret;
+	(void)iface;
 
 	if (raw_sock < 0)
 		goto out;
 
-	memset(&req, 0, sizeof (struct ifreq));
-	strncpy(req.ifr_name, iface, IFNAMSIZ);
-	req.ifr_name[sizeof(req.ifr_name) - 1] = '\0';
-
-	ret = ioctl(raw_sock, SIOCGIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't get interface flags (SIOCGIFFLAGS): %s (%i)\n",
-			strerror(errno), raw_sock);
-		goto close_sock;
-	}
-
-	req.ifr_flags &= ~IFF_PROMISC;
-	ret = ioctl(raw_sock, SIOCSIFFLAGS, &req);
-
-	if (ret < 0) {
-		fprintf(stderr,
-			"Error - can't set interface flags (SIOCSIFFLAGS): %s\n",
-			strerror(errno));
-		goto close_sock;
-	}
-
-close_sock:
+	/* closing the socket also drops the promiscuous mode membership */
 	close(raw_sock);
 	raw_sock = -1;
 out:

@@ -5,6 +5,8 @@
 #ifndef __AP51_FLASH_COMPAT_H__
 #define __AP51_FLASH_COMPAT_H__
 
+#include <stdint.h>
+
 #if defined(LINUX)
 
 #include <arpa/inet.h>
@@ -46,6 +48,7 @@
 #define USE_PCAP 1
 
 #include <pcap.h>
+#include <windows.h>
 
 #define ntohs(x) __swab16(x)
 #define htons(x) __swab16(x)
@@ -129,14 +132,14 @@ struct iphdr_linux {
     uint16_t check;
     uint32_t saddr;
     uint32_t daddr;
-};
+} __attribute__((packed));
 
 struct udphdr_linux {
     uint16_t source;
     uint16_t dest;
     uint16_t len;
     uint16_t check;
-};
+} __attribute__((packed));
 
 struct tcphdr_linux {
     uint16_t source;
@@ -156,7 +159,7 @@ struct tcphdr_linux {
     uint16_t window;
     uint16_t check;
     uint16_t urg_ptr;
-};
+} __attribute__((packed));
 
 struct icmphdr_linux
 {
@@ -174,7 +177,52 @@ struct icmphdr_linux
 			uint16_t mtu;
 		} frag; /* path mtu discovery */
 	} un;
-};
+} __attribute__((packed));
+
+#endif
+
+#if defined(WIN32)
+
+/* milliseconds since an arbitrary, fixed point; never jumps backwards.
+ * QueryPerformanceCounter() instead of GetTickCount64() because the latter
+ * needs _WIN32_WINNT >= 0x0600, which older mingw toolchains don't default to
+ */
+static inline uint64_t time_ms(void)
+{
+	static uint64_t freq;
+	LARGE_INTEGER tmp;
+	uint64_t count;
+
+	/* the frequency is fixed at system boot */
+	if (!freq) {
+		if (!QueryPerformanceFrequency(&tmp))
+			return 0;
+
+		freq = (uint64_t)tmp.QuadPart;
+	}
+
+	if (!QueryPerformanceCounter(&tmp))
+		return 0;
+
+	/* count * 1000 overflows after a few weeks with GHz counters */
+	count = (uint64_t)tmp.QuadPart;
+	return count / freq * 1000 + count % freq * 1000 / freq;
+}
+
+#else
+
+#include <time.h>
+
+/* milliseconds since an arbitrary, fixed point; never jumps backwards */
+static inline uint64_t time_ms(void)
+{
+	struct timespec ts;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0)
+		return 0;
+
+	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
 
 #endif
 

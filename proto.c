@@ -4,6 +4,7 @@
 
 #include "proto.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 #include "router_images.h"
 #include "router_redboot.h"
 #include "router_tftp_client.h"
+#include "router_tftp_server.h"
 #include "router_netconsole.h"
 #include "router_types.h"
 #include "socket.h"
@@ -24,6 +26,7 @@
 #define REDBOOT_TELNET_DPORT 9000
 
 #define TFTP_PAYLOAD_SIZE 512
+#define TFTP_RESEND_HOLDOFF_MS 250
 
 enum tcp_packet_type {
 	TCP_SYN,
@@ -33,7 +36,13 @@ enum tcp_packet_type {
 
 #define PACKET_BUFF_LEN 2000
 #define ARP_LEN (sizeof(struct ether_header) + sizeof(struct ether_arp))
-#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - ETH_HLEN - sizeof(struct iphdr) - \
+/* ETH_DATA_LEN (1500) is the ethernet MTU, i.e. the maximum IP packet size; it
+ * already excludes the ethernet header. The largest TCP payload that fits into
+ * one unfragmented packet is therefore MTU - IP header - TCP header. The
+ * ethernet header must NOT be subtracted again here (doing so understated the
+ * advertised MSS and TCP window by ETH_HLEN bytes).
+ */
+#define MAX_TCP_PAYLOAD (ETH_DATA_LEN - sizeof(struct iphdr) - \
 			 sizeof(struct tcphdr))
 
 static char *out_packet_buff;
@@ -89,6 +98,17 @@ static void arp_init(const uint8_t *src_mac, const uint8_t *dst_mac,
 	out_arphdr->ea_hdr.ar_op = htons(arp_type);
 	memcpy(out_arphdr->arp_sha, src_mac, ETH_ALEN);
 	store_ip_addr(out_arphdr->arp_spa, src_ip);
+
+	/* the target hardware address is unknown in a request and is the
+	 * resolved address in a reply. out_packet_buff is reused between
+	 * sends, so set arp_tha explicitly instead of leaking stale bytes
+	 * from a previous packet onto the wire.
+	 */
+	if (arp_type == ARPOP_REPLY)
+		memcpy(out_arphdr->arp_tha, dst_mac, ETH_ALEN);
+	else
+		memset(out_arphdr->arp_tha, 0, ETH_ALEN);
+
 	store_ip_addr(out_arphdr->arp_tpa, dst_ip);
 }
 
@@ -149,6 +169,14 @@ static int tftp_packet_send_data(struct node *node, unsigned short src_port,
 	sum = chksum(sum, (void *)&out_iphdr->saddr, 2 * sizeof(out_iphdr->saddr));
 	sum = chksum(sum, (void *)out_udphdr, ntohs(out_udphdr->len));
 	out_udphdr->check = ~(htons(sum));
+
+	/* RFC 768: if the computed checksum is zero it must be sent as all
+	 * ones (0xffff), because an all-zero checksum field is the special
+	 * value that means "no checksum was computed". Both are equal under
+	 * ones' complement, so the receiver still validates correctly.
+	 */
+	if (out_udphdr->check == 0)
+		out_udphdr->check = 0xffff;
 
 	out_iphdr->tot_len = htons(20 + 8 + tftp_data_len);
 	out_iphdr->check = 0;
@@ -239,6 +267,13 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 		break;
 	case NODE_STATUS_RESET_SENT:
 	case NODE_STATUS_FINISHED:
+		/* tftp_server_detect_pre() keeps ARP-probing the device, and
+		 * the boot loader may still answer these probes
+		 */
+		if (node->flash_mode == FLASH_MODE_TFTP_SERVER &&
+		    !tftp_server_flash_completed(node, arphdr))
+			break;
+
 		if (node->flash_mode != FLASH_MODE_NETCONSOLE) {
 			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: flash complete. Device ready to unplug.\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
@@ -257,6 +292,116 @@ static void handle_arp_packet(const char *packet_buff, int packet_buff_len,
 	}
 }
 
+/* set up the transfer of a file - before the image is opened: if the open
+ * fails, the state must say that nothing of the file was sent (the RedBoot
+ * state machine checks file_complete). Returns the number of blocks
+ */
+static unsigned int tftp_transfer_start(struct node *node,
+					unsigned int file_size,
+					unsigned int flash_size,
+					unsigned int offset,
+					bool count_globally)
+{
+	node->image_state.bytes_sent = 0;
+	node->image_state.block_acked = 0;
+	node->image_state.block_sent = 0;
+	node->image_state.last_send_ms = 0;
+	node->image_state.file_complete = 0;
+	node->image_state.file_size = file_size;
+	node->image_state.flash_size = flash_size;
+	node->image_state.offset = offset;
+	node->image_state.count_globally = count_globally;
+
+	return (flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE;
+}
+
+/* map a 16 bit TFTP wire block number to the absolute block number that is
+ * closest to the last sent block; the wire number wraps after 65535 blocks
+ */
+static unsigned int tftp_block_unwrap(const struct node *node,
+				      unsigned short block)
+{
+	unsigned int ref = node->image_state.block_sent;
+	int delta;
+
+	delta = (unsigned short)(block - ref);
+	if (delta >= 0x8000)
+		delta -= 0x10000;
+
+	/* before the start of the file */
+	if (delta < 0 && (unsigned int)-delta > ref)
+		return 0;
+
+	return ref + delta;
+}
+
+/* send the (absolute) block number. The send position is derived from the
+ * block number alone, and the transfer state is only updated once the block
+ * actually went out - a failed read or send leaves no partial state behind
+ * that could shift the data of later blocks.
+ */
+static void tftp_send_block(struct node *node, const struct udphdr *udphdr,
+			    unsigned int block)
+{
+	unsigned int pos = (block - 1) * TFTP_PAYLOAD_SIZE;
+	int data_len, ret;
+
+	*((unsigned short *)out_tftp_data) = htons(3);
+	*((unsigned short *)(out_tftp_data + 2)) = htons((unsigned short)block);
+
+	data_len = router_images_read_data(out_tftp_data + 4, node, pos);
+	if (data_len < 0)
+		return;
+
+	ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source,
+				    data_len + 4); /* opcode size */
+	if (ret < 0)
+		return;
+
+	node->image_state.bytes_sent = pos + data_len;
+	node->image_state.block_sent = block;
+	node->image_state.last_send_ms = time_ms();
+}
+
+/* TFTP strings are NetASCII and not necessarily NUL terminated inside the
+ * datagram; copy only printable characters so they cannot inject terminal
+ * escape sequences. Returns the number of copied characters
+ */
+static size_t tftp_copy_printable(char *buff, size_t buff_len,
+				  const char *msg, int msg_len)
+{
+	size_t len = 0;
+	int i;
+
+	for (i = 0; i < msg_len && msg[i] != '\0'; i++) {
+		if (len == buff_len - 1)
+			break;
+
+		if (msg[i] < ' ' || msg[i] > '~')
+			continue;
+
+		buff[len++] = msg[i];
+	}
+	buff[len] = '\0';
+
+	return len;
+}
+
+static void tftp_print_error(const struct node *node, unsigned short code,
+			     const char *msg, int msg_len)
+{
+	char buff[128];
+	size_t len;
+
+	len = tftp_copy_printable(buff, sizeof(buff), msg, msg_len);
+
+	fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code %u%s%s\n",
+		node->his_mac_addr[0], node->his_mac_addr[1],
+		node->his_mac_addr[2], node->his_mac_addr[3],
+		node->his_mac_addr[4], node->his_mac_addr[5],
+		node->router_type->desc, code, len ? ": " : "", buff);
+}
+
 static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
@@ -264,7 +409,10 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	struct file_info *file_info;
 	unsigned short opcode, block;
 	const char *file_name;
-	int ret, data_len;
+	int file_name_len;
+	char file_name_print[128];
+	unsigned int ack, blocks;
+	int ret;
 	static const char fwupgradecfg[] = "fwupgrade.cfg";
 
 	if (!len_check(packet_buff_len, sizeof(struct udphdr), "UDP"))
@@ -296,6 +444,12 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 		return;
 	}
 
+	/* every TFTP message carries at least a 2 byte opcode followed by a
+	 * 2 byte block/error-code field
+	 */
+	if (!len_check(packet_buff_len, sizeof(struct udphdr) + 4, "TFTP"))
+		return;
+
 	opcode = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr)));
 	block = ntohs(*(unsigned short *)(packet_buff + sizeof(struct udphdr) + 2));
 	/* fprintf(stderr, "tftp opcode=%d, block=%d, len=%i\n", opcode,
@@ -305,19 +459,25 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 	/* TFTP read request */
 	case 1:
 		file_name = packet_buff + sizeof(struct udphdr) + 2;
+		file_name_len = packet_buff_len - (int)sizeof(struct udphdr) - 2;
+
+		/* the file name must be terminated inside the datagram */
+		if (!memchr(file_name, '\0', file_name_len))
+			goto out;
 		switch (node->flash_mode) {
 		case FLASH_MODE_UKNOWN:
-			/* ignore */
-			break;
 		case FLASH_MODE_TFTP_SERVER:
-			/* ignored; handled in node_list_maintain */
-			break;
+			/* ignore; server mode is handled in node_list_maintain */
+			goto out;
 		case FLASH_MODE_REDBOOT:
 		case FLASH_MODE_TFTP_CLIENT:
 		case FLASH_MODE_NETCONSOLE:
 			file_info = router_image_get_file(node->router_type,
 							  file_name);
 			if (!file_info) {
+				tftp_copy_printable(file_name_print,
+						    sizeof(file_name_print),
+						    file_name, file_name_len);
 				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s' - file not found ...\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
@@ -325,55 +485,105 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->his_mac_addr[3],
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
-					node->router_type->desc, file_name);
+					node->router_type->desc,
+					file_name_print);
 				goto out;
 			}
 
-			if (node->image_state.fd <= 0) {
+			/* fwupgrade.cfg is not part of the flashed payload */
+			blocks = tftp_transfer_start(node, file_info->file_size,
+						     file_info->file_fsize,
+						     file_info->file_offset,
+						     strncmp(file_name, fwupgradecfg,
+							     strlen(fwupgradecfg)) != 0);
+			node->image_state.file_requested = 1;
+
+			if (node->image_state.fd < 0) {
 				ret = router_images_open_path(node);
 				if (ret < 0)
 					goto out;
+
 				node->status = NODE_STATUS_FLASHING;
 			}
 
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s', serving %s portion of: %s (%i blocks) ...\n",
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp client asks for '%s', serving %s portion of: %s (%u blocks) ...\n",
 				node->his_mac_addr[0], node->his_mac_addr[1],
 				node->his_mac_addr[2], node->his_mac_addr[3],
 				node->his_mac_addr[4], node->his_mac_addr[5],
 				node->router_type->desc,
 				file_name,file_info->file_name,
 				node->router_type->image->path ? node->router_type->image->path : "embedded image",
-				((file_info->file_fsize + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
-
-			node->image_state.file_size = file_info->file_size;
-			node->image_state.flash_size = file_info->file_fsize;
-			node->image_state.offset = file_info->file_offset;
+				blocks);
 			break;
 		}
 
-		block = 0;
-		node->image_state.bytes_sent = 0;
-		node->image_state.last_packet_size = 0;
-
-		if (strncmp(file_name, fwupgradecfg, strlen(fwupgradecfg)) == 0)
-			node->image_state.count_globally = 0;
-		else
-			node->image_state.count_globally = 1;
-		/* fall through - start sending data */
+		tftp_send_block(node, udphdr, 1);
+		break;
 	/* TFTP ack */
 	case 4:
-		if (block == 0) {
-			if (node->flash_mode == FLASH_MODE_TFTP_SERVER) {
-				ret = router_images_open_path(node);
-				if (ret < 0)
-					return;
-				node->status = NODE_STATUS_FLASHING;
-				node->image_state.file_size = node->router_type->image->file_size;
-				node->image_state.flash_size = ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
-										FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE;
-				node->image_state.offset = 0;
+		if (node->flash_mode == FLASH_MODE_TFTP_SERVER &&
+		    node->status == NODE_STATUS_DETECTED && block == 0) {
+			/* the device's tftp server accepted our write request.
+			 * Later ACK 0s (retransmits, or the in-order ACK of
+			 * the wrapped block 65536) are handled by the generic
+			 * code below.
+			 */
+			/* the whole image is sent as one file, which is
+			 * counted as payload like any file a tftp client
+			 * requests - otherwise the final-block accounting below
+			 * is skipped and the upload never reaches
+			 * NODE_STATUS_FINISHED
+			 */
+			blocks = tftp_transfer_start(node, node->router_type->image->file_size,
+						     ((node->router_type->image->file_size + FLASH_PAGE_SIZE - 1) /
+						      FLASH_PAGE_SIZE) * FLASH_PAGE_SIZE,
+						     0, true);
 
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %i blocks ...\n",
+			ret = router_images_open_path(node);
+			if (ret < 0)
+				return;
+
+			node->status = NODE_STATUS_FLASHING;
+
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: connection to tftp server established - uploading %u blocks ...\n",
+				node->his_mac_addr[0],
+				node->his_mac_addr[1],
+				node->his_mac_addr[2],
+				node->his_mac_addr[3],
+				node->his_mac_addr[4],
+				node->his_mac_addr[5],
+				node->router_type->desc, blocks);
+
+			tftp_send_block(node, udphdr, 1);
+			break;
+		}
+
+		/* no transfer running (or the final block was already acked and
+		 * the image closed)
+		 */
+		if (node->image_state.fd < 0)
+			goto out;
+
+		ack = tftp_block_unwrap(node, block);
+
+		if (ack != node->image_state.block_sent) {
+			/* The peer acked something other than the block we
+			 * just sent: a duplicate/stale ACK because our DATA got
+			 * lost or delayed. Resend block_acked + 1, but not
+			 * again right after the last transmission: a delayed
+			 * (not lost) DATA block makes the peer ACK every
+			 * following block twice, and answering each of these
+			 * duplicates would send every remaining block twice
+			 * (Sorcerer's Apprentice syndrome, RFC 1123 4.2.3.1).
+			 * A peer whose DATA really got lost re-ACKs after its
+			 * own retransmission timeout, which is longer than
+			 * the hold-off.
+			 */
+			if (time_ms() - node->image_state.last_send_ms < TFTP_RESEND_HOLDOFF_MS)
+				goto out;
+
+			if (ack < node->image_state.block_sent)
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %u, last received ack: %u\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
@@ -381,116 +591,82 @@ static void handle_udp_packet(const char *packet_buff, int packet_buff_len,
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
 					node->router_type->desc,
-					((node->image_state.flash_size + TFTP_PAYLOAD_SIZE - 1) / TFTP_PAYLOAD_SIZE));
-			}
-
-			node->image_state.block_acked = 0;
-			node->image_state.block_sent = 0;
-		} else if (block != node->image_state.block_sent) {
-			if (block < node->image_state.block_sent)
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp repeat block %d, last received ack: %d\n",
-					node->his_mac_addr[0],
-					node->his_mac_addr[1],
-					node->his_mac_addr[2],
-					node->his_mac_addr[3],
-					node->his_mac_addr[4],
-					node->his_mac_addr[5],
-					node->router_type->desc, block + 1,
+					node->image_state.block_acked + 1,
 					node->image_state.block_acked);
 			else
-				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp acks unsent block %d (last sent block: %d)\n",
+				fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: tftp acks unsent block %u (last sent block: %u)\n",
 					node->his_mac_addr[0],
 					node->his_mac_addr[1],
 					node->his_mac_addr[2],
 					node->his_mac_addr[3],
 					node->his_mac_addr[4],
 					node->his_mac_addr[5],
-					node->router_type->desc, block,
+					node->router_type->desc, ack,
 					node->image_state.block_sent);
 
-			block = node->image_state.block_acked;
-			node->image_state.bytes_sent -= node->image_state.last_packet_size;
-		} else {
-			/* nothing more to send */
-			if (node->image_state.last_packet_size != TFTP_PAYLOAD_SIZE) {
-				/* don't count this file as payload? */
-				if (!node->image_state.count_globally)
-					goto out;
-
-				node->image_state.total_bytes_sent += node->image_state.bytes_sent;
-
-				if (node->image_state.total_bytes_sent >= router_image_get_size(node->router_type)) {
-					switch (node->flash_mode) {
-					case FLASH_MODE_TFTP_SERVER:
-					case FLASH_MODE_TFTP_CLIENT:
-					case FLASH_MODE_NETCONSOLE:
-						fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
-							node->his_mac_addr[0],
-							node->his_mac_addr[1],
-							node->his_mac_addr[2],
-							node->his_mac_addr[3],
-							node->his_mac_addr[4],
-							node->his_mac_addr[5],
-							node->router_type->desc);
-						router_images_close_path(node);
-						if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
-							tftp_client_flash_time_set(node);
-						node->status = NODE_STATUS_FINISHED;
-						break;
-					case FLASH_MODE_REDBOOT:
-						/* ignored; handled in REDBOOT_STATE_EXECY */
-						break;
-					case FLASH_MODE_UKNOWN:
-						/* ignore */
-						break;
-					}
-				}
-
-				goto out;
-			}
-
-			node->image_state.block_acked = block;
+			tftp_send_block(node, udphdr,
+					node->image_state.block_acked + 1);
+			break;
 		}
 
-		block++;
+		node->image_state.block_acked = ack;
 
-		/* TFTP DATA packet */
-		*((unsigned short *)out_tftp_data) = htons(3);
-		*((unsigned short *)(out_tftp_data + 2)) = htons(block);
-
-		data_len = router_images_read_data(out_tftp_data + 4, node);
-		if (data_len < 0)
+		/* more to send when the last sent block was a full one - or when
+		 * no block was sent yet because sending the first block failed
+		 * and the device retransmitted its ACK 0
+		 */
+		if (node->image_state.bytes_sent ==
+		    node->image_state.block_sent * TFTP_PAYLOAD_SIZE) {
+			tftp_send_block(node, udphdr, ack + 1);
 			break;
+		}
 
-		data_len += 4; /* opcode size */
+		/* the final (short) block was acked; later duplicates of this
+		 * ACK are dropped by the closed image check above
+		 */
+		node->image_state.file_complete = 1;
+		router_images_close_path(node);
 
-		ret = tftp_packet_send_data(node, udphdr->dest, udphdr->source,
-					    data_len);
-		if (ret < 0)
-			return;
+		/* don't count this file as payload? */
+		if (!node->image_state.count_globally)
+			goto out;
 
-		node->image_state.last_packet_size = data_len - 4; /* opcode size */
-		node->image_state.bytes_sent += node->image_state.last_packet_size;
-		node->image_state.block_sent = block;
-		/* printf("tftp data out: tftp_sent=%lu, remaining_size=%lu, data_len=%i, block=%d\n",
-			tftp_sent, tftp_xfer_size - tftp_sent, tftp_data_len - 4, block); */
+		node->image_state.total_bytes_sent += node->image_state.bytes_sent;
+
+		if (node->image_state.total_bytes_sent < router_image_get_size(node->router_type))
+			goto out;
+
+		switch (node->flash_mode) {
+		case FLASH_MODE_TFTP_SERVER:
+		case FLASH_MODE_TFTP_CLIENT:
+		case FLASH_MODE_NETCONSOLE:
+			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: image successfully transmitted - writing image to flash ...\n",
+				node->his_mac_addr[0],
+				node->his_mac_addr[1],
+				node->his_mac_addr[2],
+				node->his_mac_addr[3],
+				node->his_mac_addr[4],
+				node->his_mac_addr[5],
+				node->router_type->desc);
+			if (node->flash_mode == FLASH_MODE_TFTP_CLIENT)
+				tftp_client_flash_time_set(node);
+			else if (node->flash_mode == FLASH_MODE_TFTP_SERVER)
+				tftp_server_flash_time_set(node);
+			node->status = NODE_STATUS_FINISHED;
+			break;
+		case FLASH_MODE_REDBOOT:
+			/* ignored; handled in REDBOOT_STATE_EXECY */
+			break;
+		case FLASH_MODE_UKNOWN:
+			/* ignore */
+			break;
+		}
 		break;
 	/* TFTP error */
 	case 5:
-		if ((block == 2) && (htons(udphdr->len) - sizeof(struct udphdr) > 4))
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error: %s\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc,
-				(packet_buff + sizeof(struct udphdr) + 4));
-		else
-			fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: received TFTP error code: %d\n",
-				node->his_mac_addr[0], node->his_mac_addr[1],
-				node->his_mac_addr[2], node->his_mac_addr[3],
-				node->his_mac_addr[4], node->his_mac_addr[5],
-				node->router_type->desc, block);
-
+		tftp_print_error(node, block,
+				 packet_buff + sizeof(struct udphdr) + 4,
+				 packet_buff_len - (int)sizeof(struct udphdr) - 4);
 		break;
 	default:
 		fprintf(stderr, "[%02x:%02x:%02x:%02x:%02x:%02x]: %s: unexpected TFTP opcode: %d\n",
@@ -511,10 +687,15 @@ static void tcp_init_state(struct node *node)
 	struct iphdr *iphdr;
 	struct tcphdr *tcphdr;
 
-	node->tcp_state.packet_buff = malloc(PACKET_BUFF_LEN);
-	if (!node->tcp_state.packet_buff)
+	/* offset the buffer by NET_IP_ALIGN so that the IP header (which
+	 * follows the ethernet header) ends up 4-byte aligned, just like the
+	 * RX buffer and out_packet_buff do
+	 */
+	node->tcp_state.packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
+	if (!node->tcp_state.packet_buff_align)
 		goto out;
 
+	node->tcp_state.packet_buff = node->tcp_state.packet_buff_align + NET_IP_ALIGN;
 	memset(node->tcp_state.packet_buff, 0, PACKET_BUFF_LEN);
 
 	ethhdr = (struct ether_header *)node->tcp_state.packet_buff;
@@ -658,7 +839,17 @@ int telnet_send_cmd(struct node *node, const char *cmd)
 	strncpy(packet_buff, cmd, buflen);
 	packet_buff[buflen - 1] = '\0';
 
-	return tcp_send_data(node, (int)strlen(cmd));
+	/* send only what actually ended up in the buffer: strncpy() may have
+	 * truncated an over-long command, and sending strlen(cmd) bytes would
+	 * transmit uninitialised/out-of-bounds bytes past the copied data
+	 */
+	return tcp_send_data(node, (int)strlen(packet_buff));
+}
+
+/* acknowledge received output without sending a command */
+int telnet_send_ack(struct node *node)
+{
+	return tcp_send_ack(node);
 }
 
 static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
@@ -667,6 +858,10 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 	struct tcphdr *tcphdr;
 	unsigned int data_len;
 	char *buff;
+
+	/* no SYN was sent yet - the buffer is allocated before the first one */
+	if (!node->tcp_state.packet_buff)
+		goto out;
 
 	if (!len_check(packet_buff_len, sizeof(struct tcphdr), "TCP"))
 		goto out;
@@ -681,6 +876,16 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 		goto out;
 
 	if (tcphdr->ack != 1)
+		goto out;
+
+	/* a valid TCP header is at least 5 words (sizeof(struct tcphdr)) long
+	 * and must fit into the received data; otherwise the unsigned data_len
+	 * computation below would wrap around
+	 */
+	if (tcphdr->doff < 5)
+		goto out;
+
+	if (!len_check(packet_buff_len, tcphdr->doff * 4, "TCP"))
 		goto out;
 
 	data_len = packet_buff_len - (tcphdr->doff * 4);
@@ -704,9 +909,21 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 		node->tcp_state.status = TCP_STATUS_TELNET_READY;
 		node->tcp_state.my_ack_seq += data_len;
 
-		/* send CTRL + C */
+		/* remember the banner: RedBoot retransmits it when the CTRL + C
+		 * gets lost, and the retransmission check in
+		 * TCP_STATUS_TELNET_READY must answer it with the CTRL + C
+		 * instead of handling it as new output
+		 */
+		node->tcp_state.his_seq = tcphdr->seq;
+		node->tcp_state.his_ack_seq = tcphdr->ack_seq;
+		node->tcp_state.his_last_len = data_len;
+
+		/* send CTRL + C; tcp_resend_data() takes the length from the
+		 * NUL terminator, the buffer still holds the SYN's MSS option
+		 */
 		buff = node->tcp_state.packet_buff + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
 		buff[0] = 0x03;
+		buff[1] = '\0';
 		tcp_send_data(node, 1);
 		break;
 	case TCP_STATUS_TELNET_READY:
@@ -737,7 +954,7 @@ static void handle_tcp_packet(char *packet_buff, int packet_buff_len,
 		if (ntohl(tcphdr->ack_seq) > node->tcp_state.my_seq)
 			node->tcp_state.my_seq = ntohl(tcphdr->ack_seq);
 		packet_buff[packet_buff_len] = '\0';
-		redboot_main(node, (char *)(tcphdr + 1));
+		redboot_main(node, packet_buff + tcphdr->doff * 4);
 		break;
 	default:
 		return;
@@ -751,6 +968,8 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 			      struct node *node)
 {
 	struct icmphdr *icmphdr;
+	int data_len, data_max;
+	char *out_icmp_data;
 	size_t len;
 
 	if (!len_check(packet_buff_len, sizeof(struct icmphdr), "ICMP"))
@@ -764,6 +983,17 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 
 	if (icmphdr->code != 0)
 		goto out;
+
+	/* an echo reply has to return the request's payload unchanged;
+	 * otherwise a ping client that verifies the echoed data (e.g. the
+	 * RedBoot/u-boot ping) rejects the reply. Clamp to what still fits in
+	 * out_packet_buff.
+	 */
+	data_len = packet_buff_len - (int)sizeof(struct icmphdr);
+	data_max = PACKET_BUFF_LEN - ETH_HLEN - (int)sizeof(*out_iphdr) -
+		   (int)sizeof(*out_icmphdr);
+	if (data_len > data_max)
+		data_len = data_max;
 
 	len = 0;
 	memcpy(out_ethhdr->ether_dhost, node->his_mac_addr, ETH_ALEN);
@@ -782,7 +1012,8 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 	out_iphdr->saddr = node->our_ip_addr;
 	out_iphdr->daddr = node->his_ip_addr;
 
-	out_iphdr->tot_len = htons(sizeof(*out_iphdr) + sizeof(*out_icmphdr));
+	out_iphdr->tot_len = htons(sizeof(*out_iphdr) + sizeof(*out_icmphdr) +
+				   data_len);
 	out_iphdr->check = 0;
 	out_iphdr->check = ~(htons(chksum(0, (void *)out_iphdr,
 					  sizeof(*out_iphdr))));
@@ -794,11 +1025,14 @@ static void handle_icmp_packet(char *packet_buff, int packet_buff_len,
 	out_icmphdr->un.echo.id = icmphdr->un.echo.id;
 	out_icmphdr->un.echo.sequence = icmphdr->un.echo.sequence;
 
+	out_icmp_data = (char *)out_icmphdr + sizeof(*out_icmphdr);
+	memcpy(out_icmp_data, packet_buff + sizeof(struct icmphdr), data_len);
+
 	out_icmphdr->checksum = 0;
 	out_icmphdr->checksum = ~(htons(chksum(0, (void *)out_icmphdr,
-					       sizeof(*out_icmphdr))));
+					       sizeof(*out_icmphdr) + data_len)));
 
-	len += sizeof(*out_icmphdr);
+	len += sizeof(*out_icmphdr) + data_len;
 
 	socket_write(out_packet_buff, len);
 out:

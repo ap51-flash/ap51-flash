@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "flash.h"
@@ -79,6 +80,7 @@ int main(int argc, char* argv[])
 	bool print_version = false;
 	int c;
 	char *iface = NULL;
+	char *iface_alloc = NULL;
 	int ret = -1;
 	bool load_embedded = true;
 	const char *progname = "ap51-flash";
@@ -113,7 +115,14 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	progname = argv[0];
+	/* keep the "ap51-flash" fallback when argv[0] is unavailable: with an
+	 * empty argv (argc == 0, argv[0] == NULL, as a caller may pass via
+	 * execve()) the unconditional assignment made progname NULL, which was
+	 * then handed to usage()'s "%s" prints - undefined behaviour. The
+	 * initializer was otherwise dead, always overwritten here.
+	 */
+	if (argc > 0 && argv[0])
+		progname = argv[0];
 	if (print_help) {
 		usage(progname);
 		goto out;
@@ -139,7 +148,9 @@ int main(int argc, char* argv[])
 	}
 
 	iface = socket_find_iface_by_index(argv[0]);
-	if (!iface)
+	if (iface)
+		iface_alloc = iface;
+	else
 		iface = argv[0];
 
 	argc -= 1;
@@ -148,8 +159,7 @@ int main(int argc, char* argv[])
 	router_images_init();
 
 	while (argc > 0) {
-		ret = router_images_verify_path(argv[0]);
-		if (ret < 0)
+		if (router_images_verify_path(argv[0]) < 0)
 			goto out;
 
 		argc -= 1;
@@ -178,5 +188,6 @@ int main(int argc, char* argv[])
 	ret = flash_start(iface);
 
 out:
+	free(iface_alloc);
 	return ret;
 }

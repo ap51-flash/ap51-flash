@@ -29,6 +29,13 @@ enum node_status {
 	NODE_STATUS_NO_FLASH,
 };
 
+/* the strictest alignment any router type's private struct needs */
+union node_priv_align {
+	void *ptr;
+	uint64_t u64;
+	double dbl;
+};
+
 struct node {
 	struct list_head list;
 	uint8_t his_mac_addr[6];
@@ -41,7 +48,10 @@ struct node {
 	struct image_state image_state;
 	struct tcp_state tcp_state;
 	void *router_priv;
-	/* priv declarations are added at runtime */
+	/* priv declarations are added at runtime; the flexible array member
+	 * aligns the start of the region for every router type's slice
+	 */
+	union node_priv_align priv[];
 };
 
 #if defined(CLEAR_SCREEN)

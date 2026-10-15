@@ -4,9 +4,11 @@
 
 #include "router_types.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "compat.h"
 #include "flash.h"
@@ -25,6 +27,24 @@
 
 int router_types_priv_size = 0;
 static DECLARE_LIST_HEAD(mac_allowlist);
+
+/* Each router type is handed a slice of the trailing per-node private area
+ * (see node_list_get() and router_types_detect_main()). The slices are packed
+ * back-to-back by advancing a pointer by each type's priv_size. A type with a
+ * priv_size that is not a multiple of the strictest member alignment (e.g. the
+ * 4-byte struct netconsole_priv) would otherwise push the following type's
+ * slice onto an under-aligned address, and a struct holding a uint64_t (e.g.
+ * struct om2p_priv) accessed through that misaligned node->router_priv is
+ * undefined behaviour - it faults on strict-alignment CPUs and is flagged by
+ * -fsanitize=alignment. Round every slice up to the alignment of union
+ * node_priv_align. This has to cover 64 bit types on 32 bit targets, so the
+ * pointer width is not enough. The
+ * leading slice starts at node->priv, which the flexible array member aligns
+ * the same way.
+ */
+#define ROUTER_PRIV_ALIGN sizeof(union node_priv_align)
+#define ROUTER_PRIV_SIZE(s) \
+	(((s) + (ROUTER_PRIV_ALIGN - 1)) & ~(size_t)(ROUTER_PRIV_ALIGN - 1))
 
 static const struct router_type *router_types[] = {
 	&a40.router_type,
@@ -60,17 +80,62 @@ static const struct router_type *router_types[] = {
 	NULL,
 };
 
+static int hex_nibble(char c)
+{
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+
+	return -1;
+}
+
+/* parse "xx:xx:xx:xx:xx:xx" or "xx-xx-xx-xx-xx-xx". Each field has one or two
+ * hex digits (BSD/macOS arp prints unpadded fields like "0:1b:63:84:45:e6"),
+ * only trailing whitespace (e.g. a CR from a CRLF file) is ignored. sscanf()'s
+ * %X would also accept leading whitespace, a sign or a 0x prefix in each field
+ * and ignore any trailing garbage, silently installing a different MAC filter
+ * than the user intended
+ */
 static int read_mac(uint8_t mac[ETH_ALEN], const char *macstr)
 {
-	int ret;
+	const char *pos = macstr;
+	char sep = '\0';
+	int i, hi, lo;
 
-	ret = sscanf(macstr, "%02hhX:%02hhX:%02hhX:%02hhX:%02hhX:%02hhX",
-		     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
-	if (ret != 6)
-		ret = sscanf(macstr, "%02hhX-%02hhX-%02hhX-%02hhX-%02hhX-%02hhX",
-			     &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+	for (i = 0; i < ETH_ALEN; i++) {
+		if (i > 0) {
+			if (i == 1)
+				sep = *pos;
 
-	return (ret == 6);
+			if ((sep != ':' && sep != '-') || *pos != sep)
+				return 0;
+
+			pos++;
+		}
+
+		hi = hex_nibble(*pos);
+		if (hi < 0)
+			return 0;
+		pos++;
+
+		lo = hex_nibble(*pos);
+		if (lo < 0) {
+			lo = hi;
+			hi = 0;
+		} else {
+			pos++;
+		}
+
+		mac[i] = (uint8_t)(hi << 4 | lo);
+	}
+
+	while (isspace((unsigned char)*pos))
+		pos++;
+
+	return *pos == '\0';
 }
 
 int mac_allowlist_add(const char *macstr)
@@ -120,7 +185,7 @@ int router_types_init(void)
 			goto out;
 		}
 
-		router_types_priv_size += (*router_type)->priv_size;
+		router_types_priv_size += ROUTER_PRIV_SIZE((*router_type)->priv_size);
 	}
 
 	ret = 0;
@@ -146,7 +211,7 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 {
 	const struct router_type **router_type;
 	struct router_info *router_info;
-	void *priv = node + 1;
+	void *priv = node->priv;
 	int ret = 0;
 
 	for (router_type = router_types; *router_type; ++router_type) {
@@ -235,7 +300,7 @@ int router_types_detect_main(struct node *node, const char *packet_buff,
 		break;
 
 next:
-		priv = (char *)priv + (*router_type)->priv_size;
+		priv = (char *)priv + ROUTER_PRIV_SIZE((*router_type)->priv_size);
 	}
 
 	return ret;

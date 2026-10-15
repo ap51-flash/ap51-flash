@@ -12,6 +12,7 @@
 #include "compat.h"
 #include "list.h"
 #include "proto.h"
+#include "router_images.h"
 #include "router_tftp_client.h"
 #include "router_types.h"
 #include "socket.h"
@@ -25,8 +26,7 @@ int num_nodes_flashed = 0;
 #endif
 
 #define PACKET_BUFF_LEN 2000
-#define READ_SLEEP_SEC 0
-#define READ_SLEEP_USEC 250000
+#define READ_SLEEP_MS 250
 
 struct node *node_list_get(const uint8_t *mac_addr)
 {
@@ -57,6 +57,8 @@ static void node_list_free(void)
 
 	list_for_each_entry_safe(node, node_s, &node_list, list) {
 		list_del(&node->list);
+		router_images_close_path(node);
+		free(node->tcp_state.packet_buff_align);
 		free(node);
 	}
 }
@@ -125,10 +127,21 @@ static void node_list_maintain(void)
 
 void our_mac_set(struct node *node)
 {
+	int i;
+
 	memcpy(node->our_mac_addr, our_mac, ETH_ALEN);
 
-	/* TODO: 256 addresses might not be sufficient */
-	our_mac[5]++;
+	/* Hand out a distinct source MAC per detected device. Incrementing
+	 * only the last octet wraps after 256 devices and reuses the initial
+	 * address, so two devices flashed in the same run would share a source
+	 * MAC and collide on the wire. Let the carry propagate into the
+	 * second-to-last octet, but no further, so the addresses stay within
+	 * 00:ba:be:ca:xx:xx (65536 distinct addresses).
+	 */
+	for (i = ETH_ALEN - 1; i >= ETH_ALEN - 2; i--) {
+		if (++our_mac[i] != 0)
+			break;
+	}
 }
 
 static void sig_handler(int signal)
@@ -145,15 +158,18 @@ int flash_start(const char *iface)
 {
 	char *packet_buff_align;
 	char *packet_buff;
-	int ret, sleep_sec, sleep_usec;
+	uint64_t now, next_tick;
+	int ret;
 
 	ret = socket_open(iface);
 	if (ret < 0)
 		goto out;
 
 	packet_buff_align = malloc(PACKET_BUFF_LEN + NET_IP_ALIGN);
-	if (!packet_buff_align)
+	if (!packet_buff_align) {
+		ret = -1;
 		goto list_free;
+	}
 
 	packet_buff = &packet_buff_align[NET_IP_ALIGN];
 
@@ -168,27 +184,37 @@ int flash_start(const char *iface)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	sleep_sec = READ_SLEEP_SEC;
-	sleep_usec = READ_SLEEP_USEC;
+	/* Run the periodic work (ARP probes in router_types_detect_pre(), the
+	 * per-node state machine in node_list_maintain()) once per poll
+	 * interval against a monotonic deadline, no matter how much traffic
+	 * arrives in between. Waiting for a socket_read() timeout instead lets
+	 * any traffic with inter-packet gaps below the poll interval (the
+	 * bootloaders ARP-broadcast continuously) postpone the periodic work
+	 * forever.
+	 */
+	next_tick = time_ms() + READ_SLEEP_MS;
 
 	while (running) {
-		ret = socket_read(packet_buff, PACKET_BUFF_LEN, &sleep_sec,
-				  &sleep_usec);
-
-		if (ret == 0) {
+		now = time_ms();
+		if (now >= next_tick) {
 			router_types_detect_pre(our_mac);
 			node_list_maintain();
+
+			now = time_ms();
+			next_tick = now + READ_SLEEP_MS;
+		}
+
+		ret = socket_read(packet_buff, PACKET_BUFF_LEN,
+				  (int)(next_tick - now));
+		if (ret == SOCKET_READ_FATAL) {
+			ret = -1;
+			goto proto_free;
 		}
 
 		if (ret <= 0)
-			goto reset_sleep;
+			continue;
 
 		handle_eth_packet(packet_buff, ret);
-		continue;
-
-reset_sleep:
-		sleep_sec = READ_SLEEP_SEC;
-		sleep_usec = READ_SLEEP_USEC;
 	}
 
 	ret = 0;
